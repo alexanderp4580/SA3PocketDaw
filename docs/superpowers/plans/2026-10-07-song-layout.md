@@ -10,7 +10,7 @@
 ## Global Constraints
 
 - Mobile portrait, native scrolling, visible actions; same host and existing cache/database.
-- Reuse each track's current pattern; 16 initial bars, 256 maximum.
+- Reuse each track's current pattern; song length derives from the last block, blocks end by bar 256, the grid shows at least 16 bars.
 - MP3 stereo 44100 Hz, 192 kbps, complete arrangement and current mute/solo/mix/settings.
 - Export rejects missing sounds/effects; cancellation preserves project.
 - No merge or push pending phone approval.
@@ -26,7 +26,7 @@
 ### Task 1: Arrangement model and finite playback
 
 **Files:** Create src/song/arrangement.ts, events.ts, playback.ts and tests; modify projectModel.ts, projectStore.ts, audio/engine.ts.
-**Interfaces:** Arrangement={bars:number;blocks:{id:string;trackId:string;startBar:number}[]}. compileSong(project):{events:NoteEvent[];duration:number}. Song scheduler supports play/pause/stop/position/repeat. Engine setPlaybackMode('pattern'|'song') selects scheduling.
+**Interfaces:** Arrangement={blocks:{id:string;trackId:string;startBar:number}[]}. arrangementBars(project) is the last covered bar (0 when empty) and gridBars(project)=min(256,max(16,arrangementBars+8)). compileSong(project):{events:NoteEvent[];duration:number} with duration from arrangementBars. Song scheduler supports play/pause/stop/position/repeat. Engine setPlaybackMode('pattern'|'song') selects scheduling.
 
 - [x] Write tests for fit/overlap, deletion, copies/ranges, normalization, gaps/chords/boundaries/velocity/mute/solo, finite completion/pause/repeat and persistence.
 - [x] Run targeted tests; expect missing-module/export failures.
@@ -48,7 +48,7 @@
 **Files:** Create LayoutScreen.svelte, SongExportSheet.svelte and songHistory.ts/tests; modify App.svelte, Nav.svelte, appState.svelte.ts and docs/handoff.md.
 **Interfaces:** Layout edits project.arrangement using updateProject and history. Export sheet owns abort controller and finished Blob. Layout route selects song playback.
 
-- [x] Write failing history/browser checks for placement/repeat/move/delete, range duplicate/add all, undo/redo, resize confirmation, navigation/reload/scrolling and export/cancel/download.
-- [x] Implement sticky native scrolling grid, selection/actions, length buttons, song transport and natural-end UI synchronization.
+- [x] Write failing history/browser checks for placement/repeat/move/delete, range duplicate/add all, undo/redo, grid growth and shrink, selection strip, navigation/reload/scrolling and export/cancel/download.
+- [x] Implement sticky native scrolling grid, selection strip, More sheet, song transport with Repeat song and natural-end UI synchronization.
 - [x] Implement export stages/cancel/error/download; precache worker/encoder.
 - [x] Full suite, typecheck/build, mobile/audio/export/offline and same-origin preservation checks. Commit. Independent review; fix important findings with regression tests.
