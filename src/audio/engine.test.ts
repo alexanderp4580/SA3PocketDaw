@@ -116,7 +116,7 @@ it('previews a shaped sample with its release fading before the recorded sound e
 });
 it('song mode respects placements and stops when arrangement is edited',async()=>{
  const f=fakeCtx(),callbacks=new Set<()=>void>(),e=createEngine({createContext:f.mk,setTimer:fn=>{callbacks.add(fn);return fn;},clearTimer:h=>callbacks.delete(h as ()=>void)});
- const p=proj();p.arrangement={bars:4,blocks:[{id:'a',trackId:'t1',startBar:3}]};e.setProject(p);e.setSample('s1',new Float32Array(44100),44100);e.setPlaybackMode('song');await e.play();expect(f.started).toHaveLength(0);
+ const p=proj();p.arrangement={blocks:[{id:'a',trackId:'t1',startBar:3}]};e.setProject(p);e.setSample('s1',new Float32Array(44100),44100);e.setPlaybackMode('song');await e.play();expect(f.started).toHaveLength(0);
  f.state.time=4;for(const cb of [...callbacks])cb();expect(f.started).toHaveLength(1);expect(f.started[0]!.when).toBeCloseTo(4.05);
  e.setProject({...p,arrangement:{...p.arrangement,blocks:[]}});expect(e.isPlaying).toBe(false);e.setPlaybackMode('pattern');await e.play();expect(f.started).toHaveLength(2);
 });
