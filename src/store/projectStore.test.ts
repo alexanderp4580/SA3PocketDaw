@@ -175,3 +175,18 @@ describe('projectStore', () => {
     expect(await s.getSample('a')).toBeNull();
   });
 });
+
+describe('persisted mixer migration',()=>{
+ const legacyProject=()=>{const p=addTrack(createProject(),'Lead','a');return {...p,tracks:[{...p.tracks[0]!,mix:{volumeDb:-6,pan:.25,eq:{bypass:false,trimDb:2,bands:[{id:'band',type:'bell',enabled:true,freq:700,gain:3,q:1,slope:12}]},reverb:{algorithm:'room',bypass:true,wet:.4}}}]} as unknown as ReturnType<typeof createProject>;};
+ async function open(idb:IDBFactory){return new Promise<IDBDatabase>((resolve,reject)=>{const request=idb.open('sa3daw',1);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});}
+ async function read(db:IDBDatabase){return new Promise<ReturnType<typeof createProject>>((resolve,reject)=>{const request=db.transaction('project').objectStore('project').get('current');request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});}
+ function checkMix(m:any){expect(m).toMatchObject({volumeDb:-6,pan:.25,plugins:[{type:'eq',bypass:false,settings:{trimDb:2,bands:[{freq:700,gain:3}]}},{type:'reverb',bypass:true,settings:{algorithm:'room',wet:.4}}]});expect(m).not.toHaveProperty('eq');expect(m).not.toHaveProperty('reverb');}
+ it('loads legacy inserts and writes only the migrated schema after a tempo edit',async()=>{
+  const {idb,mk}=setup(),primer=mk();await primer.load();await primer.close();const db=await open(idb);
+  await new Promise<void>((resolve,reject)=>{const tx=db.transaction('project','readwrite');tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.objectStore('project').put(legacyProject(),'current');});
+  const store=mk(),loaded=(await store.load())!;checkMix(loaded.tracks[0]!.mix);store.update(p=>({...p,bpm:97}));await store.flush();const saved=await read(db);expect(saved.bpm).toBe(97);checkMix(saved.tracks[0]!.mix);await store.close();db.close();
+ });
+ it('normalizes legacy inserts passed directly to save before writing IndexedDB',async()=>{
+  const {idb,mk}=setup(),store=mk();store.save(legacyProject());await store.flush();const db=await open(idb);checkMix((await read(db)).tracks[0]!.mix);await store.close();db.close();
+ });
+});

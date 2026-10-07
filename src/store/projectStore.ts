@@ -1,5 +1,6 @@
 import { log as defaultLog, type Logger } from '../log';
 import type { Project } from './projectModel';
+import {normalizeMix} from '../audio/mixer/plugins';
 import type { InstrumentProfile } from '../audio/instrument/types';
 
 export const DB_NAME = 'sa3daw';
@@ -48,6 +49,9 @@ function done(tx: IDBTransaction): Promise<void> {
     tx.onabort = () => rej(tx.error ?? new Error('transaction aborted'));
   });
 }
+
+/** Normalize persisted mix settings while preserving tracks that have no mix yet. */
+function normalizeProjectMixes(p:Project):Project {return {...p,tracks:p.tracks.map(t=>t.mix===undefined?t:{...t,mix:normalizeMix(t.mix)})};}
 
 const sampleIds = (p: Project | null): Set<string> =>
   new Set((p?.tracks ?? []).map((t) => t.sampleId).filter((s): s is string => !!s));
@@ -98,7 +102,7 @@ export function createProjectStore(options: ProjectStoreOptions = {}) {
   }
 
   async function writeProject(p: Project) {
-    await run(PROJECT_STORE, 'readwrite', (s) => s.put(structuredClone(p), PROJECT_KEY));
+    await run(PROJECT_STORE, 'readwrite', (s) => s.put(structuredClone(normalizeProjectMixes(p)), PROJECT_KEY));
     scope.debug('saved', { id: p.id, tracks: p.tracks.length });
   }
 
@@ -114,7 +118,8 @@ export function createProjectStore(options: ProjectStoreOptions = {}) {
 
     /** Reads the saved project into the store and removes samples no track references. */
     async load(): Promise<Project | null> {
-      const p = ((await run(PROJECT_STORE, 'readonly', (s) => s.get(PROJECT_KEY))) as Project | undefined) ?? null;
+      const saved = ((await run(PROJECT_STORE, 'readonly', (s) => s.get(PROJECT_KEY))) as Project | undefined) ?? null;
+      const p = saved?normalizeProjectMixes(saved):null;
       current = p;
       dirty = false;
       if (p) {
