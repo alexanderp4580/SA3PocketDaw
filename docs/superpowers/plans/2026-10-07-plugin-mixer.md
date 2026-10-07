@@ -27,3 +27,4 @@ Fixed constraints: portrait phone, every action a visible button, no tombstone w
 ## Ledger
 
 - Merge: `feedback-gen-prompt-meters` merged into `mixer-plugins`; `public/dragonfly/source.tar.gz` and the earlier mixer plan conflicted and were resolved; baseline 364 tests, typecheck 0 errors.
+- Task 1: done in `cacaaa3`; 389 tests pass, typecheck 0 errors (rerun by the coordinator). Not checked in a browser. An adapter (`fxView`/`withFxView` in `src/audio/mixer/plugins.ts`) lets the current fused worklet, `MixScreen`, `EqSheet` and `ReverbSheet` use only the first EQ and first reverb plugin until tasks 2 and 3 replace it.
