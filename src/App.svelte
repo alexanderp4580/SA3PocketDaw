@@ -111,7 +111,7 @@
         <DebugScreen />
       {/if}
     </main>
-    {#if showTransport}<TransportBar pianoRoll={!!rollTrack||route==='layout'} />{/if}
+    {#if showTransport}<TransportBar pianoRoll={!!rollTrack||route==='layout'} song={route==='layout'} />{/if}
     <Nav {route} onnavigate={navigate} />
   </div>
   {#if exportOpen}<SongExportSheet onclose={()=>exportOpen=false}/>{/if}
