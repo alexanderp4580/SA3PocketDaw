@@ -6,7 +6,7 @@ Proof-of-concept phone DAW in the browser: Stable Audio 3 generates instrument s
 
 ## Ownership
 
-- `docs/`: design, handoff and compatibility notes. `src/`: app. `server/`: static HTTPS host. `scripts/`: manifest and model-link helpers. `models/`: local model files, ignored; the server mounts a clone of the `SA3BrowserModels` repository at `/models`. `certs/`, `dist/`, `node_modules/`: ignored.
+- `docs/`: design, handoff and compatibility notes. `src/`: app. `server/`: static HTTPS host. `scripts/`: manifest and model-link helpers. `models/`: local model files, ignored; deployed models are fetched from Hugging Face (`VITE_MODELS_BASE_URL`). `certs/`, `dist/`, `node_modules/`: ignored.
 
 ## Local Contracts
 
