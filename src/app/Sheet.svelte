@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
+  import {modalFocus} from './modalFocus';
   let {
     title,
     sub = '',
@@ -11,7 +12,7 @@
 </script>
 
 <div class="scrim" role="presentation"></div>
-<div class="sheet" class:tall role="dialog" aria-modal="true" aria-label={title}>
+<div class="sheet" class:tall use:modalFocus={{close:()=>onclose(),closable:()=>closable}} tabindex="-1" role="dialog" aria-modal="true" aria-label={title}>
   <div class="grab" aria-hidden="true"></div>
   <div class="hd"><span>{title}</span><button class="iconbtn" aria-label="Close" disabled={!closable} onclick={onclose}>✕</button></div>
   {#if sub}<div class="sub">{sub}</div>{/if}

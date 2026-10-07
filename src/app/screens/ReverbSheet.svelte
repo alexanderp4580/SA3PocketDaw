@@ -1,8 +1,8 @@
 <script lang="ts">
  import EffectsTransport from '../EffectsTransport.svelte';
- import Sheet from '../Sheet.svelte';import MixControl from '../MixControl.svelte';import {updateProject} from '../appState.svelte';import type {Track} from '../../store/projectModel';import {dragonfly,type ReverbSettings,type ReverbAlgorithm} from '../../audio/mixer/model';import {normalizeMix,fxView,withFxView} from '../../audio/mixer/plugins';
- let {track,onclose}:{track:Track;onclose:()=>void}=$props();let advanced=$state(false);const mix=$derived(normalizeMix(track.mix)),reverb=$derived(fxView(mix).reverb),data=$derived(dragonfly[reverb.algorithm]);
- function change(patch:Partial<ReverbSettings>){updateProject(p=>({...p,tracks:p.tracks.map(t=>t.id===track.id?{...t,mix:withFxView(normalizeMix(t.mix),{reverb:{...fxView(normalizeMix(t.mix)).reverb,...patch}})}:t)}));}
+ import Sheet from '../Sheet.svelte';import MixControl from '../MixControl.svelte';import {updateProject} from '../appState.svelte';import type {Track} from '../../store/projectModel';import {dragonfly,normalizeReverbSettings,type ReverbSettings,type ReverbAlgorithm} from '../../audio/mixer/model';import {editorSettings,editPlugin} from '../pluginEditor';
+ let {track,pluginId,onclose}:{track:Track;pluginId:string;onclose:()=>void}=$props();let advanced=$state(false);const reverb=$derived(editorSettings(track,pluginId,'reverb')),data=$derived(dragonfly[reverb.algorithm]);
+ function change(patch:Partial<ReverbSettings>){updateProject(p=>editPlugin(p,track.id,pluginId,'reverb',patch));}
  function parameter(i:number,v:number){const parameters=structuredClone(reverb.parameters);parameters[reverb.algorithm][i]=v;change({parameters});}
  function preset(index:number){const parameters=structuredClone(reverb.parameters);parameters[reverb.algorithm]=[...data.presets[index]!.values];change({parameters});}
  const common=['Decay','Predelay','Width','Size','Low Cut','High Cut'];
@@ -11,7 +11,7 @@
  <EffectsTransport/>
  <p class="note">Add space to this track. Sound and notes stay separate.</p>
  <div class="seg">{#each ['hall','room','plate'] as a}<button class="sg" class:on={reverb.algorithm===a} onclick={()=>change({algorithm:a as ReverbAlgorithm})}>{a[0]!.toUpperCase()+a.slice(1)}</button>{/each}</div>
- <div class="btnrow"><button class="btn" aria-pressed={reverb.bypass} onclick={()=>change({bypass:!reverb.bypass})}>{reverb.bypass?'Enable reverb':'Bypass reverb'}</button><button class="btn" onclick={()=>change(fxView(normalizeMix()).reverb)}>Reset</button></div>
+ <div class="btnrow"><button class="btn" aria-pressed={reverb.bypass} onclick={()=>change({bypass:!reverb.bypass})}>{reverb.bypass?'Enable reverb':'Bypass reverb'}</button><button class="btn" onclick={()=>change(normalizeReverbSettings())}>Reset</button></div>
  <MixControl label="Reverb amount" min={0} max={100} value={Math.round(reverb.wet*100)} unit="%" onchange={v=>change({wet:v/100})}/>
  <label class="preset">Preset<select aria-label="Reverb preset" value="" onchange={e=>{preset(Number(e.currentTarget.value));e.currentTarget.value='';}}><option value="" disabled>Choose a preset</option>{#each data.presets as p,i}<option value={i}>{p.name}</option>{/each}</select></label>
  {#each data.params.filter(p=>common.includes(p.name)) as p}<MixControl label={p.name==='Predelay'?'Pre-delay':p.name} min={p.min} max={p.max} step={p.unit==='s'||p.unit==='Hz'&&p.max<=5?.01:p.unit==='ms'?.1:1} value={reverb.parameters[reverb.algorithm][p.index]!} unit={p.unit} onchange={v=>parameter(p.index,v)}/>{/each}

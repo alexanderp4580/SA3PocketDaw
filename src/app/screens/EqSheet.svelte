@@ -1,20 +1,20 @@
 <script lang="ts">
  import EffectsTransport from '../EffectsTransport.svelte';
- import {onMount} from 'svelte';import Sheet from '../Sheet.svelte';import MixControl from '../MixControl.svelte';import EqGraph from '../EqGraph.svelte';import {ui,updateProject} from '../appState.svelte';import {engine} from '../services';import {newId,type Track} from '../../store/projectModel';import {makeBand,filterTypes,filterNames,gainFilter,slopes,type EqSettings,type EqBand} from '../../audio/mixer/model';import {normalizeMix,fxView,withFxView} from '../../audio/mixer/plugins';
- let {track,onclose}:{track:Track;onclose:()=>void}=$props();let selected=$state<string|null>(null),listening=$state(false),post=$state(true),heat=$state(false),reference=$state('');const eq=$derived(fxView(normalizeMix(track.mix)).eq),band=$derived(eq.bands.find(b=>b.id===selected)??eq.bands[0]);
- function change(patch:Partial<EqSettings>){updateProject(p=>({...p,tracks:p.tracks.map(t=>t.id===track.id?{...t,mix:withFxView(normalizeMix(t.mix),{eq:{...fxView(normalizeMix(t.mix)).eq,...patch}})}:t)}));}
- function edit(id:string,patch:Partial<EqBand>){change({bands:eq.bands.map(b=>b.id===id?{...b,...patch}:b)});if(listening){const b=eq.bands.find(b=>b.id===id);if(b)engine.listenRange(track.id,{...b,...patch});}}
+ import {onMount} from 'svelte';import Sheet from '../Sheet.svelte';import MixControl from '../MixControl.svelte';import EqGraph from '../EqGraph.svelte';import {ui,updateProject} from '../appState.svelte';import {engine} from '../services';import {newId,type Track} from '../../store/projectModel';import {makeBand,filterTypes,filterNames,gainFilter,slopes,type EqSettings,type EqBand} from '../../audio/mixer/model';import {editorSettings,editPlugin} from '../pluginEditor';
+ let {track,pluginId,onclose}:{track:Track;pluginId:string;onclose:()=>void}=$props();let selected=$state<string|null>(null),listening=$state(false),post=$state(true),heat=$state(false),reference=$state('');const eq=$derived(editorSettings(track,pluginId,'eq')),band=$derived(eq.bands.find(b=>b.id===selected)??eq.bands[0]);
+ function change(patch:Partial<EqSettings>){updateProject(p=>editPlugin(p,track.id,pluginId,'eq',patch));}
+ function edit(id:string,patch:Partial<EqBand>){change({bands:eq.bands.map(b=>b.id===id?{...b,...patch}:b)});if(listening){const b=eq.bands.find(b=>b.id===id);if(b)engine.listenRange(track.id,pluginId,{...b,...patch});}}
  function add(){const b=makeBand(newId('eq'));selected=b.id;change({bands:[...eq.bands,b]});}
- function select(id:string){selected=id;if(listening){const b=eq.bands.find(b=>b.id===id);if(b)engine.listenRange(track.id,b);}}
+ function select(id:string){selected=id;if(listening){const b=eq.bands.find(b=>b.id===id);if(b)engine.listenRange(track.id,pluginId,b);}}
  function endListen(){listening=false;engine.listenRange(null);}
- async function listen(){if(listening){endListen();return;}await engine.unlock();if(band){listening=true;engine.listenRange(track.id,band);}}
+ async function listen(){if(listening){endListen();return;}await engine.unlock();if(band){listening=true;engine.listenRange(track.id,pluginId,band);}}
  onMount(()=>()=>engine.listenRange(null));
  $effect(()=>{if(!ui.playing&&listening)endListen();});
 </script>
 <Sheet title="Parametric EQ" sub={track.name} {onclose} tall>
  <EffectsTransport/>
  <p class="note">Shape this track’s frequency range. Drag a band or use the controls below.</p>
- <EqGraph bands={eq.bands} bypass={eq.bypass} trimDb={eq.trimDb} selected={band?.id??null} trackId={track.id} {post} {heat} {reference} onselect={select} onedit={edit}/>
+ <EqGraph bands={eq.bands} bypass={eq.bypass} trimDb={eq.trimDb} selected={band?.id??null} trackId={track.id} {pluginId} {post} {heat} {reference} onselect={select} onedit={edit}/>
  <div class="view"><button class:on={post} onclick={()=>post=!post}>{post?'After EQ':'Before EQ'}</button><button class:on={heat} aria-pressed={heat} onclick={()=>heat=!heat}>Heatmap</button><select aria-label="Compare track spectrum" bind:value={reference}><option value="">No comparison</option>{#each ui.project?.tracks.filter(t=>t.id!==track.id)??[] as t}<option value={t.id}>{t.name}</option>{/each}</select></div>
  <div class="bands">{#each eq.bands as b,i(b.id)}<button style="--band:hsl({i*67%360} 85% 65%)" class:active={band?.id===b.id} onclick={()=>select(b.id)} aria-label="Select band {i+1}">{i+1}{!b.enabled?' · off':''}</button>{/each}<button class="add" onclick={add}>＋ Add band</button></div>
  {#if band}

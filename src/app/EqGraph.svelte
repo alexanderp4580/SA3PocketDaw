@@ -1,6 +1,6 @@
 <script lang="ts">
  import {onMount} from 'svelte';import {engine} from './services';import {sections,responseDb} from '../audio/mixer/eq';import {bandwidth,gainFilter,type EqBand} from '../audio/mixer/model';
- let {bands,bypass,trimDb,selected,trackId,post,heat,reference,onselect,onedit}:{bands:EqBand[];bypass:boolean;trimDb:number;selected:string|null;trackId:string;post:boolean;heat:boolean;reference:string;onselect:(id:string)=>void;onedit:(id:string,patch:Partial<EqBand>)=>void}=$props();
+ let {bands,bypass,trimDb,selected,trackId,pluginId,post,heat,reference,onselect,onedit}:{bands:EqBand[];bypass:boolean;trimDb:number;selected:string|null;trackId:string;pluginId:string;post:boolean;heat:boolean;reference:string;onselect:(id:string)=>void;onedit:(id:string,patch:Partial<EqBand>)=>void}=$props();
  let canvas:HTMLCanvasElement;let container:HTMLDivElement;let width=$state(320),sr=$state(44100);let drag:string|null=null;const height=210;
  const maxFreq=$derived(Math.min(20000,sr*.49));const x=(f:number)=>Math.log(Math.max(20,f)/20)/Math.log(maxFreq/20)*width;
  const y=(db:number)=>Math.max(0,Math.min(height,height/2-db/48*height));const freq=(px:number)=>20*(maxFreq/20)**Math.max(0,Math.min(1,px/width));
@@ -9,11 +9,11 @@
  const all=$derived(path(bypass?[]:bands));const focus=$derived(bands.find(b=>b.id===selected));
  function move(e:PointerEvent){if(!drag)return;const rect=container.getBoundingClientRect(),b=bands.find(b=>b.id===drag);if(b)onedit(b.id,{freq:Math.round(freq(e.clientX-rect.left)),...(gainFilter(b.type)?{gain:Math.round((height/2-(e.clientY-rect.top))/height*48*10)/10}:{})});}
  onMount(()=>{const observer=new ResizeObserver(entries=>{width=entries[0]?.contentRect.width??320;});observer.observe(container);let timer:number;const ctx=canvas.getContext('2d')!;const history=document.createElement('canvas');history.width=512;history.height=height;const hc=history.getContext('2d')!;
- const draw=()=>{if(document.hidden)return;sr=engine.sampleRate();const dpr=devicePixelRatio||1;canvas.width=Math.round(width*dpr);canvas.height=height*dpr;ctx.scale(dpr,dpr);const spec=engine.spectrum(trackId,post);if(!spec)return;const values=spec.values,fft=values.length*2;
+ const draw=()=>{if(document.hidden)return;sr=engine.sampleRate();const dpr=devicePixelRatio||1;canvas.width=Math.round(width*dpr);canvas.height=height*dpr;ctx.scale(dpr,dpr);const spec=engine.spectrum(trackId,pluginId,post);if(!spec)return;const values=spec.values,fft=values.length*2;
  const bins=(px:number)=>values[Math.min(values.length-1,Math.max(1,Math.round(freq(px)/spec.sampleRate*fft)))]??-100;
  if(heat){hc.drawImage(history,0,0,512,height-1,0,1,512,height-1);for(let i=0;i<512;i++){const v=Math.max(0,Math.min(1,(bins(i/512*width)+90)/80));hc.fillStyle=`hsla(${240-v*240},85%,${15+v*45}%,${v*.8})`;hc.fillRect(i,0,1,1);}ctx.drawImage(history,0,0,width,height);}else hc.clearRect(0,0,512,height);
  function spectrum(data:Float32Array,rate:number,stroke:string,fill:boolean){ctx.beginPath();for(let px=0;px<=width;px+=2){const v=data[Math.min(data.length-1,Math.max(1,Math.round(freq(px)/rate*data.length*2)))]??-100,py=height-Math.max(0,Math.min(1,(v+100)/100))*height;px?ctx.lineTo(px,py):ctx.moveTo(px,py);}ctx.strokeStyle=stroke;ctx.lineWidth=1.2;ctx.stroke();if(fill){ctx.lineTo(width,height);ctx.lineTo(0,height);ctx.closePath();ctx.fillStyle='#4fb3ff20';ctx.fill();}}
- spectrum(values,spec.sampleRate,'#4fb3ff99',true);if(reference){const ref=engine.spectrum(reference,true);if(ref)spectrum(ref.values,ref.sampleRate,'#ff8a3daa',false);}
+ spectrum(values,spec.sampleRate,'#4fb3ff99',true);if(reference){const ref=engine.spectrum(reference,'',true);if(ref)spectrum(ref.values,ref.sampleRate,'#ff8a3daa',false);}
  };timer=window.setInterval(draw,40);return ()=>{observer.disconnect();clearInterval(timer);};});
 </script>
 <div class="graph" bind:this={container}>
