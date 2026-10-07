@@ -6,7 +6,7 @@ Proof-of-concept phone DAW in the browser: Stable Audio 3 generates instrument s
 
 ## Ownership
 
-- `docs/`: design, handoff and compatibility notes. `src/`: app. `server/`: static HTTPS host. `scripts/`: manifest and model-link helpers. `models/`, `certs/`, `dist/`, `node_modules/`: ignored.
+- `docs/`: design, handoff and compatibility notes. `src/`: app. `server/`: static HTTPS host. `scripts/`: manifest and model-link helpers. `models/`: Git LFS model files, copied into the Docker image. `certs/`, `dist/`, `node_modules/`: ignored.
 
 ## Local Contracts
 

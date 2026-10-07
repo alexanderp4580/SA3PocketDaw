@@ -12,4 +12,3 @@ spikes/**/.venv
 .env.*
 *.pem
 *.key
-models/
