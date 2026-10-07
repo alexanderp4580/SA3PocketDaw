@@ -4,7 +4,7 @@ export interface EqBand {id:string;type:FilterType;enabled:boolean;freq:number;g
 export interface EqSettings {bypass:boolean;trimDb:number;bands:EqBand[];}
 export type ReverbAlgorithm='hall'|'room'|'plate';
 export interface ReverbSettings {algorithm:ReverbAlgorithm;bypass:boolean;wet:number;parameters:Record<ReverbAlgorithm,number[]>;}
-/** Fused view of a track's first EQ and first reverb plugin, as read by the per-track effects processor and the EQ/reverb sheets. */
+/** Convenience view of a track's first EQ and first reverb settings. */
 export interface FxView {volumeDb:number;pan:number;eq:EqSettings;reverb:ReverbSettings;}
 export const dragonfly=meta;
 export const filterTypes:FilterType[]=['bell','lowShelf','highShelf','lowPass','highPass','bandPass','notch','allPass'];

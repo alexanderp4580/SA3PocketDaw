@@ -161,8 +161,8 @@ export function createEngine(options: EngineOptions = {}) {
       voices.push({...auditionNote(ctx, { buffer, root: track.rootMidi, note: midi, velocity: velocityGain(velocity), output: outputFor(track.id) }),trackId:track.id});
     },
     meter:(id?:string)=>mixer?.meter(id)??emptyMeter(),
-    spectrum:(id:string,post=true)=>mixer?.spectrum(id,post)??null,
-    listenRange:(id:string|null,band?:EqBand)=>mixer?.listen(id,band),
+    spectrum:(id:string,pluginId:string,post=true)=>mixer?.spectrum(id,pluginId,post)??null,
+    listenRange:(id:string|null,pluginId?:string,band?:EqBand)=>mixer?.listen(id,pluginId,band),
     mixerError:(id:string)=>mixer?.error(id)??null,
     retryMixer:(id:string)=>mixer?.retry(id),
     sampleRate:()=>mixer?.sampleRate??44100,
