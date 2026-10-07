@@ -6,6 +6,7 @@
 </script>
 <div class="stack">
  <div class="stack-label">Inserts · {plugins.length}/{MAX_PLUGINS}</div>
+ <div class="plugin-scroll">
  <div class="plugin-list" aria-label="Plugin chain">
  {#each plugins as plugin,i(plugin.id)}
  <div class="plugin" data-plugin-id={plugin.id}>
@@ -15,7 +16,10 @@
  {/each}
  {#if !plugins.length}<p class="empty">Add EQ or Reverb to shape this sound.</p>{/if}
  </div>
+ <div class="stack-footer">
  <button class="add" disabled={plugins.length>=MAX_PLUGINS} onclick={onadd}>＋ Add plugin</button>
  <p class="limit">{plugins.length>=MAX_PLUGINS?'6 plugin limit reached':'Plugins run top to bottom'}</p>
+ </div>
+ </div>
 </div>
-<style>.stack{height:100%;min-height:0;min-width:0;display:flex;flex-direction:column;gap:4px}.stack-label{font-size:10px;color:var(--dim);height:16px;flex:none}.plugin-list{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}.plugin{background:#11151b;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;padding:3px;min-width:0}.plugin-header{display:flex;gap:3px;align-items:center}.plugin-header>button:last-child{width:40px;height:40px;flex:none;background:var(--panel2);border-radius:5px;font-size:11px}.plugin-header>button.bypassed{color:var(--dim);background:#15181d}.name{height:40px;flex:1;min-width:0;text-align:left;padding:0 7px;color:var(--sa3);font-weight:600;font-size:12px}.actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px}.actions button{height:40px;min-width:0;background:var(--panel2);border-radius:5px;font-size:16px}.actions .remove{color:#ff7878}.empty{padding:8px 4px;font-size:12px;color:var(--dim)}.add{width:100%;height:44px;flex:none;background:var(--sa3bg);color:var(--sa3);border-radius:7px;font-size:12px;font-weight:600}.limit{font-size:9px;color:var(--dim);height:22px;flex:none;margin:0}</style>
+<style>.stack{height:100%;min-height:0;min-width:0;display:flex;flex-direction:column;gap:4px}.stack-label{font-size:10px;color:var(--dim);height:16px;flex:none}.plugin-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;scrollbar-width:thin;display:flex;flex-direction:column}.plugin-list{flex:none}.stack-footer{position:sticky;bottom:0;flex:none;margin-top:auto;padding-top:4px;background:var(--panel)}.plugin{background:#11151b;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;padding:3px;min-width:0}.plugin-header{display:flex;gap:3px;align-items:center}.plugin-header>button:last-child{width:40px;height:40px;flex:none;background:var(--panel2);border-radius:5px;font-size:11px}.plugin-header>button.bypassed{color:var(--dim);background:#15181d}.name{height:40px;flex:1;min-width:0;text-align:left;padding:0 7px;color:var(--sa3);font-weight:600;font-size:12px}.actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px}.actions button{height:40px;min-width:0;background:var(--panel2);border-radius:5px;font-size:16px}.actions .remove{color:#ff7878}.empty{padding:8px 4px;font-size:12px;color:var(--dim)}.add{width:100%;height:44px;flex:none;background:var(--sa3bg);color:var(--sa3);border-radius:7px;font-size:12px;font-weight:600}.limit{font-size:9px;color:var(--dim);height:22px;flex:none;margin:0}</style>

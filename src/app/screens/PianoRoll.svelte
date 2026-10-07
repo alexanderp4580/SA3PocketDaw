@@ -1,7 +1,7 @@
 <script lang="ts">
   import { noteVelocity, DEFAULT_VELOCITY, type Bars, type Track } from '../../store/projectModel';
   import Sheet from '../Sheet.svelte';
-  import {ui} from '../appState.svelte';
+  import {ui,play,pause,stop} from '../appState.svelte';
   import {loopRange} from '../../store/projectModel';
   import { midiToName } from '../../audio/pitch';
   import {
@@ -296,6 +296,11 @@
       <button class="ib sq" aria-label="Undo" disabled={history.past.length === 0} onclick={doUndo}>↶</button>
       <button class="ib sq" aria-label="Redo" disabled={history.future.length === 0} onclick={doRedo}>↷</button>
     </div>
+    <div class="line roll-transport" aria-label="Piano roll playback">
+      <button class="ib playback" class:on={ui.playing} aria-label={ui.playing?'Pause':'Play'} aria-pressed={ui.playing} onclick={()=>ui.playing?pause():void play()}>{ui.playing?'Ⅱ Pause':'▶ Play'}</button>
+      <button class="ib" aria-label="Play from start" onclick={()=>{stop();void play();}}>⏮ Play from start</button>
+      <button class="ib" aria-label="Reset playback" onclick={stop}>■ Reset</button>
+    </div>
     <div class="line chips tracktools" aria-label="Track playback">
       <button class="ib" aria-label="Track length" onclick={()=>lengthOpen=true}>{bars} {bars===1?'bar':'bars'} ▾</button>
       <button class="ib" class:on={track.solo} aria-pressed={!!track.solo} onclick={onSolo}>Solo</button>
@@ -429,6 +434,8 @@
 </section>
 
 <style>
+  .roll-transport{justify-content:flex-start;gap:6px}.roll-transport .ib{font-size:11px;padding:0 8px;white-space:nowrap}.roll-transport .playback{background:var(--accent);color:#111;min-width:70px}
+
   .screen {
     position: relative;
     display: flex;

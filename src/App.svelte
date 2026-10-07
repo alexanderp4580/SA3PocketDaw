@@ -28,7 +28,7 @@
 
   const rollTrack = $derived(ui.project?.tracks.find((t) => t.id === rollId) ?? null);
   const showHeader = $derived(route === 'tracks' && !rollTrack);
-  const showTransport = $derived(route === 'tracks'||route === 'mix');
+  const showTransport = $derived((route === 'tracks'||route === 'mix')&&!rollTrack);
 
   onMount(() => {
     const params = new URLSearchParams(location.search);
