@@ -292,7 +292,7 @@
     <div class="line">
       <button class="ib" aria-label="Back to tracks" onclick={onBack}>←</button>
       <b class="name">{track.name}</b>
-      {#if onOpenInstrument}<button class="ib sound" aria-label="Tweak instrument" title="Edit instrument" onclick={onOpenInstrument}>⚙</button>{:else}<button class="ib sound" aria-label="Generate sound" title="Generate sound" disabled={!onOpenGenerate} onclick={()=>onOpenGenerate?.()}>✦</button>{/if}
+      {#if onOpenInstrument}<button class="ib sound" aria-label={track.soundType==='instrument'?'Tweak instrument':'Edit sample'} title={track.soundType==='instrument'?'Edit instrument':'Edit sample'} onclick={onOpenInstrument}>⚙</button>{:else}<button class="ib sound" aria-label="Generate sound" title="Generate sound" disabled={!onOpenGenerate} onclick={()=>onOpenGenerate?.()}>✦</button>{/if}
       <button class="ib sq" aria-label="Undo" disabled={history.past.length === 0} onclick={doUndo}>↶</button>
       <button class="ib sq" aria-label="Redo" disabled={history.future.length === 0} onclick={doRedo}>↷</button>
     </div>

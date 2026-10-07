@@ -12,9 +12,11 @@
   import { MAX_SECONDS, MIN_SECONDS, clampSeconds, parseSeconds, stepSeconds } from '../../gen/length';
   import { midiToName } from '../../audio/pitch';
   import { formatBytes, formatElapsed, modelHint, peaksOf } from '../format';
-  import { prepareGeneration, useGeneration, tweakDraft, InstrumentAnalysisError, type GeneratedDraft } from '../generate';
+  import { prepareGeneration, useGeneration, tweakDraft, tweakSampleDraft, InstrumentAnalysisError, type GeneratedDraft } from '../generate';
   import { copyReport } from '../report';
   import Sheet from '../Sheet.svelte';
+  import SampleControlsPanel from '../SampleControlsPanel.svelte';
+  import {resolveSampleControls,type SampleControls} from '../../audio/sampleControls';
   import InstrumentControlsPanel from '../InstrumentControlsPanel.svelte';
   import {resolveControls,type InstrumentControls} from '../../audio/instrument/controls';
   import Waveform from '../Waveform.svelte';
@@ -59,6 +61,7 @@
   const canGenerate = $derived(sourceReady && usable && (mode==='instrument'?instrumentField.text.trim().length>0:prompt.trim().length>0));
   const samplePromptSent = $derived(prompt.trim()?buildPrompt(prompt,model,'sample'):'');
   const draftControls=$derived(resolveControls(result?.instrumentControls,result?.record.instrument?.dynamics??'sustain'));
+  const draftSampleControls=$derived(resolveSampleControls(result?.sampleControls));
   const peaks = $derived(result ? peaksOf(result.pcm, 96) : undefined);
 
   $effect(()=>{
@@ -150,8 +153,9 @@
   async function useAsSample(){if(!rejectedOutput||!rejectedParams)return;try{result=await prepareGeneration({...rejectedParams,mode:'sample'},rejectedPrompt,rejectedOutput);rejectedOutput=null;phase='done';}catch(e){errorText=String(e);}}
   function shift(d:number){if(result)result={...result,rootMidi:Math.max(0,Math.min(127,result.rootMidi+d))};}
   function tweak(patch:Partial<InstrumentControls>){if(!result||saving)return;result=tweakDraft(result,patch);engine.setPreviewControls(draftControls);}
+  function tweakSample(patch:Partial<SampleControls>){if(result&&!saving)result=tweakSampleDraft(result,patch);}
   function resetTweaks(){if(result?.record.instrument)tweak(resolveControls(undefined,result.record.instrument.dynamics));}
-  async function preview(){if(!result)return;try{if(result.record.instrument)await engine.previewInstrument(result.record.instrument,57,result.instrumentControls);else await engine.previewSource(result.pcm,result.sampleRate);}catch(e){notify(String(e));}}
+  async function preview(){if(!result)return;try{if(result.record.instrument)await engine.previewInstrument(result.record.instrument,57,result.instrumentControls);else await engine.previewSource(result.pcm,result.sampleRate,draftSampleControls);}catch(e){notify(String(e));}}
   async function use(){if(!result||saving)return;saving=true;try{engine.stopPreview();const used=await useGeneration({store:projectStore,engine},trackId,result);setPeaks(used.sampleId,used.pcm);onclose();onuse?.(used.trackId);}catch(e){notify(String(e));}finally{saving=false;}}
   async function copy() {
     notify((await copyReport()) ? 'Report copied' : 'Copy failed');
@@ -281,7 +285,7 @@
         <div class="note warn" style="margin-top:6px">Low confidence. Defaulted to C4. Adjust the root with the buttons.</div>
       {/if}
       <div class="note" style="margin-top:6px">Generated in {formatElapsed(elapsed)}.</div>
-      {#if result.record.instrument}<div class="st">Tweak instrument</div><div class="note">Press Preview to hear your settings. Use sound keeps them on the track.</div><InstrumentControlsPanel controls={draftControls} onchange={tweak} behaviorName="draft-behavior" disabled={saving} /><div class="btnrow"><button class="btn" disabled={saving} onclick={resetTweaks}>Reset controls</button></div>{/if}
+      {#if result.record.instrument}<div class="st">Tweak instrument</div><div class="note">Press Preview to hear your settings. Use sound keeps them on the track.</div><InstrumentControlsPanel controls={draftControls} onchange={tweak} behaviorName="draft-behavior" disabled={saving} /><div class="btnrow"><button class="btn" disabled={saving} onclick={resetTweaks}>Reset controls</button></div>{:else}<div class="st">Tweak sample</div><div class="note">Press Preview to hear your settings. Use sound keeps them on the track.</div><SampleControlsPanel controls={draftSampleControls} onchange={tweakSample} disabled={saving}/><div class="btnrow"><button class="btn" disabled={saving} onclick={()=>tweakSample(resolveSampleControls())}>Reset controls</button></div>{/if}
       {#if result.mode==='instrument'}<div class="btnrow"><button class="btn" onclick={()=>result&&void engine.previewSource(result.pcm,result.sampleRate)}>Play source note</button></div>{/if}
       <p class="note">Preview this sound. Choose Use to replace the sound on this track.</p>
       <div class="btnrow"><button class="btn" disabled={saving||!usable} onclick={regenerate}>Regenerate</button><button class="btn" disabled={saving} onclick={onclose}>Discard</button></div>

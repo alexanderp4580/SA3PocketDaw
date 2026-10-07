@@ -92,3 +92,13 @@ describe('playNote', () => {
 });
 
 it('cancels queued sources before their start time',()=>{const {ctx,sources,gains}=fakeCtx(0);const voice=playNote(ctx,{buffer:{duration:1},root:60,note:60,when:.02,duration:1});voice.stop();expect(sources[0]!.calls.at(-1)).toEqual(['stop',0]);expect(gains[0]!.calls.at(-1)).toEqual(['set',0,0]);});
+
+it('uses each sample voice attack and release, including an early stop during attack',()=>{
+ const {ctx,gains,sources}=fakeCtx();const voice=playNote(ctx,{buffer:{duration:3},root:60,note:60,when:0,duration:1,velocity:.8,controls:{attack:.2,release:.4}});
+ expect(gains[0]!.calls).toContainEqual(['ramp',.8,.2]);expect(voice.endTime).toBeCloseTo(1.4);
+ voice.stop(.1);expect(gains[0]!.calls.at(-2)![1]).toBeCloseTo(.4);expect(gains[0]!.calls.at(-2)![2]).toBe(.1);expect(gains[0]!.calls.at(-1)).toEqual(['ramp',0,.5]);expect(sources[0]!.calls.at(-1)).toEqual(['stop',.5]);
+});
+it('releases a short note at its requested end while a longer attack is still rising',()=>{
+ const {ctx,gains}=fakeCtx();const v=playNote(ctx,{buffer:{duration:3},root:60,note:60,when:0,duration:.1,controls:{attack:1,release:.2}});
+ expect(gains[0]!.calls).toContainEqual(['ramp',.1,.1]);expect(v.endTime).toBeCloseTo(.3);
+});

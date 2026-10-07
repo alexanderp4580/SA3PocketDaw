@@ -1,3 +1,4 @@
+import type {SampleControls} from '../audio/sampleControls';
 import {MAX_PLUGINS,normalizeMix,normalizePlugin,pluginTypes,uniqueId,type PluginSettings,type PluginType,type TrackMix} from '../audio/mixer/plugins';
 import type { InstrumentControls } from '../audio/instrument/controls';
 export const MIDI_MIN = 24;
@@ -43,6 +44,7 @@ export interface Track {
   bars?:Bars;
   solo?:boolean;
   instrumentControls?:Partial<InstrumentControls>;
+  sampleControls?:Partial<SampleControls>;
   soundType?:'sample'|'instrument';
   id: string;
   name: string;
@@ -153,7 +155,7 @@ export function setTrackSample(p: Project, trackId: string, sampleId: string | n
   return mapTrack(p, trackId, (t) => ({
     ...t,
     sampleId,
-    ...(soundType?{soundType,instrumentControls:undefined}:{}),
+    ...(soundType?{soundType,instrumentControls:undefined,sampleControls:undefined}:{}),
     ...(rootMidi !== undefined ? { rootMidi: clamp(Math.round(rootMidi), MIDI_MIN, MIDI_MAX) } : {}),
   }));
 }

@@ -1,3 +1,4 @@
+import {samplePreviewDuration,type SampleControls} from './sampleControls';
 import {createMixer,type MixerController} from './mixer/controller';
 import {emptyMeter} from './mixer/meter';
 import type {EqBand} from './mixer/model';
@@ -86,7 +87,7 @@ export function createEngine(options: EngineOptions = {}) {
     const buffer = bufferFor(track?.sampleId ?? null);
     if (!track || !buffer) return;
     for(let i=voices.length-1;i>=0;i--)if(voices[i]!.endTime<ctx.currentTime)voices.splice(i,1);
-    voices.push({...playNote(ctx, { buffer, root: track.rootMidi, note: e.midi, when: e.when, duration: e.duration, velocity: e.velocity, output: outputFor(track.id) }),trackId:track.id});
+    voices.push({...playNote(ctx, { buffer, root: track.rootMidi, note: e.midi, when: e.when, duration: e.duration, velocity: e.velocity, output: outputFor(track.id),controls:track.sampleControls }),trackId:track.id});
   }
 
   const scheduler = createScheduler({
@@ -136,7 +137,7 @@ export function createEngine(options: EngineOptions = {}) {
     },
     setInstrument(sampleId:string,profile:InstrumentProfile){buffers.delete(sampleId);pending.delete(sampleId);instruments.set(sampleId,profile);scope.info('instrument set',{sampleId,hz:profile.hz,dynamics:profile.dynamics});},
     stopPreview,
-    async previewSource(pcm:Float32Array,sampleRate:number){stopPreview();const token=previewEpoch;await unlock();if(ctx&&token===previewEpoch){previewVoice=playNote(ctx,{buffer:toBuffer(ctx,pcm,sampleRate),root:60,note:60,when:ctx.currentTime,duration:pcm.length/sampleRate,velocity:1,output:master});}},
+    async previewSource(pcm:Float32Array,sampleRate:number,controls?:Partial<SampleControls>){stopPreview();const token=previewEpoch;await unlock();if(ctx&&token===previewEpoch){previewVoice=playNote(ctx,{buffer:toBuffer(ctx,pcm,sampleRate),root:60,note:60,when:ctx.currentTime,duration:controls?samplePreviewDuration(pcm.length/sampleRate,controls):pcm.length/sampleRate,velocity:1,output:master,controls});}},
     setPreviewControls(controls:Partial<InstrumentControls>){const pending=previewPlayer;if(pending)void pending.then(p=>{if(pending===previewPlayer)p.setControls(controls);}).catch(err=>scope.error('preview controls failed',{error:String(err)}));},
     async previewInstrument(profile:InstrumentProfile,midi=57,controls?:Partial<InstrumentControls>){const token=previewEpoch;await unlock();if(token!==previewEpoch)return;if(previewProfile!==profile){stopPreview();previewProfile=profile;previewPlayer=createInstrumentPlayer(ctx as unknown as AudioContext,master as unknown as AudioNode,profile);}const pending=previewPlayer!,p=await pending;if(pending!==previewPlayer)return;const settings=resolveControls(controls,profile.dynamics);p.setControls(settings);await p.note(midi,ctx!.currentTime,Math.max(1.2,settings.attack+1),velocityGain(96));},
     async play() {
@@ -158,7 +159,7 @@ export function createEngine(options: EngineOptions = {}) {
         scope.warn('audition without sample', { trackId });
         return;
       }
-      voices.push({...auditionNote(ctx, { buffer, root: track.rootMidi, note: midi, velocity: velocityGain(velocity), output: outputFor(track.id) }),trackId:track.id});
+      voices.push({...auditionNote(ctx, { buffer, root: track.rootMidi, note: midi, duration,velocity: velocityGain(velocity), output: outputFor(track.id),controls:track.sampleControls }),trackId:track.id});
     },
     meter:(id?:string)=>mixer?.meter(id)??emptyMeter(),
     spectrum:(id:string,pluginId:string,post=true)=>mixer?.spectrum(id,pluginId,post)??null,

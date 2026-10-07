@@ -3,7 +3,7 @@ import { createEngine, type EngineContextLike } from './engine';
 import { createProject, addTrack, addNote, setTrackSample, setRoot } from '../store/projectModel';
 
 function fakeCtx() {
-  const started: Array<{ rate: number; when: number; buffer: unknown }> = [];
+  const started: Array<{ rate: number; when: number; until:number; buffer: unknown }> = [];
   const buffers: Array<{ ch: number; len: number; sr: number; data: Float32Array | null }> = [];
   const state = { time: 0, resumed: 0, current: 'suspended', created: 0 };
   const mk = (): EngineContextLike => ({
@@ -20,12 +20,12 @@ function fakeCtx() {
       return { gain: { value: 1, setValueAtTime() {}, linearRampToValueAtTime() {} }, connect() {} };
     },
     createBufferSource() {
-      const rec = { rate: 1, when: -1, buffer: null as unknown };
+      const rec = { rate: 1, when: -1, buffer: null as unknown,until:-1 };
       started.push(rec);
       return {
         get buffer() { return rec.buffer as never; }, set buffer(b) { rec.buffer = b; },
         playbackRate: { get value() { return rec.rate; }, set value(v: number) { rec.rate = v; }, setValueAtTime() {}, linearRampToValueAtTime() {} },
-        onended: null, connect() {}, start(w?: number) { rec.when = w ?? 0; }, stop() {},
+        onended: null, connect() {}, start(w?: number) { rec.when = w ?? 0; }, stop(t?:number) {rec.until=t??0;},
       };
     },
   });
@@ -102,4 +102,15 @@ describe('engine', () => {
     await e.audition('t1', 60);
     expect(f.buffers.map((b) => b.len)).toEqual([100, 200]);
   });
+});
+
+it('applies saved sample envelopes to both scheduled notes and auditions',async()=>{
+ const f=fakeCtx(),e=createEngine({createContext:f.mk,setTimer:()=>0,clearTimer:()=>{}});
+ const p=proj();p.tracks[0]!.sampleControls={attack:.2,release:.4};e.setProject(p);e.setSample('s1',new Float32Array(44100*3),44100);
+ await e.play();expect(f.started[0]!.until-f.started[0]!.when).toBeCloseTo(.65);
+ e.pause();p.tracks[0]!.sampleControls={attack:.1,release:.2};e.setProject(p);await e.audition('t1',60,127,.3);expect(f.started.at(-1)!.until-f.started.at(-1)!.when).toBeCloseTo(.5);
+});
+
+it('previews a shaped sample with its release fading before the recorded sound ends',async()=>{
+ const f=fakeCtx(),e=createEngine({createContext:f.mk});await e.previewSource(new Float32Array(44100*3),44100,{attack:.2,release:.4});expect(f.started[0]!.until).toBeCloseTo(3);
 });

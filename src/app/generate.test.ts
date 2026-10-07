@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { describe, expect, it } from 'vitest';
-import { applyGeneration, shiftRoot,prepareGeneration,useGeneration,tweakDraft,InstrumentAnalysisError } from './generate';
+import { applyGeneration, shiftRoot,prepareGeneration,useGeneration,tweakDraft,tweakSampleDraft,InstrumentAnalysisError } from './generate';
 import { createProjectStore } from '../store/projectStore';
 import { addTrack, createProject } from '../store/projectModel';
 import { createEngine } from '../audio/engine';
@@ -135,4 +135,13 @@ describe('instrument rejection after a successful generation', () => {
     const err = await prepareGeneration({ ...params, mode: 'instrument' }, 'pad', out, { analyseInstrument: async () => { throw Object.assign(new Error('Cancelled'), { code: 'cancelled' }); } }).catch((e) => e);
     expect((err as { code?: string }).code).toBe('cancelled');
   });
+});
+
+it('keeps sample envelope edits in the draft until Use and persists them through reload',async()=>{
+ const deps=await setup();const out={channels:[tone(440,1)],sampleRate:44100,stats:{peak:.5,rms:.3,nonFinite:0,dims:[]},timings:[]};
+ await applyGeneration(deps,'t1',params,'old',out,()=> 'old');
+ const draft=await prepareGeneration(params,'sample',out);const edited=tweakSampleDraft(draft,{attack:.25,release:.7,brightness:.4});
+ expect(draft.sampleControls).toBeUndefined();expect(deps.store.get()!.tracks[0]!.sampleControls).toBeUndefined();
+ await useGeneration(deps,'t1',edited,()=> 'sample');await deps.store.flush();await deps.store.load();expect(deps.store.get()!.tracks[0]!.sampleControls).toEqual({attack:.25,release:.7,brightness:.4});
+ await applyGeneration(deps,'t1',params,'replacement',out,()=> 'next');expect(deps.store.get()!.tracks[0]!.sampleControls).toBeUndefined();
 });

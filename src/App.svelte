@@ -47,7 +47,7 @@
     return {
       ...(t.sampleId ? { sampleName: 'Generated' } : {}),
       onOpenGenerate: () => (generateId = t.id),
-      ...(t.soundType==='instrument'?{onOpenInstrument:()=>tweakId=t.id}:{}),
+      ...(t.sampleId?{onOpenInstrument:()=>tweakId=t.id}:{}),
       keyRoot: Math.max(0, NOTE_ROOTS.indexOf((p?.key ?? 'C') as (typeof NOTE_ROOTS)[number])),
       scale: p?.scale ?? 'major',
     };
