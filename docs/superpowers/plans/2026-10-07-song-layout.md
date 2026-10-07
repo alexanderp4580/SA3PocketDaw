@@ -28,27 +28,27 @@
 **Files:** Create src/song/arrangement.ts, events.ts, playback.ts and tests; modify projectModel.ts, projectStore.ts, audio/engine.ts.
 **Interfaces:** Arrangement={bars:number;blocks:{id:string;trackId:string;startBar:number}[]}. compileSong(project):{events:NoteEvent[];duration:number}. Song scheduler supports play/pause/stop/position/repeat. Engine setPlaybackMode('pattern'|'song') selects scheduling.
 
-- [ ] Write tests for fit/overlap, deletion, copies/ranges, normalization, gaps/chords/boundaries/velocity/mute/solo, finite completion/pause/repeat and persistence.
-- [ ] Run targeted tests; expect missing-module/export failures.
-- [ ] Implement immutable helpers, storage normalization, compiler and finite scheduler. Song changes/mode changes stop playback.
-- [ ] Run targeted and complete suite; expect all pass. Commit.
+- [x] Write tests for fit/overlap, deletion, copies/ranges, normalization, gaps/chords/boundaries/velocity/mute/solo, finite completion/pause/repeat and persistence.
+- [x] Run targeted tests; expect missing-module/export failures.
+- [x] Implement immutable helpers, storage normalization, compiler and finite scheduler. Song changes/mode changes stop playback.
+- [x] Run targeted and complete suite; expect all pass. Commit.
 
 ### Task 2: Offline rendering and MP3
 
 **Files:** Create src/song/render.ts, export.ts, mp3.worker.ts and tests; modify mixer/pluginNodes.ts, controller.ts and instrument/player.ts readiness/context support; bundle encoder/license/source.
 **Interfaces:** renderSong(project,sounds,{signal,onProgress}):Promise<AudioBuffer>; exportSong(project,store,{signal,onProgress}):Promise<Blob>.
 
-- [ ] Write tests for missing audio, cancel, snapshot, tail trim, PCM conversion and valid MP3; run expecting missing behavior.
-- [ ] Bundle encoder/notices; make processor readiness awaitable and failures fatal to export. Initialize independent offline graph with settled gains; schedule existing voices from compileSong.
-- [ ] Encode in worker with progress/cancel and cleanup.
-- [ ] Run suite/typecheck and real mixed offline/decoded MP3 checks for stereo, duration, pitch, levels/effects and nonzero audio. Commit.
+- [x] Write tests for missing audio, cancel, snapshot, tail trim, PCM conversion and valid MP3; run expecting missing behavior.
+- [x] Bundle encoder/notices; make processor readiness awaitable and failures fatal to export. Initialize independent offline graph with settled gains; schedule existing voices from compileSong.
+- [x] Encode in worker with progress/cancel and cleanup.
+- [x] Run suite/typecheck and real mixed offline/decoded MP3 checks for stereo, duration, pitch, levels/effects and nonzero audio. Commit.
 
 ### Task 3: Layout and export UI
 
 **Files:** Create LayoutScreen.svelte, SongExportSheet.svelte and songHistory.ts/tests; modify App.svelte, Nav.svelte, appState.svelte.ts and docs/handoff.md.
 **Interfaces:** Layout edits project.arrangement using updateProject and history. Export sheet owns abort controller and finished Blob. Layout route selects song playback.
 
-- [ ] Write failing history/browser checks for placement/repeat/move/delete, range duplicate/add all, undo/redo, resize confirmation, navigation/reload/scrolling and export/cancel/download.
-- [ ] Implement sticky native scrolling grid, selection/actions, length buttons, song transport and natural-end UI synchronization.
-- [ ] Implement export stages/cancel/error/download; precache worker/encoder.
-- [ ] Full suite, typecheck/build, mobile/audio/export/offline and same-origin preservation checks. Commit. Independent review; fix important findings with regression tests.
+- [x] Write failing history/browser checks for placement/repeat/move/delete, range duplicate/add all, undo/redo, resize confirmation, navigation/reload/scrolling and export/cancel/download.
+- [x] Implement sticky native scrolling grid, selection/actions, length buttons, song transport and natural-end UI synchronization.
+- [x] Implement export stages/cancel/error/download; precache worker/encoder.
+- [x] Full suite, typecheck/build, mobile/audio/export/offline and same-origin preservation checks. Commit. Independent review; fix important findings with regression tests.

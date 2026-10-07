@@ -13,3 +13,11 @@ it('requires an arrangement with audible notes',async()=>{await expect(loadSongS
 it('creates a safe MP3 filename and saturates PCM without wrapping',()=>{expect(mp3Filename('../My song:/')).toBe('My song.mp3');expect([...pcm16(new Float32Array([-2,-1,0,1,2,NaN]))]).toEqual([-32768,-32768,0,32767,32767,0]);});
 it('retains timeline silence and trims only the final tail',()=>{const l=new Float32Array(44100*3),r=l.slice();l[44100+1000]=.1;const out=trimTail([l,r],44100,1);expect(out[0]!.length).toBeGreaterThan(44100+1000);expect(out[0]!.length).toBeLessThan(44100*2);expect(trimTail([new Float32Array(44100*2),r],44100,1)[0]!.length).toBe(44100);});
 it('encodes real stereo MPEG frames with a finite sine wave',()=>{const l=Float32Array.from({length:44100},(_,i)=>.3*Math.sin(i*2*Math.PI*220/44100)),bytes=encodeMp3(l,l,44100,Mp3Encoder);expect(bytes.length).toBeGreaterThan(20000);expect(bytes[0]).toBe(255);expect(bytes[1]!&224).toBe(224);});
+it('does not start an encoder if cancellation arrives between rendering and encoding',async()=>{
+ const {vi}=await import('vitest'),render=await import('./render'),{exportSong}=await import('./export');
+ const mock=vi.spyOn(render,'renderSong').mockResolvedValue({getChannelData:()=>new Float32Array(44100*32)} as unknown as AudioBuffer);
+ let started=0;vi.stubGlobal('Worker',class {constructor(){started++;throw Error('Encoder started after cancel');}});
+ const c=new AbortController();
+ try{await expect(exportSong(project(),{getSample:async()=>({pcm:new Float32Array(44100),sampleRate:44100,meta:{}})},{signal:c.signal,onProgress:p=>{if(p.stage==='Encoding')c.abort();}})).rejects.toMatchObject({name:'AbortError'});expect(started).toBe(0);}
+ finally{mock.mockRestore();vi.unstubAllGlobals();}
+});

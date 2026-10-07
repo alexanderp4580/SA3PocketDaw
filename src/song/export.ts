@@ -16,7 +16,7 @@ export async function loadSongSnapshot(project:Project,store:{getSample:(id:stri
 export async function exportSong(project:Project,store:{getSample:(id:string)=>Promise<StoredSample|null>},options:ExportOptions={}):Promise<Blob>{
  const {signal,onProgress}=options;let worker:Worker|null=null;
  try{scope.info('start',{bars:project.arrangement?.bars});onProgress?.({stage:'Preparing',fraction:0});const snapshot=await loadSongSnapshot(project,store,signal);
- const buffer=await renderSong(snapshot.project,snapshot.sounds,options);checkAbort(signal);const pcm=trimTail([buffer.getChannelData(0),buffer.getChannelData(1)],44100,compileSong(snapshot.project).duration);onProgress?.({stage:'Encoding',fraction:0});
+ const buffer=await renderSong(snapshot.project,snapshot.sounds,options);checkAbort(signal);const pcm=trimTail([buffer.getChannelData(0),buffer.getChannelData(1)],44100,compileSong(snapshot.project).duration);onProgress?.({stage:'Encoding',fraction:0});checkAbort(signal);
  worker=new Worker(new URL('./mp3.worker.ts',import.meta.url),{type:'module'});const active=worker;
  const blob=await new Promise<Blob>((resolve,reject)=>{const abort=()=>reject(new DOMException('Export cancelled','AbortError'));
  signal?.addEventListener('abort',abort,{once:true});const cleanup=()=>signal?.removeEventListener('abort',abort);

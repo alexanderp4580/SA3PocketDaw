@@ -47,7 +47,7 @@ export async function renderSong(project:Project,sounds:Map<string,StoredSample>
  }worker.terminate();
  }else {const buffer=ctx.createBuffer(1,source.pcm.length,source.sampleRate);buffer.copyToChannel(source.pcm as Float32Array<ArrayBuffer>,0);for(const e of events){checkAbort(signal);playNote(ctx as unknown as AudioContextLike,{buffer,root:track.rootMidi,note:e.midi,when:PREROLL+e.when,duration:e.duration,velocity:e.velocity,output:input,controls:track.sampleControls});count++;}onProgress?.({stage:'Preparing',fraction:count/song.events.length});}
  }
- checkAbort(signal);onProgress?.({stage:'Rendering',fraction:0});
+ checkAbort(signal);onProgress?.({stage:'Rendering',fraction:0});checkAbort(signal);
  const length=ctx.length/RATE;
  function progress(at:number){if(at>=length)return;void ctx.suspend(at).then(()=>{if(signal?.aborted||finished)return;onProgress?.({stage:'Rendering',fraction:ctx.currentTime/length});progress(at+.5);void ctx.resume();}).catch(()=>{});}
  progress(.5);

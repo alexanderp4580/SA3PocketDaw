@@ -1,0 +1,4 @@
+import {it,expect} from 'vitest';
+import {newSongHistory,rememberSong,undoSong,redoSong} from './songHistory';
+it('undo and redo restore independent arrangement snapshots',()=>{const a={bars:16,blocks:[]},b={bars:16,blocks:[{id:'a',trackId:'t',startBar:1}]};let h=rememberSong(newSongHistory(),a);a.bars=8;let result=undoSong(h,b);expect(result.arrangement?.bars).toBe(16);expect(result.arrangement?.blocks).toEqual([]);result=redoSong(result.history,result.arrangement!);expect(result.arrangement).toEqual(b);h=rememberSong(result.history,b);expect(h.future).toEqual([]);});
+it('keeps at most thirty undo steps and safely handles empty histories',()=>{let h=newSongHistory();for(let i=1;i<40;i++)h=rememberSong(h,{bars:i,blocks:[]});expect(h.past).toHaveLength(30);expect(undoSong(newSongHistory(),{bars:16,blocks:[]}).arrangement).toBeNull();});

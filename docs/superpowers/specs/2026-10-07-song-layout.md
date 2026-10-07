@@ -10,7 +10,7 @@ Build a song quickly from the sounds and piano-roll patterns already in the proj
 
 Add a Layout tab with a track-by-bar timeline. Each block references the current pattern of its track. Changes in the piano roll update every placement of that pattern. This keeps arranging fast and avoids duplicating notes or sounds.
 
-Alternatives considered: a list of whole-song sections is simpler but cannot place tracks independently; multiple patterns per instrument adds verse/chorus variations but needs a pattern library and a way to select the pattern being edited. The pending user choice determines whether that library is included.
+Alternatives considered: a list of whole-song sections is simpler but cannot place tracks independently; multiple patterns per instrument adds verse/chorus variations but needs a pattern library and a way to select the pattern being edited. The approved scope reuses existing patterns.
 
 ## Layout page
 

@@ -26,6 +26,6 @@ export function duplicateRange(p:Project,start:number,end:number):Project {
 export function normalizeArrangement(p:Project):Project {
  if(!p.arrangement)return p;
  const a=p.arrangement;let next:Project={...p,arrangement:{bars:songBars(a.bars),blocks:[]}};
- if(Array.isArray(a.blocks))for(const b of a.blocks)if(b&&typeof b.id==='string'&&typeof b.trackId==='string')next=placeBlock(next,b.trackId,b.startBar,b.id);
+ if(Array.isArray(a.blocks))for(const b of a.blocks)if(b&&typeof b.id==='string'&&typeof b.trackId==='string'&&Number.isInteger(b.startBar)&&b.startBar>=1&&b.startBar<=next.arrangement!.bars&&p.tracks.some(t=>t.id===b.trackId)&&!next.arrangement!.blocks.some(x=>x.id===b.id||x.trackId===b.trackId&&x.startBar===b.startBar))next.arrangement!.blocks.push({...b});
  return next;
 }

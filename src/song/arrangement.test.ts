@@ -14,3 +14,8 @@ describe('song events',()=>{
  it('compiles gaps, repeats and trims held notes to placement boundary',()=>{let p=placeBlock(fixture(),'t',3,'a');p=repeatBlock(p,'a','b');const song=compileSong(p);expect(song.duration).toBe(32);expect(song.events.map(e=>[e.when,e.duration,e.velocity])).toEqual([[4,4,1],[8,4,1]]);});
  it('honors mute and solo and leaves empty bars silent',()=>{let p=addAllPatterns(addTrack(fixture(),'Drums','d'),1);p={...p,tracks:p.tracks.map(t=>({...t,solo:t.id==='d'}))};expect(compileSong(p).events).toHaveLength(0);p={...p,tracks:p.tracks.map(t=>({...t,solo:false,muted:t.id==='t'}))};expect(compileSong(p).events).toHaveLength(0);});
 });
+it('keeps existing placements after extending the shared piano-roll pattern',()=>{
+ let p=placeBlock(fixture(),'t',1,'a');p=repeatBlock(p,'a','b');p={...p,tracks:p.tracks.map(t=>({...t,bars:4}))};
+ const loaded=normalizeArrangement(p);expect(loaded.arrangement?.blocks).toHaveLength(2);
+ expect(compileSong(loaded).events.map(e=>[e.when,e.duration])).toEqual([[0,4],[4,4]]);
+});

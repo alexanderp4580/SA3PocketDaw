@@ -2,6 +2,8 @@
   import { onMount } from 'svelte';
   import Nav, { type Route } from './components/Nav.svelte';
   import CompatGate from './app/screens/CompatGate.svelte';
+  import LayoutScreen from './app/screens/LayoutScreen.svelte';
+  import SongExportSheet from './app/SongExportSheet.svelte';
   import MixScreen from './app/screens/MixScreen.svelte';
   import TracksScreen from './app/screens/TracksScreen.svelte';
   import PianoRoll from './app/screens/PianoRoll.svelte';
@@ -12,12 +14,13 @@
   import LoopSheet from './app/LoopSheet.svelte';
   import Header from './app/Header.svelte';
   import TransportBar from './app/TransportBar.svelte';
-  import { ui, initApp, runCompatCheck, updateProject } from './app/appState.svelte';
+  import { ui, initApp, runCompatCheck, updateProject,stop } from './app/appState.svelte';
   import { engine } from './app/services';
   import { audioUnlockOnce } from './app/unlock';
   import { NOTE_ROOTS } from './app/format';
   import {trackBars,setTrackBars,toggleSolo,type Track} from './store/projectModel';
 
+  let exportOpen=$state(false);
   let entered = $state(false);
   let route: Route = $state('tracks');
   let mixId=$state<string|null>(null);
@@ -28,7 +31,7 @@
 
   const rollTrack = $derived(ui.project?.tracks.find((t) => t.id === rollId) ?? null);
   const showHeader = $derived(route === 'tracks' && !rollTrack);
-  const showTransport = $derived(route === 'tracks'||route === 'mix');
+  const showTransport = $derived(route === 'tracks'||route === 'mix'||route==='layout');
 
   onMount(() => {
     const params = new URLSearchParams(location.search);
@@ -57,6 +60,7 @@
     updateProject((p) => ({ ...p, tracks: p.tracks.map((x) => (x.id === next.id ? next : x)) }));
   }
   function navigate(r: Route) {
+    if(r==='layout'||r==='tracks'){const mode=r==='layout'?'song':'pattern';if(engine.playbackMode!==mode){engine.setPlaybackMode(mode);stop();}}
     route = r;
     if (r !== 'tracks') rollId = null;
   }
@@ -97,6 +101,8 @@
         {:else}
           <TracksScreen onmodels={openModels} onmix={id=>{mixId=id;route='mix';}} onadd={()=>newTrackOpen=true} onroll={(id) => (rollId = id)} ongenerate={(id) => (generateId = id)} ontweak={id=>tweakId=id} />
         {/if}
+      {:else if route==='layout' && ui.project}
+        <LayoutScreen onexport={()=>exportOpen=true} onroll={id=>{navigate('tracks');rollId=id;}}/>
       {:else if route === 'mix'}
         <MixScreen focusId={mixId}/>
       {:else if route === 'models'}
@@ -105,9 +111,10 @@
         <DebugScreen />
       {/if}
     </main>
-    {#if showTransport}<TransportBar pianoRoll={!!rollTrack} />{/if}
+    {#if showTransport}<TransportBar pianoRoll={!!rollTrack||route==='layout'} />{/if}
     <Nav {route} onnavigate={navigate} />
   </div>
+  {#if exportOpen}<SongExportSheet onclose={()=>exportOpen=false}/>{/if}
   {#if ui.loopOpen}<LoopSheet />{/if}
   {#if tweakId}<InstrumentSheet onmodels={openModels} trackId={tweakId} onclose={()=>tweakId=null} ongenerate={()=>{generateId=tweakId;tweakId=null;}} />{/if}
   {#if newTrackOpen}<GenerateSheet onmodels={openModels} trackId={null} onclose={()=>newTrackOpen=false} onuse={id=>rollId=id} />{/if}

@@ -1,7 +1,8 @@
 <script lang="ts" module>
-  export type Route = 'tracks' | 'mix' | 'models' | 'debug';
+  export type Route = 'tracks' | 'layout' | 'mix' | 'models' | 'debug';
   export const navItems: { route: Route; label: string; icon: string; disabled?: boolean }[] = [
     { route: 'tracks', label: 'Tracks', icon: '☰' },
+    { route: 'layout', label: 'Layout', icon: '▥' },
     { route: 'mix', label: 'Mix', icon: '⫼' },
     { route: 'models', label: 'Models', icon: '⬇' },
     { route: 'debug', label: 'Debug', icon: '⌗' },

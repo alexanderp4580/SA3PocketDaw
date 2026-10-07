@@ -27,6 +27,7 @@ let raf = 0;
 
 function tick() {
   ui.step = engine.playhead();
+  ui.playing=engine.isPlaying;
   raf = ui.playing ? requestAnimationFrame(tick) : 0;
 }
 

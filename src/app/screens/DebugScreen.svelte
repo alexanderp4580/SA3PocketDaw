@@ -92,6 +92,9 @@
       </div>
     </div>
 
+    <div class="sec">MP3 encoder</div>
+    <div class="card note">LAME via @breezystack/lamejs · LGPL-3.0. <a href="/mp3/README.txt">Notices</a> · <a href="/mp3/LGPL-3.0.txt">License</a> · <a href="/mp3/source.tar.gz" download>Source</a> · <a href="https://lame.sourceforge.net/">LAME</a></div>
+
     <div class="sec">Environment</div>
     <div class="card">
       <div class="kv">crossOriginIsolated<span>{String(globalThis.crossOriginIsolated)}</span></div>

@@ -49,6 +49,7 @@ export function createEngine(options: EngineOptions = {}) {
   const voices:Array<{endTime:number;stop:(at?:number,fade?:number)=>void;trackId?:string}>=[];
   let playbackMode:'pattern'|'song'='pattern';
   let songKey='';
+  let songRepeat=false;
   let epoch=0;
   let previewEpoch=0;
   let previewPlayer:Promise<InstrumentPlayer>|null=null;
@@ -127,10 +128,11 @@ export function createEngine(options: EngineOptions = {}) {
   return {
     unlock,
     setPlaybackMode(mode:'pattern'|'song'){if(mode===playbackMode)return;silence();stopPreview();scheduler.stop();songPlayback.stop();playbackMode=mode;},
-    setSongRepeat(value:boolean){songPlayback.setRepeat(value);},
+    setSongRepeat(value:boolean){songRepeat=value;songPlayback.setRepeat(value);},
+    get songRepeat(){return songRepeat;},
     get playbackMode(){return playbackMode;},
     setProject(p: Project) {
-      const key=JSON.stringify([p.bpm,p.arrangement,p.tracks.map(t=>[t.id,t.bars,t.notes,t.sampleId,t.muted,t.solo])]);
+      const key=JSON.stringify([p.bpm,p.bars,p.arrangement,p.tracks.map(t=>[t.id,t.bars,t.notes,t.sampleId,t.muted,t.solo])]);
       if(key!==songKey){if(playbackMode==='song'){silence();stopPreview();}songPlayback.setSong(compileSong(p),p.bpm);songKey=key;}
 
       if(project){const old=loopRange(project),next=loopRange(p);if(old.startBar!==next.startBar||old.endBar!==next.endBar)silence();else {
