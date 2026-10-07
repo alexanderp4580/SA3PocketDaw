@@ -74,7 +74,7 @@ Intended: hide the info card on the roll screen, fix a console 404 on load, offl
 
 - Sample/Instrument Generate modes, independent lengths/steps, mode-specific prompt templates, visible hints and presets. Suggested durations are empirical defaults, not official model limits.
 - Instrument source analysis/preparation in a dedicated worker, real-time AudioWorklet synthesis, short sinc-resampled attack, evolving partial envelopes and notched noise residual. Hold tone or natural decay. Profile/source persistence in existing IndexedDB records; legacy records remain samples.
-- Unusable single-note sources leave the previous sound intact and offer explicit Use as sample. Analysis cancellation, Stop cancelling future voices, original source preview and instrument track labels.
+- Sources that cannot be converted to an instrument open as sample drafts with an amber warning, Preview sample, sample controls and Use sample. The current track sound stays intact until Use. Silent audio and generation errors remain failures. Analysis cancellation, Stop cancelling future voices, original source preview and instrument track labels.
 - Verification: 293 unit tests, strict typecheck/build; real Medium piano instrument and kick sample, mixed transport, reload and offline playback in Chromium/WebGPU. Actual worklet synth/piano/guitar A3 renders independently measured within .002 cents of 220 Hz. Deck analysis 1.3–2.6 s for 4 s sources. Phone polyphony and source quality remain to check.
 
 ## Instrument controls and roll actions — 2026-10-07
@@ -125,3 +125,8 @@ Intended: hide the info card on the roll screen, fix a console 404 on load, offl
 - Evidence: `/home/deck/Documents/Codex/2026-10-07-check-the-browserdaw-project-there-is/verification/`. Browser caching verification uses a Chromium profile on `/home`; default temporary profiles on `/tmp` fail large streamed cache writes in this environment.
 - Phone testing build: https://192.168.8.191:8444/ (HTTP loopback 8083). The host uses this branch's `dist`, the main checkout's certificate and model files. The main checkout's server remains on 8443/8082. Phone CPU, latency, touch response and hardware haptics remain to check. Merge and push remain pending phone approval.
 - Whole-branch review: persisted migration is normalized on both load and IndexedDB writes, so a tempo/note edit also saves only plugin fields; two storage regression tests and an actual-browser IndexedDB check preserve volume, pan, EQ trim/bands, reverb algorithm/amount and bypass. No outstanding critical or important review findings. Minor follow-up: plugin normalization metadata, audio factories and editor dispatch remain separate registrations; current EQ/Reverb behavior is complete, while a future type must be registered in each layer.
+
+## Instrument conversion warning — 2026-10-07
+
+- Generated audio that fails instrument analysis remains ready as a sample. The warning explains the instrument limitation alongside the waveform and sample controls; accepting saves a playable sample. Regenerate retries the selected generation mode.
+- Verification: 409 unit tests pass, typecheck has zero errors/warnings, production build succeeds. Chromium checks cover the real instrument analysis rejection, preview/accept as sample, no track creation before acceptance, silent-audio failure and a clean successful retry. Same-origin HTTPS service-worker update preserves the test model cache and saved project.

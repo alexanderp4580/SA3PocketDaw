@@ -8,7 +8,6 @@
   import { MAX_STEPS } from '../../gen/protocol';
   import { INSTRUMENTS,CHARACTERS,ATTACKS,BEHAVIORS,instrumentDefaults,instrumentPrompt,type InstrumentId } from '../../gen/instrumentSelections';
   import { generationPresets,generationHint,lengthHint,loadModeSettings,saveModeSettings,type GenerationMode } from '../../gen/mode';
-  import type { GenerationOutput } from '../../gen/client';
   import { MAX_SECONDS, MIN_SECONDS, clampSeconds, parseSeconds, stepSeconds } from '../../gen/length';
   import { midiToName } from '../../audio/pitch';
   import { formatBytes, formatElapsed, modelHint, peaksOf } from '../format';
@@ -38,9 +37,7 @@
   let secondsText = $state(String(loadModeSettings(store,'sample').seconds));
   const LONG_SECONDS = 5;
   let steps = $state(loadModeSettings(store,'sample').steps);
-  let rejectedOutput=$state<GenerationOutput|null>(null);
-  let rejectedParams:GenerateParams|null=null;
-  let rejectedPrompt='';
+  let instrumentWarning=$state('');
   let seed = $state(randomSeed());
   const cards = $derived(ui.modelCards);
   const anyInstalled = $derived(cards.some(c=>c.available&&c.status==='installed'));
@@ -107,7 +104,7 @@
     const raw=mode==='instrument'?instrumentField.text.trim():prompt.trim();
     const dynamics=instrument.behavior;
     const params: GenerateParams = { mode,model, prompt: mode==='instrument'?raw:buildPrompt(raw,model,mode), seconds, steps, seed };
-    rejectedOutput=null;rejectedParams=null;
+    instrumentWarning='';
     engine.stopPreview();result=null;
     phase = 'running';
     stage = 'Starting';
@@ -128,7 +125,13 @@
           message = p.message;
         },
       });
-      try{result = await prepareGeneration(params,raw,out,{signal:controller.signal,dynamics,onAnalysis:f=>{stage='Creating instrument';fraction=f;message='Measuring the note and extracting its evolving tone.';} });}catch(e){if(e instanceof InstrumentAnalysisError){rejectedOutput=out;rejectedParams=params;rejectedPrompt=raw;}throw e;}
+      try {
+        result = await prepareGeneration(params,raw,out,{signal:controller.signal,dynamics,onAnalysis:f=>{stage='Creating instrument';fraction=f;message='Measuring the note and extracting its evolving tone.';}});
+      } catch (e) {
+        if (!(e instanceof InstrumentAnalysisError)) throw e;
+        result = await prepareGeneration({...params,mode:'sample'},raw,out,{signal:controller.signal});
+        instrumentWarning=e.message;
+      }
       phase = 'done';
     } catch (e) {
       const err = e as { code?: string; message?: string };
@@ -150,7 +153,6 @@
     seed = randomSeed();
     void run();
   }
-  async function useAsSample(){if(!rejectedOutput||!rejectedParams)return;try{result=await prepareGeneration({...rejectedParams,mode:'sample'},rejectedPrompt,rejectedOutput);rejectedOutput=null;phase='done';}catch(e){errorText=String(e);}}
   function shift(d:number){if(result)result={...result,rootMidi:Math.max(0,Math.min(127,result.rootMidi+d))};}
   function tweak(patch:Partial<InstrumentControls>){if(!result||saving)return;result=tweakDraft(result,patch);engine.setPreviewControls(draftControls);}
   function tweakSample(patch:Partial<SampleControls>){if(result&&!saving)result=tweakSampleDraft(result,patch);}
@@ -169,16 +171,9 @@
     {:else}
     {#if phase === 'error'}
       <div class="card bad" role="alert">
-        {#if rejectedOutput}
-          <div class="row"><b class="bad">Not usable as an instrument</b></div>
-          <div class="note">The model produced audio, but it could not be turned into an instrument: {errorText}</div>
-          <div class="note">The audio can still be used as a sample. The track keeps its current sound until you choose Use.</div>
-          <div class="btnrow"><button class="btn" onclick={useAsSample}>Preview as sample</button><button class="btn" onclick={copy}>Copy report</button></div>
-        {:else}
-          <div class="row"><b class="bad">Generation failed</b></div>
-          <div class="note">{errorText}</div>
-          <div class="btnrow"><button class="btn" onclick={copy}>Copy report</button></div>
-        {/if}
+        <div class="row"><b class="bad">Generation failed</b></div>
+        <div class="note">{errorText}</div>
+        <div class="btnrow"><button class="btn" onclick={copy}>Copy report</button></div>
       </div>
     {/if}
     <div class="st">Sound type</div>
@@ -271,6 +266,13 @@
       <div class="note" style="margin-top:8px">A model call that is already running finishes its current step before generation stops.</div>
     </div>
   {:else if result}
+    {#if instrumentWarning}
+      <div class="card conversion-warning" role="status">
+        <b class="warn">Sound ready as a sample</b>
+        <div class="note">Instrument conversion was unavailable. You can still preview, tweak and use this sound as a sample.</div>
+        <div class="note">{instrumentWarning}</div>
+      </div>
+    {/if}
     <div class="card">
       <div class="resultwave"><Waveform {peaks} /></div>
       <div class="row" style="margin-top:10px">
@@ -290,11 +292,12 @@
       <p class="note">Preview this sound. Choose Use to replace the sound on this track.</p>
       <div class="btnrow"><button class="btn" disabled={saving||!usable} onclick={regenerate}>Regenerate</button><button class="btn" disabled={saving} onclick={onclose}>Discard</button></div>
     </div>
-    <div class="draft-accept"><button class="btn" disabled={saving} onclick={preview}>▶ Preview {result.mode==='instrument'?'A3':''}</button><button class="btn pri" disabled={saving} onclick={use}>{saving?'Saving…':'Use sound'}</button></div>
+    <div class="draft-accept"><button class="btn" disabled={saving} onclick={preview}>▶ Preview {result.mode==='instrument'?'A3':instrumentWarning?'sample':''}</button><button class="btn pri" disabled={saving} onclick={use}>{saving?'Saving…':instrumentWarning?'Use sample':'Use sound'}</button></div>
   {/if}
 </Sheet>
 
 <style>
+  .conversion-warning{border:1px solid #d9ad4655;background:#d9ad4610;}.conversion-warning .note{margin-top:6px;}
   .draft-accept{display:flex;gap:8px;position:sticky;bottom:0;padding:10px 0 0;background:var(--panel);z-index:1;}.draft-accept .btn{min-width:0;flex:1;}.draft-accept .btn.pri{flex:1.3;}
   .choices {border:0;margin:14px 0 0;padding:0;min-width:0;}
   .choices legend {font-size:12px;font-weight:700;color:var(--dim);margin-bottom:6px;}
