@@ -17,6 +17,7 @@
     "build:dragonfly": "bash scripts/dragonfly/build.sh"
   },
   "dependencies": {
+    "@breezystack/lamejs": "1.2.7",
     "@huggingface/transformers": "3.8.1",
     "onnxruntime-web": "1.27.0",
     "svelte": "^5.57.0"

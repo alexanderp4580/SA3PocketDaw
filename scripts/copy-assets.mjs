@@ -12,3 +12,8 @@ for (const f of ['ort-wasm-simd-threaded.asyncify.mjs', 'ort-wasm-simd-threaded.
 const probe = join(root, 'public/gpu-probe.onnx');
 if (!existsSync(probe)) throw new Error('public/gpu-probe.onnx is missing');
 console.log('assets ready');
+
+const mp3Dst=join(root,'public/mp3');
+mkdirSync(mp3Dst,{recursive:true});
+copyFileSync(join(root,'node_modules/@breezystack/lamejs/dist/lamejs.js'),join(mp3Dst,'lamejs.js'));
+copyFileSync(join(root,'node_modules/@breezystack/lamejs/LICENSE'),join(mp3Dst,'NOTICE.txt'));

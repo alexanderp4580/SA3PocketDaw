@@ -1,3 +1,5 @@
+import {exportSong} from './song/export';
+import {renderSong} from './song/render';
 import { mount } from 'svelte';
 import App from './App.svelte';
 import { buildReport, engine, generation, log, models, projectStore } from './app/services';
@@ -22,6 +24,8 @@ Object.defineProperty(window, '__sa3', {
     generationClient: generation,
     log,
     buildReport,
+    exportSong,
+    renderSong,
     compat: () => ui.compat,
     /** Programmatic generation and acceptance; the Generate sheet previews a draft before Use. */
     async generateAndApply(trackId: string, userPrompt: string, params: Omit<GenerateParams, 'prompt'>) {
