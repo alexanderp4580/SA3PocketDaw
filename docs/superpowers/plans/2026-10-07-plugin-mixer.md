@@ -6,7 +6,7 @@ Fixed constraints: portrait phone, every action a visible button, no tombstone w
 
 ## Tasks
 
-- [ ] 1. Plugin model and migration (pure). Proves: tracks hold an ordered plugin list; legacy saved tracks migrate without changing their sound settings.
+- [x] 1. Plugin model and migration (pure). Proves: tracks hold an ordered plugin list; legacy saved tracks migrate without changing their sound settings.
   - Interfaces: `PluginType`, `PluginInstance`, `TrackMix` (volumeDb, pan, plugins), `MAX_PLUGINS = 6`, plugin type registry (label, defaults, normalize), helpers add / remove / move(id, ±1) / setBypass / updateSettings over the immutable project helpers in `src/store/projectModel.ts`; `normalizeMix` accepts legacy `eq`/`reverb`.
   - Test assertions: unknown types dropped; duplicate ids renamed; list truncated to 6; corrupt settings fall back to defaults; legacy track with enabled EQ band and wet > 0 migrates to [eq, reverb] in that order with bypass preserved; legacy track with neither migrates to []; volume and pan preserved; move at the ends is a no-op; add beyond the limit is rejected; legacy fields are not present after normalization.
   - Command: `npx vitest run src/audio/mixer src/store` exits 0.

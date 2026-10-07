@@ -1,5 +1,5 @@
 <script lang="ts">
- import {onMount} from 'svelte';import {ui,updateProject} from '../appState.svelte';import {engine} from '../services';import {toggleMute,toggleSolo,type Track} from '../../store/projectModel';import {normalizeMix,finite,type TrackMix} from '../../audio/mixer/model';
+ import {onMount} from 'svelte';import {ui,updateProject} from '../appState.svelte';import {engine} from '../services';import {toggleMute,toggleSolo,type Track} from '../../store/projectModel';import {finite} from '../../audio/mixer/model';import {normalizeMix,fxView,type TrackMix} from '../../audio/mixer/plugins';
  import Meter from '../Meter.svelte';import MixControl from '../MixControl.svelte';import EqSheet from './EqSheet.svelte';import ReverbSheet from './ReverbSheet.svelte';
  let {focusId=null}:{focusId?:string|null}=$props();let eqId=$state<string|null>(null),reverbId=$state<string|null>(null),errors=$state<Record<string,string|null>>({});const p=$derived(ui.project);
  const eqTrack=$derived(p?.tracks.find(t=>t.id===eqId)),reverbTrack=$derived(p?.tracks.find(t=>t.id===reverbId));
@@ -11,7 +11,7 @@
  <div class="heading"><h2>Mixer</h2><p class="note">Balance tracks, shape frequencies and add space.</p></div>
  <section class="channel master"><strong>Master</strong><Meter/><MixControl label="Master volume" value={finite(p?.masterDb,20*Math.log10(.8),-60,6)} min={-60} max={6} step={.1} unit="dB" onchange={v=>updateProject(p=>({...p,masterDb:v}))}/></section>
  {#each p?.tracks??[] as t,i(t.id)}
- {@const mix=normalizeMix(t.mix)}
+ {@const mix=fxView(normalizeMix(t.mix))}
  <section class="channel" id="mix-{t.id}" style="--channel:{colors[i%colors.length]}">
  <div class="row"><strong>{t.name}</strong><button class="small" class:active={t.muted} aria-label="Mute {t.name}" aria-pressed={t.muted} onclick={()=>updateProject(p=>toggleMute(p,t.id))}>Mute</button><button class="small" class:active={t.solo} aria-label="Solo {t.name}" aria-pressed={!!t.solo} onclick={()=>updateProject(p=>toggleSolo(p,t.id))}>Solo</button></div>
  <Meter trackId={t.id}/><MixControl label="Volume" value={mix.volumeDb} min={-60} max={12} step={.1} unit="dB" onchange={v=>change(t,{volumeDb:v})}/>

@@ -1,0 +1,41 @@
+import {describe,it,expect} from 'vitest';
+import {normalizeMix,MAX_PLUGINS,pluginTypes,fxView,withFxView,type PluginInstance} from './plugins';
+import {makeBand} from './model';
+import {createProject,addTrack,addPlugin,removePlugin,movePlugin,setPluginBypass,updatePluginSettings} from '../../store/projectModel';
+const eq=(id:string,extra:object={})=>({id,type:'eq',bypass:false,settings:{trimDb:0,bands:[],...extra}});
+const legacy=(over:object={})=>({volumeDb:-6,pan:.5,eq:{bypass:false,trimDb:0,bands:[]},reverb:{algorithm:'hall',bypass:false,wet:0},...over});
+const ids=(m:{plugins:PluginInstance[]})=>m.plugins.map(p=>p.id);
+describe('plugin mix model',()=>{
+ it('empty input gives an empty plugin list with default volume and pan',()=>{const m=normalizeMix();expect(m).toEqual({volumeDb:0,pan:0,plugins:[]});});
+ it('registry has eq and reverb with labels and defaults',()=>{expect(pluginTypes.eq.label).toBe('EQ');expect(pluginTypes.reverb.label).toBe('Reverb');expect((pluginTypes.eq.defaults() as any).bands).toEqual([]);expect((pluginTypes.reverb.defaults() as any).wet).toBe(0);});
+ it('unknown types are dropped',()=>{const m=normalizeMix({plugins:[eq('a'),{id:'x',type:'flanger',bypass:false,settings:{}},null,7]} as never);expect(ids(m)).toEqual(['a']);});
+ it('duplicate ids are renamed to unique ids',()=>{const m=normalizeMix({plugins:[eq('a'),eq('a'),eq('a')]} as never);expect(new Set(ids(m)).size).toBe(3);expect(m.plugins[0]!.id).toBe('a');});
+ it('missing ids are generated',()=>{const m=normalizeMix({plugins:[{type:'eq',settings:{}},{type:'eq',settings:{}}]} as never);expect(new Set(ids(m)).size).toBe(2);expect(ids(m).every(i=>i.length>0)).toBe(true);});
+ it('list is truncated to MAX_PLUGINS',()=>{expect(MAX_PLUGINS).toBe(6);const m=normalizeMix({plugins:Array.from({length:9},(_,i)=>eq(`p${i}`))} as never);expect(ids(m)).toEqual(['p0','p1','p2','p3','p4','p5']);});
+ it('corrupt settings fall back to defaults',()=>{const m=normalizeMix({plugins:[{id:'a',type:'reverb',bypass:'yes',settings:'junk'},{id:'b',type:'eq',settings:{trimDb:Infinity,bands:'x'}}]} as never);expect((m.plugins[0]!.settings as any).wet).toBe(0);expect(m.plugins[0]!.bypass).toBe(false);expect(m.plugins[1]!.settings).toEqual({trimDb:0,bands:[]});});
+ it('legacy track with enabled EQ band and wet > 0 migrates to [eq, reverb] with bypass preserved',()=>{const m=normalizeMix(legacy({eq:{bypass:true,trimDb:0,bands:[makeBand('a')]},reverb:{algorithm:'plate',bypass:true,wet:.4}}) as never);expect(m.plugins.map(p=>p.type)).toEqual(['eq','reverb']);expect(m.plugins.map(p=>p.bypass)).toEqual([true,true]);expect((m.plugins[0]!.settings as any).bands[0].id).toBe('a');expect((m.plugins[1]!.settings as any).algorithm).toBe('plate');expect((m.plugins[1]!.settings as any).wet).toBe(.4);});
+ it('legacy track with non-zero trim only migrates to an EQ',()=>{const m=normalizeMix(legacy({eq:{bypass:false,trimDb:-3,bands:[{...makeBand('a'),enabled:false}]}}) as never);expect(m.plugins.map(p=>p.type)).toEqual(['eq']);expect((m.plugins[0]!.settings as any).trimDb).toBe(-3);});
+ it('legacy track with only wet > 0 migrates to a reverb',()=>{const m=normalizeMix(legacy({reverb:{algorithm:'room',bypass:false,wet:.2}}) as never);expect(m.plugins.map(p=>p.type)).toEqual(['reverb']);});
+ it('legacy track with neither migrates to an empty list',()=>{expect(normalizeMix(legacy() as never).plugins).toEqual([]);});
+ it('legacy volume and pan are preserved',()=>{const m=normalizeMix(legacy() as never);expect(m.volumeDb).toBe(-6);expect(m.pan).toBe(.5);});
+ it('legacy fields are not present after normalization',()=>{const m=normalizeMix(legacy({reverb:{algorithm:'hall',bypass:false,wet:.5}}) as never) as any;expect('eq' in m).toBe(false);expect('reverb' in m).toBe(false);expect(Object.keys(m).sort()).toEqual(['pan','plugins','volumeDb']);});
+ it('normalizing twice is stable',()=>{const m=normalizeMix(legacy({reverb:{algorithm:'hall',bypass:false,wet:.5}}) as never);expect(normalizeMix(m)).toEqual(m);});
+});
+describe('plugin helpers',()=>{
+ const base=()=>addTrack(createProject(),'A','a');
+ const seq=()=>{let n=0;return ()=>`id${++n}`;};
+ const plugins=(p:ReturnType<typeof base>)=>normalizeMix(p.tracks[0]!.mix).plugins;
+ it('addPlugin appends a plugin of the type with default settings',()=>{let p=base();p=addPlugin(p,'a','eq',seq());p=addPlugin(p,'a','reverb',seq());expect(plugins(p).map(x=>x.type)).toEqual(['eq','reverb']);expect(plugins(p)[0]!.bypass).toBe(false);});
+ it('addPlugin gives unique ids',()=>{let p=base();for(let i=0;i<3;i++)p=addPlugin(p,'a','eq');expect(new Set(plugins(p).map(x=>x.id)).size).toBe(3);});
+ it('addPlugin beyond the limit is rejected and returns the same project',()=>{let p=base();for(let i=0;i<MAX_PLUGINS;i++)p=addPlugin(p,'a','eq');expect(addPlugin(p,'a','reverb')).toBe(p);expect(plugins(p)).toHaveLength(6);});
+ it('removePlugin removes by id and ignores unknown ids',()=>{let p=base();p=addPlugin(p,'a','eq',()=>'x');p=addPlugin(p,'a','reverb',()=>'y');p=removePlugin(p,'a','x');expect(plugins(p).map(x=>x.id)).toEqual(['y']);expect(removePlugin(p,'a','zz')).toBe(p);});
+ it('movePlugin swaps neighbours and is a no-op at the ends',()=>{let p=base();const f=seq();for(const t of ['eq','reverb','eq'] as const)p=addPlugin(p,'a',t,f);p=movePlugin(p,'a','id1',1);expect(plugins(p).map(x=>x.id)).toEqual(['id2','id1','id3']);p=movePlugin(p,'a','id3',-1);expect(plugins(p).map(x=>x.id)).toEqual(['id2','id3','id1']);expect(movePlugin(p,'a','id2',-1)).toBe(p);expect(movePlugin(p,'a','id1',1)).toBe(p);});
+ it('setPluginBypass changes only that plugin',()=>{let p=base();const f=seq();p=addPlugin(p,'a','eq',f);p=addPlugin(p,'a','eq',f);p=setPluginBypass(p,'a','id2',true);expect(plugins(p).map(x=>x.bypass)).toEqual([false,true]);});
+ it('updatePluginSettings merges and normalizes only that plugin',()=>{let p=base();const f=seq();p=addPlugin(p,'a','eq',f);p=addPlugin(p,'a','eq',f);p=updatePluginSettings(p,'a','id2',{trimDb:50});expect((plugins(p)[0]!.settings as any).trimDb).toBe(0);expect((plugins(p)[1]!.settings as any).trimDb).toBe(24);});
+ it('helpers leave volume, pan and other tracks untouched',()=>{let p=addTrack(base(),'B','b');p={...p,tracks:p.tracks.map(t=>t.id==='a'?{...t,mix:{volumeDb:-3,pan:.2,plugins:[]}}:t)};const q=addPlugin(p,'a','eq');expect(q.tracks[0]!.mix).toMatchObject({volumeDb:-3,pan:.2});expect(q.tracks[1]).toBe(p.tracks[1]);});
+});
+describe('effects view adapter',()=>{
+ it('fxView exposes the first eq and first reverb with their bypass',()=>{const m=normalizeMix({plugins:[eq('a',{trimDb:2}),eq('b',{trimDb:5}),{id:'r',type:'reverb',bypass:true,settings:{wet:.3}}]} as never);const v=fxView(m);expect(v.eq.trimDb).toBe(2);expect(v.eq.bypass).toBe(false);expect(v.reverb.wet).toBe(.3);expect(v.reverb.bypass).toBe(true);});
+ it('fxView of an empty chain is dry',()=>{const v=fxView(normalizeMix());expect(v.eq.bands).toEqual([]);expect(v.reverb.wet).toBe(0);});
+ it('withFxView writes into the first matching plugin or creates one',()=>{let m=withFxView(normalizeMix(),{reverb:{...fxView(normalizeMix()).reverb,wet:.5}});expect(m.plugins.map(p=>p.type)).toEqual(['reverb']);m=withFxView(m,{eq:{...fxView(m).eq,trimDb:3,bypass:true}});expect(m.plugins.map(p=>p.type)).toEqual(['reverb','eq']);expect(m.plugins[1]!.bypass).toBe(true);m=withFxView(m,{reverb:{...fxView(m).reverb,wet:.7}});expect(m.plugins).toHaveLength(2);expect(fxView(m).reverb.wet).toBe(.7);});
+});

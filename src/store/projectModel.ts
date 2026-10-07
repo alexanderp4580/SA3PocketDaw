@@ -1,4 +1,4 @@
-import type { TrackMix } from '../audio/mixer/model';
+import {MAX_PLUGINS,normalizeMix,normalizePlugin,pluginTypes,uniqueId,type PluginSettings,type PluginType,type TrackMix} from '../audio/mixer/plugins';
 import type { InstrumentControls } from '../audio/instrument/controls';
 export const MIDI_MIN = 24;
 export const MIDI_MAX = 96;
@@ -221,3 +221,24 @@ export function loopRange(p:{bars:number;tracks:Array<{id:string;bars?:number}>;
 export function setLoopRange(p:Project,startBar:number,endBar:number):Project {const next={...p,loop:{startBar:Number.isFinite(startBar)?startBar:1,endBar:Number.isFinite(endBar)?endBar:timelineBars(p)}};return {...next,loop:loopRange(next)};}
 export function setTrackBars(p:Project,id:string,bars:number):Project {const next=mapTrack(p,id,t=>({...t,bars:trackBars({id,bars},p.bars)}));return next.loop?{...next,loop:loopRange(next)}:next;}
 export function toggleSolo(p:Project,id:string):Project {return mapTrack(p,id,t=>({...t,solo:!t.solo}));}
+
+/** Plugin helpers return the same project when nothing changes (unknown id, list full, move past an end). */
+function mapPlugins(p:Project,trackId:string,fn:(m:TrackMix)=>TrackMix):Project {
+  const t=p.tracks.find(x=>x.id===trackId);if(!t)return p;const m=normalizeMix(t.mix),next=fn(m);
+  return next===m?p:mapTrack(p,trackId,x=>({...x,mix:next}));
+}
+export function addPlugin(p:Project,trackId:string,type:PluginType,makeId:()=>string=()=>newId('pl')):Project {
+  return mapPlugins(p,trackId,m=>m.plugins.length>=MAX_PLUGINS?m:{...m,plugins:[...m.plugins,normalizePlugin(type,uniqueId(m,makeId()),false,pluginTypes[type].defaults())]});
+}
+export function removePlugin(p:Project,trackId:string,pluginId:string):Project {
+  return mapPlugins(p,trackId,m=>m.plugins.some(x=>x.id===pluginId)?{...m,plugins:m.plugins.filter(x=>x.id!==pluginId)}:m);
+}
+export function movePlugin(p:Project,trackId:string,pluginId:string,direction:-1|1):Project {
+  return mapPlugins(p,trackId,m=>{const i=m.plugins.findIndex(x=>x.id===pluginId),j=i+direction;if(i<0||j<0||j>=m.plugins.length)return m;const list=[...m.plugins];[list[i],list[j]]=[list[j]!,list[i]!];return {...m,plugins:list};});
+}
+export function setPluginBypass(p:Project,trackId:string,pluginId:string,bypass:boolean):Project {
+  return mapPlugins(p,trackId,m=>m.plugins.some(x=>x.id===pluginId&&x.bypass!==bypass)?{...m,plugins:m.plugins.map(x=>x.id===pluginId?{...x,bypass}:x)}:m);
+}
+export function updatePluginSettings(p:Project,trackId:string,pluginId:string,patch:Partial<PluginSettings>):Project {
+  return mapPlugins(p,trackId,m=>m.plugins.some(x=>x.id===pluginId)?{...m,plugins:m.plugins.map(x=>x.id===pluginId?normalizePlugin(x.type,x.id,x.bypass,{...x.settings,...patch}):x)}:m);
+}
