@@ -1,0 +1,16 @@
+{
+ "a short laser zap": {
+  "valid_tokens": 4,
+  "valid_rel_l2": 0.17900393903255463,
+  "valid_corr": 0.9840538265203903,
+  "padding_rows_equal_sfx_padding_embedding": true,
+  "source_padding_rows_raw_abs_mean": 0.0013689800398424268
+ },
+ "heavy wooden door slamming in a large hall, long reverb tail": {
+  "valid_tokens": 12,
+  "valid_rel_l2": 0.6321982145309448,
+  "valid_corr": 0.7988777645168897,
+  "padding_rows_equal_sfx_padding_embedding": true,
+  "source_padding_rows_raw_abs_mean": 0.0013689801562577486
+ }
+}

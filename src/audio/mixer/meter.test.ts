@@ -1,0 +1,2 @@
+import {it,expect} from 'vitest';import {StereoMeter} from './meter';
+it('reports real stereo RMS, peak hold and reset',()=>{const m=new StereoMeter(48000),l=new Float32Array(4800).fill(.5),r=new Float32Array(4800).fill(.25);m.add(l,r);expect(m.read().rms[0]).toBeCloseTo(.5,2);expect(m.read().rms[1]).toBeCloseTo(.25,2);l[0]=1.2;m.add(l,r);expect(m.read().clip).toBe(true);expect(m.read().peak[0]).toBeCloseTo(1.2,6);m.clear();expect(m.read().rms).toEqual([0,0]);expect(m.read().clip).toBe(false);});

@@ -1,0 +1,5 @@
+a4d4ef70791db2530d7cf61e083c2353b0cffb3137517285f9dfa22969ccfc23  downloads/official/onnx/sa3-sm-sfx/dit.onnx
+b7c91ca1edb86aac9fbc988e836130d10c56eea884cd5b707e02c858a008eec2  downloads/seasonengine/small-sfx/sa3-sm-sfx/dit.onnx
+757e0d2a18630d8d4d667c96387a551f968daf4d09f094043a6d64b6d9095e01  downloads/seasonengine/small-sfx/same-s/dec_dynamic_bf16.onnx
+ba1e92f888e4ad6caef75858a4dff0bd14d24422ffcfd7a7517fc65f56de5f90  downloads/official/onnx/same-s/dec_bf16.onnx
+f0717dc16dbf00da79e8d8c86f6169503ab8903e5f41af24fcff2d319fd0fdd6  downloads/seasonengine/small-sfx/t5gemma/encoder.onnx

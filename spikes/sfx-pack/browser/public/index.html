@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>SA3 browser-only PoC</title>
+<style>body{font:16px system-ui;background:#172126;color:#e3eeeb;max-width:800px;margin:3rem auto;padding:1rem}textarea{width:95%;height:80px}button,select,input{font:inherit;margin:.4rem;padding:.5rem}pre{white-space:pre-wrap;background:#0e171b;padding:1rem}a{color:#89ddd0}</style>
+<h1>Stable Audio 3 · browser-only PoC</h1><p>Throwaway feasibility experiment. Models, text encoding, diffusion and WAV decoding run locally in a Web Worker. No inference API.</p>
+<label>Prompt<textarea id="prompt">A short clean electronic drum beat with a deep kick and crisp hi hats, 120 BPM</textarea></label>
+<label>Model<select id="model"><option value="small">Small Music · Q4</option><option value="medium">Medium · experimental Q4</option></select></label>
+<label>Backend<select id="backend"><option value="webgpu">WebGPU</option><option value="wasm">WASM · experimental (known operator blocker)</option></select></label>
+<label>Seconds<input id="seconds" type="number" min="1" max="10" value="2"></label>
+<label>Steps<input id="steps" type="number" min="1" max="16" value="8"></label>
+<label>Seed<input id="seed" type="number" value="42"></label><br>
+<button id="generate">Generate locally</button><button id="cancel" disabled>Stop / reset worker</button>
+<p id="capabilities"></p><p id="waiting"></p><progress id="progress" max="1" value="0"></progress><pre id="log">Ready. Model weights load from local files.</pre>
+<audio id="audio" controls hidden></audio><a id="download" hidden download="sa3-browser.wav">Download WAV</a>
+<link rel="icon" href="data:,">
+<script type="module">
+const $=id=>document.getElementById(id);let worker,objectUrl,start;
+window.poc={state:'idle',events:[]};
+setInterval(()=>{$('waiting').textContent=window.poc.state==='running'?`Elapsed: ${Math.floor((performance.now()-start)/1000)} seconds. Keep this tab open. Last stage: ${window.poc.events.at(-1)?.phase||'starting worker'}`:'';},1000);
+$('capabilities').textContent=`Secure context: ${window.isSecureContext} · WebAssembly: ${typeof WebAssembly !== 'undefined'} · WebGPU API: ${!!navigator.gpu} · isolated: ${crossOriginIsolated} · CPU threads: ${navigator.hardwareConcurrency}`;
+function log(data){window.poc.events.push({...data,elapsedMs:performance.now()-start});$('log').textContent+=`\n${((performance.now()-start)/1000).toFixed(1)}s ${data.phase || data.message || data.type}`;}
+$('cancel').onclick=()=>{worker?.terminate();worker=null;window.poc.state='cancelled';$('generate').disabled=false;$('cancel').disabled=true;log({message:'Stopped; worker memory released.'});};
+$('model').onchange=()=>{$('seconds').max=10;};
+$('generate').onclick=()=>{
+ if(objectUrl)URL.revokeObjectURL(objectUrl);$('audio').hidden=true;$('download').hidden=true;
+ start=performance.now();window.poc={state:'running',events:[]};$('log').textContent='Starting local inference…';$('generate').disabled=true;$('cancel').disabled=false;
+ // A fresh worker permits backend changes and releases the previous model heap.
+ worker?.terminate();worker=new Worker($('model').value==='medium'?'./medium-worker.js':'./worker.js',{type:'module'});
+ worker.onerror=e=>finish({type:'error',message:e.message});
+ worker.onmessage=({data})=>{log(data);if(data.type==='progress'){if(typeof data.progress==='number')$('progress').value=data.progress;}else finish(data);};
+ function finish(data){
+  window.poc.state=data.type;window.poc.elapsedMs=performance.now()-start;window.poc.stats=data.stats;window.poc.error=data.message;
+  $('generate').disabled=false;$('cancel').disabled=true;
+  if(data.type==='complete'){
+   window.poc.wav=Array.from(new Uint8Array(data.wav));
+   objectUrl=URL.createObjectURL(new Blob([data.wav],{type:'audio/wav'}));$('audio').src=objectUrl;$('audio').hidden=false;$('download').href=objectUrl;$('download').hidden=false;
+   log({message:`WAV ready: ${data.wav.byteLength} bytes; peak ${data.stats.peak.toFixed(4)}; RMS ${data.stats.rms.toFixed(4)}`});
+  }
+ }
+ worker.postMessage({type:'generate',prompt:$('prompt').value,seconds:Number($('seconds').value),steps:Number($('steps').value),seed:Number($('seed').value),backend:$('backend').value});
+};
+</script></html>

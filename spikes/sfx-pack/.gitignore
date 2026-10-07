@@ -1,0 +1,7 @@
+downloads/
+work/
+ref/
+logs/*.log
+browser/public/models
+browser/public/ort/
+__pycache__/

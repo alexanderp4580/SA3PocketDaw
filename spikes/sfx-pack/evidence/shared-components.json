@@ -1,0 +1,43 @@
+{
+ "tokenizer_json": {
+  "poc_music_pack": {
+   "sha256": "923de64f4705efd22f6880dc5e6a9b2993de2706a03d0d48773e0173e32a074f",
+   "bytes": 34362428
+  },
+  "seasonengine_small-sfx": {
+   "sha256": "7794135caa3ea73918949c902a781cc61dab674a4b59c17d85931c77c1114cbd",
+   "bytes": 34362429
+  },
+  "seasonengine_small-music": {
+   "sha256": "7794135caa3ea73918949c902a781cc61dab674a4b59c17d85931c77c1114cbd",
+   "bytes": 34362429
+  }
+ },
+ "tokenizer_json_parsed_equal": {
+  "poc_music_pack": true,
+  "seasonengine_small-sfx": false,
+  "seasonengine_small-music": false
+ },
+ "padding_embedding": {
+  "music_dit_vs_baked_in_music_pack_max_abs_diff": 0.0,
+  "baked_rows_identical": true,
+  "sfx_vs_music_max_abs_diff": 0.00503944419324398,
+  "sfx_vs_music_corr": 0.6063938245930872,
+  "music_abs_mean": 0.0012993104755878448,
+  "sfx_abs_mean": 0.0013689800398424268,
+  "baked_tensor_location": {
+   "location": "text_encoder_q4_chunk_1.data",
+   "offset": "524288",
+   "length": "0"
+  }
+ },
+ "seconds_conditioner": {
+  "seconds_freqs": 0.0,
+  "seconds_weight": 1.3036918640136719,
+  "seconds_bias": 0.1643545925617218
+ },
+ "seconds_conditioner_poc_npz_vs_music_dit_max_abs_diff": {
+  "weight": 0.0,
+  "bias": 0.0
+ }
+}

@@ -1,0 +1,3 @@
+import {it,expect} from 'vitest';
+import {previewNotes} from './patternPreview';
+it('shows repeated notes in timeline context and hides notes beyond track length',()=>{const t={id:'t',name:'Kick',sampleId:'s',muted:false,rootMidi:36,bars:1 as const,notes:[{id:'a',midi:36,start:0,length:2},{id:'edge',midi:40,start:14,length:8},{id:'hidden',midi:60,start:20,length:2}]};const p=previewNotes(t,3,2);expect(p.notes.filter(n=>n.id==='a').map(n=>n.start)).toEqual([0,16,32]);expect(p.notes.filter(n=>n.id==='edge').every(n=>n.length===2)).toBe(true);expect(p.notes.some(n=>n.id==='hidden')).toBe(false);expect(p.rows).toBeGreaterThanOrEqual(12);});

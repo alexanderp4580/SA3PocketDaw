@@ -1,0 +1,646 @@
+{
+  "model": "small-sfx",
+  "backend": "webgpu",
+  "seconds": 2,
+  "steps": 8,
+  "seed": 42,
+  "prompt": "a short laser zap",
+  "requests": [
+    {
+      "url": "http://127.0.0.1:8791/",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:8791/favicon.ico",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:8791/worker.js",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:8791/gpu-probe.onnx",
+      "method": "GET",
+      "worker": true
+    },
+    {
+      "url": "http://127.0.0.1:8791/gpu-probe.onnx",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:8791/ort/ort-wasm-simd-threaded.asyncify.mjs",
+      "method": "GET",
+      "worker": true
+    },
+    {
+      "url": "http://127.0.0.1:8791/ort/ort-wasm-simd-threaded.asyncify.mjs",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:8791/ort/ort-wasm-simd-threaded.asyncify.mjs",
+      "method": "GET",
+      "worker": true
+    },
+    {
+      "url": "http://127.0.0.1:8791/ort/ort-wasm-simd-threaded.asyncify.mjs",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:8791/ort/ort-wasm-simd-threaded.asyncify.mjs",
+      "method": "GET",
+      "worker": true
+    },
+    {
+      "url": "http://127.0.0.1:8791/ort/ort-wasm-simd-threaded.asyncify.mjs",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:8791/ort/ort-wasm-simd-threaded.asyncify.mjs",
+      "method": "GET",
+      "worker": true
+    },
+    {
+      "url": "http://127.0.0.1:8791/ort/ort-wasm-simd-threaded.asyncify.mjs",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:8791/ort/ort-wasm-simd-threaded.asyncify.wasm",
+      "method": "GET",
+      "worker": true
+    },
+    {
+      "url": "http://127.0.0.1:8791/ort/ort-wasm-simd-threaded.asyncify.wasm",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/tokenizer/tokenizer.json",
+      "method": "GET",
+      "worker": true
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/tokenizer/tokenizer.json",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/tokenizer/tokenizer_config.json",
+      "method": "GET",
+      "worker": true
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/tokenizer/tokenizer_config.json",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/text_encoder_q4_chunks.json",
+      "method": "GET",
+      "worker": true
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/text_encoder_q4_chunks.json",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/text_encoder_q4.onnx",
+      "method": "GET",
+      "worker": true
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/text_encoder_q4.onnx",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/text_encoder_q4_chunk_0.data",
+      "method": "GET",
+      "worker": true
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/text_encoder_q4_chunk_0.data",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/text_encoder_q4_chunk_1.data",
+      "method": "GET",
+      "worker": true
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/text_encoder_q4_chunk_1.data",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/text_encoder_q4_chunk_2.data",
+      "method": "GET",
+      "worker": true
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/text_encoder_q4_chunk_2.data",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/number_conditioner_chunks.json",
+      "method": "GET",
+      "worker": true
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/number_conditioner_chunks.json",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/number_conditioner.onnx",
+      "method": "GET",
+      "worker": true
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/number_conditioner.onnx",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/dit_q4_chunks.json",
+      "method": "GET",
+      "worker": true
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/dit_q4_chunks.json",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/dit_q4.onnx",
+      "method": "GET",
+      "worker": true
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/dit_q4.onnx",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/dit_q4_chunk_0.data",
+      "method": "GET",
+      "worker": true
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/dit_q4_chunk_0.data",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/dit_q4_chunk_1.data",
+      "method": "GET",
+      "worker": true
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/dit_q4_chunk_1.data",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/dit_q4_chunk_2.data",
+      "method": "GET",
+      "worker": true
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/dit_q4_chunk_2.data",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/dit_q4_chunk_3.data",
+      "method": "GET",
+      "worker": true
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/dit_q4_chunk_3.data",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/decoder_q4_chunks.json",
+      "method": "GET",
+      "worker": true
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/decoder_q4_chunks.json",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/decoder_q4.onnx",
+      "method": "GET",
+      "worker": true
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/decoder_q4.onnx",
+      "method": "GET"
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/decoder_q4_chunk_0.data",
+      "method": "GET",
+      "worker": true
+    },
+    {
+      "url": "http://127.0.0.1:8791/models/onnx/decoder_q4_chunk_0.data",
+      "method": "GET"
+    },
+    {
+      "url": "data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPHN2ZyB2ZXJzaW9uPSIxLjEiIGlkPSJMYXllcl8xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB4PSIwcHgiIHk9IjBweCIKCSB2aWV3Qm94PSIwIDAgMjQgMjQiIHN0eWxlPSJlbmFibGUtYmFja2dyb3VuZDpuZXcgMCAwIDI0IDI0OyIgeG1sOnNwYWNlPSJwcmVzZXJ2ZSIgZmlsbD0iV2luZG93VGV4dCI+CjxnPgoJPGNpcmNsZSBjeD0iMTIiIGN5PSI2IiByPSIyIi8+Cgk8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIyIi8+Cgk8Y2lyY2xlIGN4PSIxMiIgY3k9IjE4IiByPSIyIi8+CjwvZz4KPC9zdmc+Cg==",
+      "method": "GET"
+    },
+    {
+      "url": "blob:http://127.0.0.1:8791/31ed29dc-8364-4789-a477-c7cd84e848e8",
+      "method": "GET"
+    },
+    {
+      "url": "data:image/svg+xml;base64,PHN2ZyBmaWxsPSJXaW5kb3dUZXh0IiBoZWlnaHQ9IjI0IiB2aWV3Qm94PSIwIDAgMjQgMjQiIHdpZHRoPSIyNCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICAgIDxwYXRoIGQ9Ik04IDV2MTRsMTEtN3oiLz4KICAgIDxwYXRoIGQ9Ik0wIDBoMjR2MjRIMHoiIGZpbGw9Im5vbmUiLz4KPC9zdmc+",
+      "method": "GET"
+    },
+    {
+      "url": "data:image/svg+xml;base64,PHN2ZyBmaWxsPSJXaW5kb3dUZXh0IiBoZWlnaHQ9IjI0IiB2aWV3Qm94PSIwIDAgMjQgMjQiIHdpZHRoPSIyNCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICAgIDxwYXRoIGQ9Ik0zIDl2Nmg0bDUgNVY0TDcgOUgzem0xMy41IDNjMC0xLjc3LTEuMDItMy4yOS0yLjUtNC4wM3Y4LjA1YzEuNDgtLjczIDIuNS0yLjI1IDIuNS00LjAyek0xNCAzLjIzdjIuMDZjMi44OS44NiA1IDMuNTQgNSA2Ljcxcy0yLjExIDUuODUtNSA2LjcxdjIuMDZjNC4wMS0uOTEgNy00LjQ5IDctOC43N3MtMi45OS03Ljg2LTctOC43N3oiLz4KICAgIDxwYXRoIGQ9Ik0wIDBoMjR2MjRIMHoiIGZpbGw9Im5vbmUiLz4KPC9zdmc+",
+      "method": "GET"
+    }
+  ],
+  "console": [
+    "Failed to load resource: the server responded with a status of 404 (File not found)",
+    "\u001b[0;93m2026-10-07 12:37:27.078894 [W:onnxruntime:, session_state.cc:1367 VerifyEachNodeIsAssignedToAnEp] Some nodes were not assigned to the preferred execution providers which may or may not have an negative impact on performance. e.g. ORT explicitly assigns shape related ops to CPU to improve perf.\u001b[m",
+    "\u001b[0;93m2026-10-07 12:37:27.083104 [W:onnxruntime:, session_state.cc:1369 VerifyEachNodeIsAssignedToAnEp] Rerunning with verbose output on a non-minimal build will show node assignments.\u001b[m",
+    "\u001b[0;93m2026-10-07 12:37:29.732664 [W:onnxruntime:, session_state.cc:1367 VerifyEachNodeIsAssignedToAnEp] Some nodes were not assigned to the preferred execution providers which may or may not have an negative impact on performance. e.g. ORT explicitly assigns shape related ops to CPU to improve perf.\u001b[m",
+    "\u001b[0;93m2026-10-07 12:37:29.733154 [W:onnxruntime:, session_state.cc:1369 VerifyEachNodeIsAssignedToAnEp] Rerunning with verbose output on a non-minimal build will show node assignments.\u001b[m",
+    "\u001b[0;93m2026-10-07 12:37:33.782719 [W:onnxruntime:, session_state.cc:1367 VerifyEachNodeIsAssignedToAnEp] Some nodes were not assigned to the preferred execution providers which may or may not have an negative impact on performance. e.g. ORT explicitly assigns shape related ops to CPU to improve perf.\u001b[m",
+    "\u001b[0;93m2026-10-07 12:37:33.783129 [W:onnxruntime:, session_state.cc:1369 VerifyEachNodeIsAssignedToAnEp] Rerunning with verbose output on a non-minimal build will show node assignments.\u001b[m"
+  ],
+  "started": "2026-10-07T10:37:21.105Z",
+  "browserVersion": "Chrome/153.0.8010.12",
+  "capabilities": {
+    "crossOriginIsolated": true,
+    "webgpu": true,
+    "adapter": {
+      "vendor": "amd",
+      "architecture": "rdna-2",
+      "isFallbackAdapter": false
+    }
+  },
+  "result": {
+    "state": "complete",
+    "events": [
+      {
+        "type": "progress",
+        "phase": "Checking WebGPU adapter",
+        "elapsedMs": 113.2049999833107
+      },
+      {
+        "type": "progress",
+        "phase": "GPU: amd rdna-2 ; shader-f16: true; max buffer: 4096 MiB; max storage buffer: 4096 MiB",
+        "elapsedMs": 141.70999997854233
+      },
+      {
+        "type": "progress",
+        "phase": "Initializing tiny ONNX WebGPU test (no large weights); WASM threads: 4",
+        "elapsedMs": 141.8100000023842
+      },
+      {
+        "type": "progress",
+        "phase": "Running tiny ONNX WebGPU calculation",
+        "elapsedMs": 845.1850000023842
+      },
+      {
+        "type": "progress",
+        "phase": "Tiny ONNX WebGPU test passed; loading actual model next",
+        "elapsedMs": 924.25
+      },
+      {
+        "type": "progress",
+        "phase": "Downloading tokenizer/tokenizer.json",
+        "elapsedMs": 928.9250000119209
+      },
+      {
+        "type": "progress",
+        "phase": "Downloaded tokenizer/tokenizer.json (34.4 MB)",
+        "elapsedMs": 1017.6999999880791
+      },
+      {
+        "type": "progress",
+        "phase": "Downloading tokenizer/tokenizer_config.json",
+        "elapsedMs": 1506.6000000238419
+      },
+      {
+        "type": "progress",
+        "phase": "Downloaded tokenizer/tokenizer_config.json (0.0 MB)",
+        "elapsedMs": 1513.964999973774
+      },
+      {
+        "type": "progress",
+        "phase": "loading text_encoder_q4",
+        "progress": 0.05,
+        "elapsedMs": 2317.0550000071526
+      },
+      {
+        "type": "progress",
+        "phase": "Downloading onnx/text_encoder_q4_chunks.json",
+        "elapsedMs": 2317.214999973774
+      },
+      {
+        "type": "progress",
+        "phase": "Downloaded onnx/text_encoder_q4_chunks.json (0.0 MB)",
+        "elapsedMs": 2325.685000002384
+      },
+      {
+        "type": "progress",
+        "phase": "Downloading onnx/text_encoder_q4.onnx",
+        "elapsedMs": 2325.7549999952316
+      },
+      {
+        "type": "progress",
+        "phase": "Downloaded onnx/text_encoder_q4.onnx (2.2 MB)",
+        "elapsedMs": 2356.5049999952316
+      },
+      {
+        "type": "progress",
+        "phase": "Downloading onnx/text_encoder_q4_chunk_0.data",
+        "elapsedMs": 2356.6050000190735
+      },
+      {
+        "type": "progress",
+        "phase": "Downloaded onnx/text_encoder_q4_chunk_0.data (98.3 MB)",
+        "elapsedMs": 2617.339999973774
+      },
+      {
+        "type": "progress",
+        "phase": "Downloading onnx/text_encoder_q4_chunk_1.data",
+        "elapsedMs": 2617.4800000190735
+      },
+      {
+        "type": "progress",
+        "phase": "Downloaded onnx/text_encoder_q4_chunk_1.data (99.4 MB)",
+        "elapsedMs": 2823.4200000166893
+      },
+      {
+        "type": "progress",
+        "phase": "Downloading onnx/text_encoder_q4_chunk_2.data",
+        "elapsedMs": 2823.514999985695
+      },
+      {
+        "type": "progress",
+        "phase": "Downloaded onnx/text_encoder_q4_chunk_2.data (14.8 MB)",
+        "elapsedMs": 2896.439999997616
+      },
+      {
+        "type": "progress",
+        "phase": "Initializing text_encoder_q4 in webgpu; GPU shader compilation can take time",
+        "elapsedMs": 2896.535000026226
+      },
+      {
+        "type": "progress",
+        "phase": "Initialized text_encoder_q4",
+        "elapsedMs": 3698.6549999713898
+      },
+      {
+        "type": "progress",
+        "phase": "loading number_conditioner",
+        "progress": 0.19,
+        "elapsedMs": 3699.0299999713898
+      },
+      {
+        "type": "progress",
+        "phase": "Downloading onnx/number_conditioner_chunks.json",
+        "elapsedMs": 3699.274999976158
+      },
+      {
+        "type": "progress",
+        "phase": "Downloaded onnx/number_conditioner_chunks.json (0.0 MB)",
+        "elapsedMs": 3710.699999988079
+      },
+      {
+        "type": "progress",
+        "phase": "Downloading onnx/number_conditioner.onnx",
+        "elapsedMs": 3710.7900000214577
+      },
+      {
+        "type": "progress",
+        "phase": "Downloaded onnx/number_conditioner.onnx (0.8 MB)",
+        "elapsedMs": 3725.0450000166893
+      },
+      {
+        "type": "progress",
+        "phase": "Initializing number_conditioner in webgpu; GPU shader compilation can take time",
+        "elapsedMs": 3725.2099999785423
+      },
+      {
+        "type": "progress",
+        "phase": "Initialized number_conditioner",
+        "elapsedMs": 3736.6349999904633
+      },
+      {
+        "type": "progress",
+        "phase": "loading dit_q4",
+        "progress": 0.33,
+        "elapsedMs": 3736.774999976158
+      },
+      {
+        "type": "progress",
+        "phase": "Downloading onnx/dit_q4_chunks.json",
+        "elapsedMs": 3736.839999973774
+      },
+      {
+        "type": "progress",
+        "phase": "Downloaded onnx/dit_q4_chunks.json (0.0 MB)",
+        "elapsedMs": 3743.649999976158
+      },
+      {
+        "type": "progress",
+        "phase": "Downloading onnx/dit_q4.onnx",
+        "elapsedMs": 3743.764999985695
+      },
+      {
+        "type": "progress",
+        "phase": "Downloaded onnx/dit_q4.onnx (1.1 MB)",
+        "elapsedMs": 3762.2450000047684
+      },
+      {
+        "type": "progress",
+        "phase": "Downloading onnx/dit_q4_chunk_0.data",
+        "elapsedMs": 3762.3449999690056
+      },
+      {
+        "type": "progress",
+        "phase": "Downloaded onnx/dit_q4_chunk_0.data (98.7 MB)",
+        "elapsedMs": 4027.6700000166893
+      },
+      {
+        "type": "progress",
+        "phase": "Downloading onnx/dit_q4_chunk_1.data",
+        "elapsedMs": 4027.7549999952316
+      },
+      {
+        "type": "progress",
+        "phase": "Downloaded onnx/dit_q4_chunk_1.data (96.7 MB)",
+        "elapsedMs": 4243.839999973774
+      },
+      {
+        "type": "progress",
+        "phase": "Downloading onnx/dit_q4_chunk_2.data",
+        "elapsedMs": 4243.939999997616
+      },
+      {
+        "type": "progress",
+        "phase": "Downloaded onnx/dit_q4_chunk_2.data (98.6 MB)",
+        "elapsedMs": 4459.699999988079
+      },
+      {
+        "type": "progress",
+        "phase": "Downloading onnx/dit_q4_chunk_3.data",
+        "elapsedMs": 4459.800000011921
+      },
+      {
+        "type": "progress",
+        "phase": "Downloaded onnx/dit_q4_chunk_3.data (84.1 MB)",
+        "elapsedMs": 4735.430000007153
+      },
+      {
+        "type": "progress",
+        "phase": "Initializing dit_q4 in webgpu; GPU shader compilation can take time",
+        "elapsedMs": 4735.545000016689
+      },
+      {
+        "type": "progress",
+        "phase": "Initialized dit_q4",
+        "elapsedMs": 9746.860000014305
+      },
+      {
+        "type": "progress",
+        "phase": "loading decoder_q4",
+        "progress": 0.47000000000000003,
+        "elapsedMs": 9746.949999988079
+      },
+      {
+        "type": "progress",
+        "phase": "Downloading onnx/decoder_q4_chunks.json",
+        "elapsedMs": 9747
+      },
+      {
+        "type": "progress",
+        "phase": "Downloaded onnx/decoder_q4_chunks.json (0.0 MB)",
+        "elapsedMs": 9763.790000021458
+      },
+      {
+        "type": "progress",
+        "phase": "Downloading onnx/decoder_q4.onnx",
+        "elapsedMs": 9763.889999985695
+      },
+      {
+        "type": "progress",
+        "phase": "Downloaded onnx/decoder_q4.onnx (0.3 MB)",
+        "elapsedMs": 9770.469999969006
+      },
+      {
+        "type": "progress",
+        "phase": "Downloading onnx/decoder_q4_chunk_0.data",
+        "elapsedMs": 9770.550000011921
+      },
+      {
+        "type": "progress",
+        "phase": "Downloaded onnx/decoder_q4_chunk_0.data (44.9 MB)",
+        "elapsedMs": 9885.42000001669
+      },
+      {
+        "type": "progress",
+        "phase": "Initializing decoder_q4 in webgpu; GPU shader compilation can take time",
+        "elapsedMs": 9885.504999995232
+      },
+      {
+        "type": "progress",
+        "phase": "Initialized decoder_q4",
+        "elapsedMs": 10376.514999985695
+      },
+      {
+        "type": "progress",
+        "phase": "conditioning",
+        "progress": 0.64,
+        "elapsedMs": 10376.634999990463
+      },
+      {
+        "type": "progress",
+        "phase": "generating",
+        "progress": 0.65,
+        "elapsedMs": 11689.064999997616
+      },
+      {
+        "type": "progress",
+        "phase": "generating",
+        "progress": 0.6837500000000001,
+        "elapsedMs": 13755.67000001669
+      },
+      {
+        "type": "progress",
+        "phase": "generating",
+        "progress": 0.7175,
+        "elapsedMs": 15410.144999980927
+      },
+      {
+        "type": "progress",
+        "phase": "generating",
+        "progress": 0.75125,
+        "elapsedMs": 17065.344999969006
+      },
+      {
+        "type": "progress",
+        "phase": "generating",
+        "progress": 0.785,
+        "elapsedMs": 18719.90499997139
+      },
+      {
+        "type": "progress",
+        "phase": "generating",
+        "progress": 0.8187500000000001,
+        "elapsedMs": 20374.125
+      },
+      {
+        "type": "progress",
+        "phase": "generating",
+        "progress": 0.8525,
+        "elapsedMs": 22026.134999990463
+      },
+      {
+        "type": "progress",
+        "phase": "generating",
+        "progress": 0.88625,
+        "elapsedMs": 23680.115000009537
+      },
+      {
+        "type": "progress",
+        "phase": "decoding",
+        "progress": 0.94,
+        "elapsedMs": 25332.144999980927
+      },
+      {
+        "type": "progress",
+        "phase": "complete",
+        "progress": 1,
+        "elapsedMs": 27703.55000001192
+      },
+      {
+        "type": "complete",
+        "wav": {},
+        "stats": {
+          "peak": 0.24038752913475037,
+          "rms": 0.019169116373904203,
+          "nonFinite": 0,
+          "dimensions": [
+            1,
+            2,
+            360448
+          ]
+        },
+        "elapsedMs": 27703.714999973774
+      },
+      {
+        "message": "WAV ready: 352844 bytes; peak 0.2404; RMS 0.0192",
+        "elapsedMs": 27728.00499999523
+      }
+    ],
+    "elapsedMs": 27703.944999992847,
+    "stats": {
+      "peak": 0.24038752913475037,
+      "rms": 0.019169116373904203,
+      "nonFinite": 0,
+      "dimensions": [
+        1,
+        2,
+        360448
+      ]
+    }
+  },
+  "nonLocalRequests": [],
+  "finished": "2026-10-07T10:37:51.849Z"
+}

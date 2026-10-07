@@ -1,0 +1,11 @@
+.git
+node_modules
+dist
+models
+certs
+public/ort
+spikes
+test-results
+playwright-report
+coverage
+*.log

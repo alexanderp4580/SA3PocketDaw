@@ -1,0 +1,35 @@
+{
+  "name": "sa3-browser-daw",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "prepare-assets": "node scripts/copy-assets.mjs",
+    "dev": "npm run prepare-assets && vite",
+    "build": "npm run prepare-assets && node scripts/package-source.mjs && vite build && node scripts/make-sw.mjs",
+    "test": "vitest run",
+    "typecheck": "svelte-check --tsconfig ./tsconfig.json",
+    "manifest": "node scripts/make-manifest.mjs",
+    "models:link": "node scripts/link-models.mjs",
+    "serve": "node server/serve.mjs",
+    "host": "bash scripts/host.sh",
+    "e2e": "node scripts/e2e.mjs",
+    "build:dragonfly": "bash scripts/dragonfly/build.sh"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "3.8.1",
+    "onnxruntime-web": "1.27.0",
+    "svelte": "^5.57.0"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.3.0",
+    "@tsconfig/svelte": "^5.0.8",
+    "@types/node": "^22.0.0",
+    "@webgpu/types": "^0.1.74",
+    "fake-indexeddb": "^6.0.0",
+    "svelte-check": "^4.7.6",
+    "typescript": "^5.3.3",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.0"
+  }
+}
