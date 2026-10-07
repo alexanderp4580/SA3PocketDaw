@@ -1,7 +1,7 @@
 <script lang="ts">
   import { noteVelocity, DEFAULT_VELOCITY, type Bars, type Track } from '../../store/projectModel';
   import Sheet from '../Sheet.svelte';
-  import {ui,play,pause,stop} from '../appState.svelte';
+  import {ui} from '../appState.svelte';
   import {loopRange} from '../../store/projectModel';
   import { midiToName } from '../../audio/pitch';
   import {
@@ -292,24 +292,17 @@
     <div class="line">
       <button class="ib" aria-label="Back to tracks" onclick={onBack}>←</button>
       <b class="name">{track.name}</b>
-      {#if onOpenInstrument}<button class="ib sound" aria-label="Tweak instrument" onclick={onOpenInstrument}><span>⚙</span><small>Sound</small></button>{:else}<button class="ib sound" aria-label="Generate sound" disabled={!onOpenGenerate} onclick={()=>onOpenGenerate?.()}><span>✦</span><small>Sound</small></button>{/if}
+      {#if onOpenInstrument}<button class="ib sound" aria-label="Tweak instrument" title="Edit instrument" onclick={onOpenInstrument}>⚙</button>{:else}<button class="ib sound" aria-label="Generate sound" title="Generate sound" disabled={!onOpenGenerate} onclick={()=>onOpenGenerate?.()}>✦</button>{/if}
       <button class="ib sq" aria-label="Undo" disabled={history.past.length === 0} onclick={doUndo}>↶</button>
       <button class="ib sq" aria-label="Redo" disabled={history.future.length === 0} onclick={doRedo}>↷</button>
     </div>
-    <div class="line roll-transport" aria-label="Piano roll playback">
-      <button class="ib playback" class:on={ui.playing} aria-label={ui.playing?'Pause':'Play'} aria-pressed={ui.playing} onclick={()=>ui.playing?pause():void play()}>{ui.playing?'Ⅱ Pause':'▶ Play'}</button>
-      <button class="ib" aria-label="Play from start" onclick={()=>{stop();void play();}}>⏮ Play from start</button>
-      <button class="ib" aria-label="Reset playback" onclick={stop}>■ Reset</button>
-    </div>
-    <div class="line chips tracktools" aria-label="Track playback">
-      <button class="ib" aria-label="Track length" onclick={()=>lengthOpen=true}>{bars} {bars===1?'bar':'bars'} ▾</button>
-      <button class="ib" class:on={track.solo} aria-pressed={!!track.solo} onclick={onSolo}>Solo</button>
-      <button class="ib" aria-label="Repeat bars, all tracks" onclick={()=>ui.loopOpen=true}>Repeat {range.startBar}–{range.endBar} ▾</button>
-    </div>
-    <div class="line chips notetools" aria-label="Note editing">
-      <button class="ib" aria-label="Grid {stepsLabel(grid)}" onclick={() => (gridOpen = true)}>Snap {stepsLabel(grid)} ▾</button>
-      <button class="ib" class:on={inKeyOn} aria-pressed={inKeyOn} aria-label="In-key" onclick={() => (inKeyOn = !inKeyOn)}>In-key</button>
-      <button class="ib clear" aria-label="Clear all notes" disabled={track.notes.length===0} onclick={doClear}>Clear all</button>
+    <div class="line chips tools" aria-label="Piano roll tools">
+      <button class="ib sq" aria-label="Track length" title="Track length: {bars} bars" onclick={()=>lengthOpen=true}>▥</button>
+      <button class="ib sq" class:on={track.solo} aria-label="Solo track" title="Solo track" aria-pressed={!!track.solo} onclick={onSolo}>S</button>
+      <button class="ib sq" aria-label="Repeat bars, all tracks" title="Repeat bars {range.startBar}–{range.endBar}" onclick={()=>ui.loopOpen=true}>⟲</button>
+      <button class="ib sq" aria-label="Grid {stepsLabel(grid)}" title="Snap: {stepsLabel(grid)}" onclick={() => (gridOpen = true)}>▦</button>
+      <button class="ib sq" class:on={inKeyOn} aria-pressed={inKeyOn} aria-label="In-key" title="In-key" onclick={() => (inKeyOn = !inKeyOn)}>♯</button>
+      <button class="ib sq clear" aria-label="Clear all notes" title="Clear all notes" disabled={track.notes.length===0} onclick={doClear}>⌫</button>
     </div>
     <div class="infoline" aria-live="polite">{info}</div>
   </div>
@@ -434,7 +427,7 @@
 </section>
 
 <style>
-  .roll-transport{justify-content:flex-start;gap:6px}.roll-transport .ib{font-size:11px;padding:0 8px;white-space:nowrap}.roll-transport .playback{background:var(--accent);color:#111;min-width:70px}
+  .tools{gap:4px}
 
   .screen {
     position: relative;
@@ -768,9 +761,8 @@
     font-size: 12px;
     color: var(--dim);
   }
-  .ib.sound{width:44px;padding:3px;gap:0;align-content:center;line-height:1.1;background:var(--sa3bg);color:var(--sa3);border:1px solid #7a5cc855;margin-right:3px;}.ib.sound small{font-size:10px;}.ib.sound span{font-size:16px;}
+  .ib.sound{font-size:20px;width:44px;padding:3px;gap:0;align-content:center;line-height:1.1;background:var(--sa3bg);color:var(--sa3);border:1px solid #7a5cc855;margin-right:3px;}
   .ctrl .btn{height:44px;padding:0 4px;}
-  .tracktools .ib,.notetools .ib{flex:1;min-width:0;padding:0 6px;font-size:12px;}
   .lengthstep{display:flex;align-items:center;justify-content:space-between;margin:16px 0;}
   .dpadrow{gap:6px;}.pad3{grid-template-columns:repeat(3,clamp(40px,12vw,58px));grid-template-rows:repeat(3,clamp(40px,12vw,58px));gap:4px;}.vel{flex:none;width:34px;}.pair{gap:3px;}.lenv{font-size:11px;}.len .btn{min-width:24px;}
 </style>

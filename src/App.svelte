@@ -28,7 +28,7 @@
 
   const rollTrack = $derived(ui.project?.tracks.find((t) => t.id === rollId) ?? null);
   const showHeader = $derived(route === 'tracks' && !rollTrack);
-  const showTransport = $derived((route === 'tracks'||route === 'mix')&&!rollTrack);
+  const showTransport = $derived(route === 'tracks'||route === 'mix');
 
   onMount(() => {
     const params = new URLSearchParams(location.search);
@@ -104,7 +104,7 @@
         <DebugScreen />
       {/if}
     </main>
-    {#if showTransport}<TransportBar />{/if}
+    {#if showTransport}<TransportBar pianoRoll={!!rollTrack} />{/if}
     <Nav {route} onnavigate={navigate} />
   </div>
   {#if ui.loopOpen}<LoopSheet />{/if}
