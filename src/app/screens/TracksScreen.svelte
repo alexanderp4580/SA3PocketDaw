@@ -4,7 +4,6 @@
   import { midiToName } from '../../audio/pitch';
   import { resolveSelected } from '../trackSelection';
   import PatternPreview from '../PatternPreview.svelte';
-  import Meter from '../Meter.svelte';
   import Sheet from '../Sheet.svelte';
 
   let { onroll, ongenerate, ontweak, onadd, onmix }: { onroll: (id: string) => void; ongenerate: (id: string) => void; ontweak:(id:string)=>void;onadd:()=>void;onmix:(id:string)=>void } = $props();
@@ -59,7 +58,7 @@
             <button class="tb" aria-label="Track menu for {t.name}" onclick={() => openMenu(t.id, t.name)}>⋮</button>
           </div>
         </div>
-        <div class="track-body"><div class="level"><Meter trackId={t.id} compact/><button class="mix-link" aria-label="Mix {t.name}" onclick={()=>onmix(t.id)}>Mix</button></div>
+        <div class="track-body"><div class="level"><button class="mix-link" aria-label="Mix {t.name}" onclick={()=>onmix(t.id)}>Mix</button></div>
         <button class="lane" aria-label="Open piano roll for {t.name}" onclick={() => {selected=t.id;onroll(t.id);}}>
           <span class="clip" class:muted={t.muted}>
             <span class="lbl">{trackBars(t,project?.bars)} bars · {t.notes.length} {t.notes.length === 1 ? 'note' : 'notes'}</span>
@@ -121,7 +120,7 @@
   .tname { font-size: 13px; font-weight: 600; text-align: left; line-height: 1.2; min-height: 26px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tname em { display:block; margin-top:3px; overflow:hidden; text-overflow:ellipsis; font-style: normal; color: var(--dim); font-size: 12px; font-weight: 500; }
   .tbtns { display: flex; gap: 4px; align-items: center; }
-  .track-body{flex:1;min-width:0;display:flex;flex-direction:column}.level{height:20px;display:flex;align-items:center;gap:6px;padding:0 5px}.mix-link{font-size:10px;color:var(--sa3);min-width:36px;height:20px}.lane { flex: 1; position: relative; overflow: hidden; background: repeating-linear-gradient(90deg, transparent 0 calc(var(--bar) - 1px), #1c1f26 calc(var(--bar) - 1px) var(--bar)); }
+  .track-body{flex:1;min-width:0;display:flex;flex-direction:column}.level{height:20px;display:flex;align-items:center;justify-content:flex-end;padding:0 5px}.mix-link{font-size:10px;color:var(--sa3);min-width:36px;height:20px}.lane { flex: 1; position: relative; overflow: hidden; background: repeating-linear-gradient(90deg, transparent 0 calc(var(--bar) - 1px), #1c1f26 calc(var(--bar) - 1px) var(--bar)); }
   .clip, .lbl, .wv { display: block; }
   .clip { position: absolute; top: 5px; bottom: 5px; left: 1px; right: 1px; border-radius: 6px; background: color-mix(in srgb, var(--c) 22%, #0d0e11); border: 1px solid var(--c); overflow: hidden; }
   .clip.muted { opacity: 0.45; }

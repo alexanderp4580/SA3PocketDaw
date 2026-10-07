@@ -21,11 +21,13 @@ export interface GeneratedResult {
 
 export interface PreparationOptions {analyseInstrument?:typeof analyseInstrument;signal?:AbortSignal;onAnalysis?:(f:number)=>void;dynamics?:'sustain'|'decay'}
 export interface GeneratedDraft {instrumentControls?:InstrumentControls;mode:'sample'|'instrument';pcm:Float32Array;sampleRate:number;rootMidi:number;lowConfidence:boolean;record:import('../store/projectStore').StoredSample}
+/** The model finished, but its audio could not be turned into an instrument; the audio is still usable as a sample. */
+export class InstrumentAnalysisError extends Error{readonly code='instrument-rejected' as const;constructor(message:string){super(message);this.name='InstrumentAnalysisError';}}
 /** Prepare an auditionable draft; no project or sample store changes happen here. */
 export async function prepareGeneration(params:GenerateParams,userPrompt:string,output:GenerationOutput,deps:PreparationOptions={}):Promise<GeneratedDraft>{
   const mode=params.mode??'sample';
   let instrument:InstrumentProfile|undefined;
-  if(mode==='instrument')instrument=await (deps.analyseInstrument??analyseInstrument)(resample(mixToMono(output.channels),output.sampleRate,44100),44100,deps.dynamics??(/piano|guitar|pluck|bell|mallet/i.test(userPrompt)?'decay':'sustain'),deps.signal,deps.onAnalysis);
+  if(mode==='instrument'){try{instrument=await (deps.analyseInstrument??analyseInstrument)(resample(mixToMono(output.channels),output.sampleRate,44100),44100,deps.dynamics??(/piano|guitar|pluck|bell|mallet/i.test(userPrompt)?'decay':'sustain'),deps.signal,deps.onAnalysis);}catch(e){if((e as {code?:string}).code==='cancelled')throw e;throw new InstrumentAnalysisError(e instanceof Error?e.message:String(e));}}
   if(deps.signal?.aborted)throw Object.assign(new Error('Cancelled'),{code:'cancelled'});
   const prep = instrument?{pcm:instrument.pcm,sampleRate:instrument.sampleRate}:prepareSample(output.channels, output.sampleRate);
   if (prep.pcm.length === 0) throw new Error('The model produced silence. Try another prompt or seed.');

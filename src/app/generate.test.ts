@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { describe, expect, it } from 'vitest';
-import { applyGeneration, shiftRoot,prepareGeneration,useGeneration,tweakDraft } from './generate';
+import { applyGeneration, shiftRoot,prepareGeneration,useGeneration,tweakDraft,InstrumentAnalysisError } from './generate';
 import { createProjectStore } from '../store/projectStore';
 import { addTrack, createProject } from '../store/projectModel';
 import { createEngine } from '../audio/engine';
@@ -112,4 +112,27 @@ it('keeps draft tweaks separate until Use and persists the accepted instrument c
  expect(draft.instrumentControls).toBeUndefined();expect(deps.store.get()!.tracks[0]!.sampleId).toBe('old');expect(deps.store.get()!.tracks[0]!.instrumentControls?.brightness).toBe(.8);
  await useGeneration(deps,'t1',edited,()=> 'edited');await deps.store.flush();await deps.store.load();expect(deps.store.get()!.tracks[0]!.instrumentControls).toEqual({brightness:.35,attack:.2,release:.6,behavior:'sustain'});
  const next=await prepareGeneration({...params,mode:'instrument'},'piano',out,{analyseInstrument:async(pcm,sr,dynamics)=>analyse(pcm,sr,dynamics)});expect(next.instrumentControls).toBeUndefined();
+});
+
+describe('instrument rejection after a successful generation', () => {
+  function noise(sec: number, rate = 44100): Float32Array {
+    let s = 12345;
+    return Float32Array.from({ length: Math.floor(sec * rate) }, () => { s = (s * 1664525 + 1013904223) >>> 0; return 0.5 * (s / 0x80000000 - 1); });
+  }
+  it('reports the analysis failure as a typed error while the same audio still works as a sample', async () => {
+    const deps = await setup();
+    const out = { channels: [noise(1)], sampleRate: 44100, stats: { peak: .5, rms: .3, nonFinite: 0, dims: [] }, timings: [] };
+    const err = await prepareGeneration({ ...params, mode: 'instrument' }, 'pad', out, { analyseInstrument: async (pcm, sr, dyn) => analyse(pcm, sr, dyn) }).catch((e) => e);
+    expect(err).toBeInstanceOf(InstrumentAnalysisError);
+    expect((err as InstrumentAnalysisError).code).toBe('instrument-rejected');
+    const draft = await prepareGeneration({ ...params, mode: 'sample' }, 'pad', out);
+    const used = await useGeneration(deps, 't1', draft, () => 's1');
+    expect(used.mode).toBe('sample');
+    expect(deps.store.get()!.tracks[0]!.sampleId).toBe('s1');
+  });
+  it('keeps the cancelled code when the analysis is cancelled', async () => {
+    const out = { channels: [tone(220, 1)], sampleRate: 44100, stats: { peak: .5, rms: .3, nonFinite: 0, dims: [] }, timings: [] };
+    const err = await prepareGeneration({ ...params, mode: 'instrument' }, 'pad', out, { analyseInstrument: async () => { throw Object.assign(new Error('Cancelled'), { code: 'cancelled' }); } }).catch((e) => e);
+    expect((err as { code?: string }).code).toBe('cancelled');
+  });
 });

@@ -3,15 +3,16 @@
   import { ui, notify, setPeaks } from '../appState.svelte';
   import { engine, generation, models, projectStore } from '../services';
   import { MODEL_LABELS, buildPrompt, randomSeed } from '../../gen/prompt';
+  import { editField, resetField, startField, syncField } from '../../gen/promptField';
   import { MODEL_IDS, type GenerateParams, type ModelId } from '../../gen/protocol';
   import { MAX_STEPS } from '../../gen/protocol';
-  import { INSTRUMENTS,CHARACTERS,ATTACKS,BEHAVIORS,instrumentDefaults,instrumentDescription,instrumentPrompt,type InstrumentId } from '../../gen/instrumentSelections';
+  import { INSTRUMENTS,CHARACTERS,ATTACKS,BEHAVIORS,instrumentDefaults,instrumentPrompt,type InstrumentId } from '../../gen/instrumentSelections';
   import { generationPresets,generationHint,lengthHint,loadModeSettings,saveModeSettings,type GenerationMode } from '../../gen/mode';
   import type { GenerationOutput } from '../../gen/client';
   import { MAX_SECONDS, MIN_SECONDS, clampSeconds, parseSeconds, stepSeconds } from '../../gen/length';
   import { midiToName } from '../../audio/pitch';
   import { formatBytes, formatElapsed, modelCards, modelHint, peaksOf, type ModelCard } from '../format';
-  import { prepareGeneration, useGeneration, tweakDraft, type GeneratedDraft } from '../generate';
+  import { prepareGeneration, useGeneration, tweakDraft, InstrumentAnalysisError, type GeneratedDraft } from '../generate';
   import { copyReport } from '../report';
   import Sheet from '../Sheet.svelte';
   import InstrumentControlsPanel from '../InstrumentControlsPanel.svelte';
@@ -26,7 +27,9 @@
   let model = $state<ModelId>('small-music');
   let mode=$state<GenerationMode>('sample');
   let instrument=$state(instrumentDefaults('synth'));
-  const finalInstrumentPrompt=$derived(instrumentPrompt(instrument,model));
+  const suggestedInstrumentPrompt=$derived(instrumentPrompt(instrument,model));
+  let instrumentField=$state(startField(instrumentPrompt(instrumentDefaults('synth'),'small-music')));
+  $effect(()=>{const next=syncField(instrumentField,suggestedInstrumentPrompt);if(next!==instrumentField)instrumentField=next;});
   const store = typeof localStorage === 'undefined' ? null : localStorage;
   let seconds = $state(loadModeSettings(store,'sample').seconds);
   let secondsText = $state(String(loadModeSettings(store,'sample').seconds));
@@ -51,7 +54,8 @@
   const track = $derived(ui.project?.tracks.find((t) => t.id === trackId) ?? null);
   const selected = $derived(cards.find((c) => c.id === model)!);
   const usable = $derived(selected.available && selected.status === 'installed');
-  const canGenerate = $derived(usable && (mode==='instrument'||prompt.trim().length>0));
+  const canGenerate = $derived(usable && (mode==='instrument'?instrumentField.text.trim().length>0:prompt.trim().length>0));
+  const samplePromptSent = $derived(prompt.trim()?buildPrompt(prompt,model,'sample'):'');
   const draftControls=$derived(resolveControls(result?.instrumentControls,result?.record.instrument?.dynamics??'sustain'));
   const peaks = $derived(result ? peaksOf(result.pcm, 96) : undefined);
 
@@ -88,9 +92,9 @@
     if (!canGenerate || (trackId!==null&&!track)) return;
     commitSecondsText();
     saveModeSettings(store,mode,{seconds,steps});
-    const raw=mode==='instrument'?instrumentDescription(instrument):prompt.trim();
+    const raw=mode==='instrument'?instrumentField.text.trim():prompt.trim();
     const dynamics=instrument.behavior;
-    const params: GenerateParams = { mode,model, prompt: mode==='instrument'?finalInstrumentPrompt:buildPrompt(raw,model,mode), seconds, steps, seed };
+    const params: GenerateParams = { mode,model, prompt: mode==='instrument'?raw:buildPrompt(raw,model,mode), seconds, steps, seed };
     rejectedOutput=null;rejectedParams=null;
     engine.stopPreview();result=null;
     phase = 'running';
@@ -112,7 +116,7 @@
           message = p.message;
         },
       });
-      try{result = await prepareGeneration(params,raw,out,{signal:controller.signal,dynamics,onAnalysis:f=>{stage='Creating instrument';fraction=f;message='Measuring the note and extracting its evolving tone.';} });}catch(e){if(mode==='instrument'&&!controller.signal.aborted){rejectedOutput=out;rejectedParams=params;rejectedPrompt=raw;}throw e;}
+      try{result = await prepareGeneration(params,raw,out,{signal:controller.signal,dynamics,onAnalysis:f=>{stage='Creating instrument';fraction=f;message='Measuring the note and extracting its evolving tone.';} });}catch(e){if(e instanceof InstrumentAnalysisError){rejectedOutput=out;rejectedParams=params;rejectedPrompt=raw;}throw e;}
       phase = 'done';
     } catch (e) {
       const err = e as { code?: string; message?: string };
@@ -149,10 +153,16 @@
   {#if phase === 'form' || phase === 'error'}
     {#if phase === 'error'}
       <div class="card bad" role="alert">
-        <div class="row"><b class="bad">Generation failed</b></div>
-        <div class="note">{errorText}</div>
-        <div class="btnrow"><button class="btn" onclick={copy}>Copy report</button></div>
-        {#if rejectedOutput}<div class="note">Your previous sound is still on the track.</div><div class="btnrow"><button class="btn" onclick={useAsSample}>Preview as sample</button></div>{/if}
+        {#if rejectedOutput}
+          <div class="row"><b class="bad">Not usable as an instrument</b></div>
+          <div class="note">The model produced audio, but it could not be turned into an instrument: {errorText}</div>
+          <div class="note">The audio can still be used as a sample. The track keeps its current sound until you choose Use.</div>
+          <div class="btnrow"><button class="btn" onclick={useAsSample}>Preview as sample</button><button class="btn" onclick={copy}>Copy report</button></div>
+        {:else}
+          <div class="row"><b class="bad">Generation failed</b></div>
+          <div class="note">{errorText}</div>
+          <div class="btnrow"><button class="btn" onclick={copy}>Copy report</button></div>
+        {/if}
       </div>
     {/if}
     <div class="st">Sound type</div>
@@ -160,12 +170,13 @@
     <div class="note">{mode==='sample'?'One-shot sounds such as kicks, snares and effects.':'A tuned, playable instrument made from one SA3 note.'}</div>
     {#if mode==='sample'}
       <div class="st">Prompt</div>
-      <input class="field" aria-label="Prompt" placeholder="e.g. deep punchy kick drum" bind:value={prompt} />
+      <textarea class="field promptbox" aria-label="Prompt" rows="2" placeholder="e.g. deep punchy kick drum" bind:value={prompt}></textarea>
       <div class="chips" style="margin-top:6px">
         {#each generationPresets('sample') as q (q.id)}
           <button class="chip" class:on={prompt===q.prompt} onclick={()=>{prompt=q.prompt;setSeconds(q.seconds);}}>{q.label}</button>
         {/each}
       </div>
+      {#if samplePromptSent}<div class="note sent">Sent to the model: {samplePromptSent}</div>{/if}
       <div class="note" style="margin-top:6px">{generationHint('sample')}</div>
     {:else}
       <div class="note" style="margin-top:8px">Choose the source sound SA3 will create. After generation, tweak playback and preview it before choosing Use.</div>
@@ -181,6 +192,9 @@
       <fieldset class="choices"><legend>Source note behavior</legend><div class="options">
         {#each BEHAVIORS as q (q.id)}<label class:on={instrument.behavior===q.id}><input type="radio" name="source-behavior" value={q.id} bind:group={instrument.behavior} />{q.label}</label>{/each}
       </div></fieldset>
+      <div class="st">Prompt</div>
+      <textarea class="field promptbox" aria-label="Prompt" rows="5" value={instrumentField.text} oninput={(e)=>{instrumentField=editField(instrumentField,e.currentTarget.value,suggestedInstrumentPrompt);}}></textarea>
+      <div class="row" style="margin-top:6px"><span class="note grow">{instrumentField.edited?'Edited. The choices above no longer change this text.':'Follows the choices above. Edit it freely.'}</span><button class="btn fit" disabled={!instrumentField.edited} onclick={()=>{instrumentField=resetField(suggestedInstrumentPrompt);}}>Reset to suggested</button></div>
       <div class="note">Natural decay suits piano, guitar and bells. Hold tone suits synths and pads. The selected behavior also sets the instrument's initial playback behavior.</div>
     {/if}
 
@@ -229,7 +243,6 @@
       <button class="btn fit" onclick={() => (seed = randomSeed())}>Randomize</button>
     </div>
 
-    {#if mode==='instrument'}<details class="prompt-preview"><summary>Generated prompt</summary><p class="note">{finalInstrumentPrompt}</p></details>{/if}
     <div class="btnrow"><button class="btn sa3" disabled={!canGenerate} onclick={run}>✦ Generate</button></div>
   {:else if phase === 'running'}
     <div class="card">
@@ -273,9 +286,8 @@
   .options label.on {background:var(--sa3bg);color:var(--sa3);border-color:var(--sa3);}
   .options input {accent-color:var(--sa3);margin:0;}
   .options label:focus-within {outline:2px solid var(--sa3);outline-offset:2px;}
-  .prompt-preview {margin-top:14px;}
-  .prompt-preview summary {cursor:pointer;min-height:44px;display:list-item;align-content:center;}
-  .prompt-preview p {overflow-wrap:anywhere;}
+  .promptbox {height:auto;display:block;padding:10px 14px;color:inherit;width:100%;box-sizing:border-box;resize:vertical;font:inherit;line-height:1.35;}
+  .sent {overflow-wrap:anywhere;}
   .stepper { display: flex; align-items: center; gap: 10px; }
   .stepper b { flex: 1; text-align: center; font-size: 20px; }
   .stepper .btn { width: 56px; }

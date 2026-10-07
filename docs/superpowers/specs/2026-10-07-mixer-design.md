@@ -1,4 +1,4 @@
-# Per-track mixer and home meters — approved design
+# Per-track mixer and meters — approved design
 
 Status: approved by the user on 2026-10-07. Implementation in progress.
 
@@ -12,7 +12,7 @@ Give every sample and instrument track its own volume, pan, full parametric EQ a
 - EQ: use AstraCamillaGui's visual parametric EQ as the reference: colored draggable filter nodes, individual and combined response curves, clear bandwidth boundaries, focused selected-band controls, live pre/post spectrum and optional heatmap. Start with a small useful set of filters; allow adding, removing and disabling filters rather than a fixed eight-band layout. Every filter is freely positioned across the audible range and has adjustable shape, frequency (20 Hz–20 kHz, bounded to the actual sample rate), gain (±24 dB) and Q/bandwidth (Q 0.1–30) where applicable. Include bell, low/high shelf, low/high pass, band-pass, notch and advanced all-pass; adjustable pass-filter slopes (6/12/18/24/36/48 dB per octave). Provide touch-sized graph controls plus visible type, frequency, gain, width and slope controls and numeric entry, so every action is possible without desktop gestures. Add band-range listening, EQ bypass and reset. Initial settings are flat/bypassed.
 - EQ in context: show the selected track clearly, with an optional differently colored spectrum overlay from other tracks to reveal frequency overlap. Keep track Solo separate from transient range listening. This supports carving distinct frequency space for kick, bass, piano, guitar and other sounds while playing the shared repeat range.
 - Reverb: authentic Dragonfly Hall, Room and Plate choices, Hall initially selected. Presets and wet/dry amount, with editable algorithm-specific parameters including decay, pre-delay, width, filtering and diffusion/modulation where supported. Common controls first, advanced controls in a separate expandable area. Bypass and reset preserve source and notes. Default wet amount is zero, so old projects initially sound the same.
-- Home: slim stereo meters on each track and a compact stereo master meter near the project readouts. The piano-note preview remains the main tappable area; a separate visible Mix shortcut opens that track's channel controls.
+- Home: a compact stereo master meter near the project readouts; track meters are on the Mix screen only. The piano-note preview remains the main tappable area; a separate visible Mix shortcut opens that track's channel controls.
 - Meters use actual audio samples: smoothed RMS/VU-style average plus peak markers, dBFS scale/readout and clipping indication. They are not driven by note events or animation guesses. UI refresh approximately 20–30 times/second while visible; no project persistence writes for meters.
 
 ## EQ reference and precision
@@ -59,7 +59,7 @@ Add optional normalized mixer settings to each Track, and optional master volume
 - Unit coverage for normalized settings, independent track routing, EQ behavior (frequency, gain, Q, shelving shape, cut slopes, band-pass/notch), pan/volume, mute/solo gating and persistence.
 - Offline/browser renders for EQ frequency/gain/Q, stereo pan, authentic Dragonfly impulse/decay and parameter changes, real RMS/peak/clip meters, and clean Stop/range changes.
 - EQ checks: displayed response matches rendered audio at 44.1/48 kHz; added/deleted nodes persist; narrow and wide bandwidth edits, steep cuts, range-listen restoration and track comparison work without altering other tracks.
-- Mobile checks at 320×640 and 375×812 for mixer, EQ/reverb sheets, home meters, accessible controls, transport and draft/editor regressions.
+- Mobile checks at 320×640 and 375×812 for mixer, EQ/reverb sheets, the Home master meter, accessible controls, transport and draft/editor regressions.
 - Full tests, typecheck, build, independent review and hosted HTTPS verification before delivery.
 
 ## Sources
