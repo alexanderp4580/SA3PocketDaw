@@ -1,3 +1,4 @@
+import {normalizeArrangement} from '../song/arrangement';
 import { log as defaultLog, type Logger } from '../log';
 import type { Project } from './projectModel';
 import {normalizeMix} from '../audio/mixer/plugins';
@@ -51,7 +52,7 @@ function done(tx: IDBTransaction): Promise<void> {
 }
 
 /** Normalize persisted mix settings while preserving tracks that have no mix yet. */
-function normalizeProjectMixes(p:Project):Project {return {...p,tracks:p.tracks.map(t=>t.mix===undefined?t:{...t,mix:normalizeMix(t.mix)})};}
+function normalizeProjectMixes(p:Project):Project {return normalizeArrangement({...p,tracks:p.tracks.map(t=>t.mix===undefined?t:{...t,mix:normalizeMix(t.mix)})});}
 
 const sampleIds = (p: Project | null): Set<string> =>
   new Set((p?.tracks ?? []).map((t) => t.sampleId).filter((s): s is string => !!s));

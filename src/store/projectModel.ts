@@ -1,3 +1,4 @@
+import type {Arrangement} from '../song/arrangement';
 import type {SampleControls} from '../audio/sampleControls';
 import {MAX_PLUGINS,normalizeMix,normalizePlugin,pluginTypes,uniqueId,type PluginSettings,type PluginType,type TrackMix} from '../audio/mixer/plugins';
 import type { InstrumentControls } from '../audio/instrument/controls';
@@ -55,6 +56,7 @@ export interface Track {
 }
 
 export interface Project {
+  arrangement?:Arrangement;
   masterDb?:number;
   loop?:LoopRange;
   id: string;
@@ -140,7 +142,7 @@ export function addTrack(p: Project, name?: string, id?: string): Project {
   return { ...p, tracks: [...p.tracks, track] };
 }
 export function removeTrack(p: Project, trackId: string): Project {
-  return { ...p, tracks: p.tracks.filter((t) => t.id !== trackId) };
+  return { ...p, tracks: p.tracks.filter((t) => t.id !== trackId),...(p.arrangement?{arrangement:{...p.arrangement,blocks:p.arrangement.blocks.filter(b=>b.trackId!==trackId)}}:{}) };
 }
 export function renameTrack(p: Project, trackId: string, name: string): Project {
   return mapTrack(p, trackId, (t) => ({ ...t, name }));

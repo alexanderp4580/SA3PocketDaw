@@ -190,3 +190,6 @@ describe('persisted mixer migration',()=>{
   const {idb,mk}=setup(),store=mk();store.save(legacyProject());await store.flush();const db=await open(idb);checkMix((await read(db)).tracks[0]!.mix);await store.close();db.close();
  });
 });
+it('keeps arrangement, notes and source audio through IndexedDB reload',async()=>{
+ const {mk}=setup(),store=mk();let p=addTrack(createProject(),'Lead','t');p=setTrackSample(p,'t','source');p.arrangement={bars:24,blocks:[{id:'b',trackId:'t',startBar:5}]};await store.putSample('source',sample());store.set(p);await store.flush();const reloaded=mk();expect((await reloaded.load())?.arrangement).toEqual(p.arrangement);expect(await reloaded.getSample('source')).not.toBeNull();
+});

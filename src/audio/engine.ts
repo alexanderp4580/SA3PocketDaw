@@ -1,3 +1,5 @@
+import {compileSong} from '../song/events';
+import {createSongPlayback} from '../song/playback';
 import {samplePreviewDuration,type SampleControls} from './sampleControls';
 import {createMixer,type MixerController} from './mixer/controller';
 import {emptyMeter} from './mixer/meter';
@@ -45,6 +47,8 @@ export function createEngine(options: EngineOptions = {}) {
   const instruments=new Map<string,InstrumentProfile>();
   const players=new Map<string,Promise<InstrumentPlayer>>();
   const voices:Array<{endTime:number;stop:(at?:number,fade?:number)=>void;trackId?:string}>=[];
+  let playbackMode:'pattern'|'song'='pattern';
+  let songKey='';
   let epoch=0;
   let previewEpoch=0;
   let previewPlayer:Promise<InstrumentPlayer>|null=null;
@@ -97,6 +101,14 @@ export function createEngine(options: EngineOptions = {}) {
     onNote,
   });
 
+  const songPlayback=createSongPlayback({
+    now:()=>ctx?.currentTime??0,
+    setTimer:options.setTimer??((fn,ms)=>globalThis.setTimeout(fn,ms)),
+    clearTimer:options.clearTimer??(h=>globalThis.clearTimeout(h as ReturnType<typeof setTimeout>)),
+    onNote,
+  });
+  const transport=()=>playbackMode==='song'?songPlayback:scheduler;
+
   async function unlock(): Promise<void> {
     if (!ctx) {
       ctx = makeContext();
@@ -114,7 +126,13 @@ export function createEngine(options: EngineOptions = {}) {
 
   return {
     unlock,
+    setPlaybackMode(mode:'pattern'|'song'){if(mode===playbackMode)return;silence();stopPreview();scheduler.stop();songPlayback.stop();playbackMode=mode;},
+    setSongRepeat(value:boolean){songPlayback.setRepeat(value);},
+    get playbackMode(){return playbackMode;},
     setProject(p: Project) {
+      const key=JSON.stringify([p.bpm,p.arrangement,p.tracks.map(t=>[t.id,t.bars,t.notes,t.sampleId,t.muted,t.solo])]);
+      if(key!==songKey){if(playbackMode==='song'){silence();stopPreview();}songPlayback.setSong(compileSong(p),p.bpm);songKey=key;}
+
       if(project){const old=loopRange(project),next=loopRange(p);if(old.startBar!==next.startBar||old.endBar!==next.endBar)silence();else {
        for(const v of voices)if(v.trackId&&!p.tracks.some(t=>t.id===v.trackId&&audible(p,t)))v.stop();
        for(const [id,player] of players)if(!p.tracks.some(t=>t.id===id&&audible(p,t)))void player.then(v=>v.stop()).catch(()=>{});
@@ -143,12 +161,12 @@ export function createEngine(options: EngineOptions = {}) {
     async play() {
       await unlock();
       const token=epoch;await Promise.all((project?.tracks??[]).filter(t=>t.sampleId&&instruments.has(t.sampleId)).map(async t=>{const p=await playerFor(t.id);await Promise.all([...new Set(t.notes.map(n=>n.midi))].map(m=>p.prepare(m)));}));if(token!==epoch)return;
-      scheduler.play();
+      transport().play();
     },
-    pause(){silence();stopPreview();scheduler.pause();},
+    pause(){silence();stopPreview();transport().pause();},
     stop() {
       silence();stopPreview();
-      scheduler.stop();
+      scheduler.stop();songPlayback.stop();
     },
     async audition(trackId: string, midi: number, velocity?: number,duration=.6) {
       await unlock();
@@ -168,10 +186,10 @@ export function createEngine(options: EngineOptions = {}) {
     retryMixer:(id:string)=>mixer?.retry(id),
     sampleRate:()=>mixer?.sampleRate??44100,
     get isPlaying() {
-      return scheduler.isPlaying;
+      return transport().isPlaying;
     },
     playhead(): number {
-      return scheduler.position();
+      return transport().position();
     },
   };
 }
