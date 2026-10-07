@@ -2,7 +2,11 @@ FROM node:22-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
-COPY . .
+COPY index.html vite.config.ts svelte.config.js tsconfig.json ./
+COPY src ./src
+COPY public ./public
+COPY scripts ./scripts
+COPY vendor ./vendor
 RUN npm run build
 
 FROM nginx:1.28-alpine
