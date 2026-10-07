@@ -1,6 +1,6 @@
 import { runCompat, type CompatResult } from '../compat';
 import { createProject, type Project } from '../store/projectModel';
-import { peaksOf } from './format';
+import { modelCards, peaksOf } from './format';
 import { engine, log, models, projectStore } from './services';
 
 const scope = log.scope('app');
@@ -19,6 +19,8 @@ export const ui = $state({
   compatRunning: true,
   skipCompat: false,
   manifestError: null as string | null,
+  modelCards: modelCards(null, {}),
+  modelsReady: false,
 });
 
 let raf = 0;
@@ -80,14 +82,23 @@ export async function initApp() {
   const saved = await projectStore.load();
   if (!saved) projectStore.set(defaultProject());
   ui.ready = true;
-  try {
-    await models.loadManifest();
-  } catch (e) {
-    ui.manifestError = e instanceof Error ? e.message : String(e);
-    scope.warn('manifest unavailable', ui.manifestError);
-  }
+  await refreshModelCards();
   window.addEventListener('pagehide', () => void projectStore.flush());
 }
+
+/** Tracks complete local model packs, including their shared encoder. */
+export async function refreshModelCards() {
+  try {
+    if (!models.getManifest()) await models.loadManifest();
+    ui.modelCards = modelCards(models.getManifest(), await models.packStates());
+    ui.manifestError = null;
+  } catch (e) {
+    ui.modelCards = modelCards(models.getManifest(), {});
+    ui.manifestError = e instanceof Error ? e.message : String(e);
+    scope.warn('model availability unavailable', ui.manifestError);
+  } finally { ui.modelsReady = true; }
+}
+models.onChange(() => void refreshModelCards());
 
 export async function runCompatCheck() {
   ui.compatRunning = true;

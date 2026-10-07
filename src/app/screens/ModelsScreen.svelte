@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  import { clearEverything, notify } from '../appState.svelte';
+  import { ui, clearEverything, notify } from '../appState.svelte';
   import { generation, models } from '../services';
   import { MODEL_NOTES, formatBytes, modelCards, type ModelCard } from '../format';
   import type { DownloadProgress } from '../../store/modelManager';
@@ -19,6 +19,8 @@
     try {
       if (!models.getManifest()) await models.loadManifest();
       cards = modelCards(models.getManifest(), await models.packStates());
+      ui.modelCards = cards;
+      ui.modelsReady = true;
       loadError = '';
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e);

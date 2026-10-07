@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
-  import { ui, notify, setPeaks } from '../appState.svelte';
-  import { engine, generation, models, projectStore } from '../services';
+  import { onDestroy, onMount, untrack } from 'svelte';
+  import { ui, notify, setPeaks, refreshModelCards } from '../appState.svelte';
+  import { engine, generation, projectStore } from '../services';
   import { MODEL_LABELS, buildPrompt, randomSeed } from '../../gen/prompt';
   import { editField, resetField, startField, syncField } from '../../gen/promptField';
   import { MODEL_IDS, type GenerateParams, type ModelId } from '../../gen/protocol';
@@ -11,7 +11,7 @@
   import type { GenerationOutput } from '../../gen/client';
   import { MAX_SECONDS, MIN_SECONDS, clampSeconds, parseSeconds, stepSeconds } from '../../gen/length';
   import { midiToName } from '../../audio/pitch';
-  import { formatBytes, formatElapsed, modelCards, modelHint, peaksOf, type ModelCard } from '../format';
+  import { formatBytes, formatElapsed, modelHint, peaksOf } from '../format';
   import { prepareGeneration, useGeneration, tweakDraft, InstrumentAnalysisError, type GeneratedDraft } from '../generate';
   import { copyReport } from '../report';
   import Sheet from '../Sheet.svelte';
@@ -19,10 +19,11 @@
   import {resolveControls,type InstrumentControls} from '../../audio/instrument/controls';
   import Waveform from '../Waveform.svelte';
 
-  let { trackId, onclose, onuse }: { trackId: string|null; onclose: () => void;onuse?:(id:string)=>void } = $props();
+  let { trackId, onclose, onuse, onmodels }: { trackId: string|null; onclose: () => void;onuse?:(id:string)=>void;onmodels:()=>void } = $props();
 
   type Phase = 'form' | 'running' | 'done' | 'error';
   let phase = $state<Phase>('form');
+  let sourceReady=$state(untrack(()=>trackId===null));
   let prompt = $state('');
   let model = $state<ModelId>('small-music');
   let mode=$state<GenerationMode>('sample');
@@ -39,7 +40,8 @@
   let rejectedParams:GenerateParams|null=null;
   let rejectedPrompt='';
   let seed = $state(randomSeed());
-  let cards = $state<ModelCard[]>(modelCards(null, {}));
+  const cards = $derived(ui.modelCards);
+  const anyInstalled = $derived(cards.some(c=>c.available&&c.status==='installed'));
   let stage = $state('');
   let fraction = $state(0);
   let message = $state('');
@@ -54,24 +56,31 @@
   const track = $derived(ui.project?.tracks.find((t) => t.id === trackId) ?? null);
   const selected = $derived(cards.find((c) => c.id === model)!);
   const usable = $derived(selected.available && selected.status === 'installed');
-  const canGenerate = $derived(usable && (mode==='instrument'?instrumentField.text.trim().length>0:prompt.trim().length>0));
+  const canGenerate = $derived(sourceReady && usable && (mode==='instrument'?instrumentField.text.trim().length>0:prompt.trim().length>0));
   const samplePromptSent = $derived(prompt.trim()?buildPrompt(prompt,model,'sample'):'');
   const draftControls=$derived(resolveControls(result?.instrumentControls,result?.record.instrument?.dynamics??'sustain'));
   const peaks = $derived(result ? peaksOf(result.pcm, 96) : undefined);
 
-  async function refreshCards() {
-    try {
-      cards = modelCards(models.getManifest(), await models.packStates());
-      const first = cards.find((c) => c.available && c.status === 'installed');
-      if (first && !cards.find((c) => c.id === model && c.status === 'installed')) model = first.id;
-    } catch {
-      cards = modelCards(models.getManifest(), {});
-    }
+  $effect(()=>{
+    const first=cards.find(c=>c.available&&c.status==='installed');
+    if(first&&!usable){model=first.id;setSeconds(seconds);}
+  });
+  async function restoreSource(){
+    if(!track?.sampleId)return;
+    const source=await projectStore.getSample(track.sampleId);
+    if(!source)return;
+    mode=source.instrument?'instrument':'sample';
+    if(source.instrument)instrument={...instrument,behavior:source.instrument.dynamics};
+    if(source.meta.model&&cards.some(c=>c.id===source.meta.model&&c.available&&c.status==='installed'))model=source.meta.model as ModelId;
+    if(source.meta.seconds!==undefined)setSeconds(source.meta.seconds);
+    if(source.meta.steps!==undefined)steps=Math.max(4,Math.min(16,source.meta.steps));
+    if(source.meta.prompt){if(mode==='instrument')instrumentField=editField(instrumentField,source.meta.prompt,suggestedInstrumentPrompt);else prompt=source.meta.prompt;}
   }
-  onMount(() => void refreshCards());
+  onMount(()=>{void refreshModelCards();void restoreSource().catch(e=>notify(String(e))).finally(()=>sourceReady=true);});
   onDestroy(() => {clearInterval(timer);engine.stopPreview();});
 
   function pickModel(id: ModelId) {
+    if(!cards.some(c=>c.id===id&&c.available&&c.status==='installed'))return;
     model = id;
     setSeconds(seconds);
   }
@@ -151,6 +160,9 @@
 
 <Sheet title="✦ Generate" sub={track ? `For ${track.name}` : 'New track · created when you choose Use'} tall onclose={onclose} closable={phase !== 'running'&&!saving}>
   {#if phase === 'form' || phase === 'error'}
+    {#if !ui.modelsReady||!sourceReady}<p class="note">{!ui.modelsReady?'Checking downloaded models…':'Loading sound…'}</p>
+    {:else if !anyInstalled}<div class="btnrow"><button class="btn sa3" aria-label="Open models" onclick={onmodels}>Download models</button></div>
+    {:else}
     {#if phase === 'error'}
       <div class="card bad" role="alert">
         {#if rejectedOutput}
@@ -201,7 +213,7 @@
     <div class="st">Model</div>
     <div class="seg">
       {#each MODEL_IDS as id (id)}
-        <button class="sg" class:sa3on={model === id} aria-pressed={model === id} onclick={() => pickModel(id)}>{MODEL_LABELS[id]}</button>
+        <button class="sg" class:sa3on={model === id} disabled={!cards.some(c=>c.id===id&&c.available&&c.status==='installed')} aria-pressed={model === id} onclick={() => pickModel(id)}>{MODEL_LABELS[id]}</button>
       {/each}
     </div>
     <div class="modelline">
@@ -244,6 +256,7 @@
     </div>
 
     <div class="btnrow"><button class="btn sa3" disabled={!canGenerate} onclick={run}>✦ Generate</button></div>
+    {/if}
   {:else if phase === 'running'}
     <div class="card">
       <div class="row"><b class="grow">{stage}</b><span class="note">{formatElapsed(elapsed)}</span></div>
@@ -271,7 +284,7 @@
       {#if result.record.instrument}<div class="st">Tweak instrument</div><div class="note">Press Preview to hear your settings. Use sound keeps them on the track.</div><InstrumentControlsPanel controls={draftControls} onchange={tweak} behaviorName="draft-behavior" disabled={saving} /><div class="btnrow"><button class="btn" disabled={saving} onclick={resetTweaks}>Reset controls</button></div>{/if}
       {#if result.mode==='instrument'}<div class="btnrow"><button class="btn" onclick={()=>result&&void engine.previewSource(result.pcm,result.sampleRate)}>Play source note</button></div>{/if}
       <p class="note">Preview this sound. Choose Use to replace the sound on this track.</p>
-      <div class="btnrow"><button class="btn" disabled={saving} onclick={regenerate}>Regenerate</button><button class="btn" disabled={saving} onclick={onclose}>Discard</button></div>
+      <div class="btnrow"><button class="btn" disabled={saving||!usable} onclick={regenerate}>Regenerate</button><button class="btn" disabled={saving} onclick={onclose}>Discard</button></div>
     </div>
     <div class="draft-accept"><button class="btn" disabled={saving} onclick={preview}>▶ Preview {result.mode==='instrument'?'A3':''}</button><button class="btn pri" disabled={saving} onclick={use}>{saving?'Saving…':'Use sound'}</button></div>
   {/if}

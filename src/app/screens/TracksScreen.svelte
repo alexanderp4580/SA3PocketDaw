@@ -6,8 +6,9 @@
   import PatternPreview from '../PatternPreview.svelte';
   import Sheet from '../Sheet.svelte';
 
-  let { onroll, ongenerate, ontweak, onadd, onmix }: { onroll: (id: string) => void; ongenerate: (id: string) => void; ontweak:(id:string)=>void;onadd:()=>void;onmix:(id:string)=>void } = $props();
+  let { onroll, ongenerate, ontweak, onadd, onmix, onmodels }: { onroll: (id: string) => void; ongenerate: (id: string) => void; ontweak:(id:string)=>void;onadd:()=>void;onmix:(id:string)=>void;onmodels:()=>void } = $props();
 
+  const canGenerate=$derived(ui.modelCards.some(c=>c.available&&c.status==='installed'));
   const COLORS = ['#ff8a3d', '#4fb3ff', '#b685ff', '#3ddc84', '#ff6fa8', '#ffd23d', '#9aa3b5'];
   let selected = $state<string | null>(null);
   let menuId = $state<string | null>(null);
@@ -67,15 +68,14 @@
         </button></div>
       </div>
     {/each}
-    {#if !project?.tracks.length}<div class="empty"><b>Create your first sound</b><p class="note">Choose a sample or instrument, then add notes in its piano roll.</p></div>{/if}
-    <button class="addtrack" onclick={onadd}>＋ Add track</button>
+    {#if !project?.tracks.length&&canGenerate}<div class="empty"><b>Create your first sound</b><p class="note">Choose a sample or instrument, then add notes in its piano roll.</p></div>{/if}
+    {#if !ui.modelsReady}<p class="note" style="padding:12px">Checking downloaded models…</p>{:else if canGenerate}<button class="addtrack" aria-label="Generate new sound" onclick={onadd}>✦ Generate</button>{:else}<button class="addtrack" aria-label="Open models" onclick={onmodels}>Download models</button>{/if}
     {#if ui.playing}<div class="playhead" style="left:{playLeft}"></div>{/if}
   </div>
   {#if sel}
     <div class="selbar">
       <button class="sb" onclick={() => onroll(sel.id)}><b>♪</b>Open roll</button>
-      <button class="sb hi" onclick={() => ongenerate(sel.id)}><b>✦</b>Generate</button>
-      {#if sel.soundType==='instrument'}<button class="sb" onclick={()=>ontweak(sel.id)}><b>⚙</b>Tweak instrument</button>{/if}
+      {#if sel.sampleId}<button class="sb hi" aria-label="Edit {sel.name} sound" onclick={()=>ontweak(sel.id)}><b>⚙</b>Edit</button>{:else if canGenerate}<button class="sb hi" onclick={() => ongenerate(sel.id)}><b>✦</b>Generate</button>{/if}
       <button class="sb" onclick={() => openMenu(sel.id, sel.name)}><b>✎</b>Rename</button>
       <button class="sb" onclick={() => { openMenu(sel.id, sel.name); confirmDelete = true; }}><b>⌫</b>Delete</button>
     </div>

@@ -60,6 +60,7 @@
     route = r;
     if (r !== 'tracks') rollId = null;
   }
+  function openModels(){newTrackOpen=false;generateId=null;tweakId=null;navigate('models');}
   function openDebugFromGate() {
     entered = true;
     route = 'debug';
@@ -94,7 +95,7 @@
             {...rollExtras(rollTrack)}
           />
         {:else}
-          <TracksScreen onmix={id=>{mixId=id;route='mix';}} onadd={()=>newTrackOpen=true} onroll={(id) => (rollId = id)} ongenerate={(id) => (generateId = id)} ontweak={id=>tweakId=id} />
+          <TracksScreen onmodels={openModels} onmix={id=>{mixId=id;route='mix';}} onadd={()=>newTrackOpen=true} onroll={(id) => (rollId = id)} ongenerate={(id) => (generateId = id)} ontweak={id=>tweakId=id} />
         {/if}
       {:else if route === 'mix'}
         <MixScreen focusId={mixId}/>
@@ -108,10 +109,10 @@
     <Nav {route} onnavigate={navigate} />
   </div>
   {#if ui.loopOpen}<LoopSheet />{/if}
-  {#if tweakId}<InstrumentSheet trackId={tweakId} onclose={()=>tweakId=null} ongenerate={()=>{generateId=tweakId;tweakId=null;}} />{/if}
-  {#if newTrackOpen}<GenerateSheet trackId={null} onclose={()=>newTrackOpen=false} onuse={id=>rollId=id} />{/if}
+  {#if tweakId}<InstrumentSheet onmodels={openModels} trackId={tweakId} onclose={()=>tweakId=null} ongenerate={()=>{generateId=tweakId;tweakId=null;}} />{/if}
+  {#if newTrackOpen}<GenerateSheet onmodels={openModels} trackId={null} onclose={()=>newTrackOpen=false} onuse={id=>rollId=id} />{/if}
   {#if generateId}
-    <GenerateSheet trackId={generateId} onclose={() => (generateId = null)} />
+    <GenerateSheet onmodels={openModels} trackId={generateId} onclose={() => (generateId = null)} />
   {/if}
 {/if}
 {#if ui.toast}<div class="toast" role="status">{ui.toast}</div>{/if}
