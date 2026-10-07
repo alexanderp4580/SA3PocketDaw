@@ -1,3 +1,4 @@
+import { appBaseUrl, modelsBaseUrl } from './modelsBase';
 import { log as defaultLog, reporter, type Logger } from '../log';
 
 export const MODEL_CACHE_NAME = 'sa3-models-v1';
@@ -69,7 +70,7 @@ export interface ModelManagerOptions {
 export function createModelManager(options: ModelManagerOptions = {}) {
   const doFetch: typeof fetch = options.fetch ?? ((...a) => globalThis.fetch(...a));
   const caches = options.caches ?? (globalThis.caches as unknown as CachesLike);
-  const baseUrl = options.baseUrl ?? new URL('models/', globalThis.location?.href ?? 'http://localhost/').href;
+  const baseUrl = options.baseUrl ?? modelsBaseUrl(appBaseUrl());
   const storage: StorageLike | null =
     options.storage !== undefined ? options.storage : typeof navigator !== 'undefined' ? (navigator.storage as StorageLike | undefined) ?? null : null;
   const scope = (options.log ?? defaultLog).scope('models');
@@ -128,7 +129,7 @@ export function createModelManager(options: ModelManagerOptions = {}) {
   async function loadManifest(): Promise<Manifest> {
     const metaCache = await caches.open(MANIFEST_CACHE_NAME);
     try {
-      const res = await doFetch(manifestUrl, { cache: 'no-cache' });
+      const res = await doFetch(manifestUrl, { cache: 'no-cache', mode: 'cors', credentials: 'omit' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const text = await res.text();
       manifest = JSON.parse(text) as Manifest;
@@ -157,7 +158,7 @@ export function createModelManager(options: ModelManagerOptions = {}) {
   }
 
   async function downloadFile(cache: CacheLike, f: ManifestFile, signal: AbortSignal | undefined, onBytes: (n: number) => void) {
-    const res = await doFetch(urlFor(f.path), { signal });
+    const res = await doFetch(urlFor(f.path), { signal, mode: 'cors', credentials: 'omit' });
     if (!res.ok) throw new Error(`Download of ${f.path} failed: HTTP ${res.status}`);
     if (!res.body) throw new Error(`Download of ${f.path} failed: no response body`);
     const reader = res.body.getReader();

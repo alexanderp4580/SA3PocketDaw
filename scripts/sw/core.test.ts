@@ -45,6 +45,12 @@ describe('isHandled', () => {
     expect(isHandled(req('/x', { method: 'POST' }), ORIGIN)).toBe(false);
     expect(isHandled({ url: 'https://other.example/x.js', method: 'GET' }, ORIGIN)).toBe(false);
   });
+  it('passes cross-origin model requests through, including paths under /models/ and Hugging Face URLs', () => {
+    const hf = 'https://huggingface.co/u/sa3-browser-models/resolve/main/';
+    expect(isHandled({ url: hf + 'manifest.json', method: 'GET', mode: 'cors' }, ORIGIN)).toBe(false);
+    expect(isHandled({ url: hf + 'small/dit.onnx', method: 'GET', mode: 'cors' }, ORIGIN)).toBe(false);
+    expect(isHandled({ url: 'https://cdn.example/models/x.onnx', method: 'GET', mode: 'cors' }, ORIGIN)).toBe(false);
+  });
 });
 
 describe('withIsolationHeaders', () => {

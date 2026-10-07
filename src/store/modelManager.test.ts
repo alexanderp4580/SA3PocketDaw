@@ -241,3 +241,27 @@ describe('storage and files', () => {
     expect(await mm.storageInfo()).toEqual({ quota: undefined, usage: undefined, persisted: false });
   });
 });
+
+describe('configured cross-origin base', () => {
+  const HF = 'https://huggingface.co/u/models/resolve/main/';
+  it('fetches manifest and files from the base with cors and no credentials, cached under absolute URLs', async () => {
+    const seen: Array<{ url: string; init: any }> = [];
+    const f = vi.fn(async (input: any, init?: any) => {
+      const url = String(input);
+      seen.push({ url, init });
+      if (url === HF + 'manifest.json') return new Response(JSON.stringify(manifest), { status: 200 });
+      const spec = manifest.packs.flatMap((p) => p.files).find((x) => HF + x.path === url)!;
+      return new Response(new Uint8Array(spec.bytes), { status: 200, headers: { 'content-length': String(spec.bytes) } });
+    });
+    const cs = new FakeCaches();
+    const m = createModelManager({ fetch: f as any, caches: cs as any, baseUrl: HF, log: createLogger({ console: null }) });
+    await m.loadManifest();
+    await m.download('encoder');
+    expect(seen.map((x) => x.url)).toEqual([HF + 'manifest.json', HF + 'enc/a.onnx', HF + 'enc/b.data']);
+    for (const x of seen) {
+      expect(x.init.mode).toBe('cors');
+      expect(x.init.credentials).toBe('omit');
+    }
+    expect([...(await cs.open(MODEL_CACHE_NAME)).store.keys()]).toEqual([HF + 'enc/a.onnx', HF + 'enc/b.data']);
+  });
+});

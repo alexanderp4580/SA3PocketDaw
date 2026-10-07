@@ -1,5 +1,6 @@
 import { forwardLogs, log } from '../log';
 import { createModelManager } from '../store/modelManager';
+import { appBaseUrl, modelsBaseUrl } from '../store/modelsBase';
 import { createOrtPorts } from './ortRuntime';
 import { CANCEL_MESSAGE, CancelledError, createPipeline } from './pipeline';
 import { type GenerateRequest, type WorkerEvent, isWorkerRequest } from './protocol';
@@ -13,8 +14,8 @@ const scope = log.scope('gen-worker');
 const post = (e: WorkerEvent, transfer: Transferable[] = []) => ctx.postMessage(e, transfer);
 forwardLogs(log, (m) => ctx.postMessage(m));
 
-const appBase = new URL(import.meta.env.BASE_URL, self.location.href).href;
-const models = createModelManager({ baseUrl: new URL('models/', appBase).href, log });
+const appBase = appBaseUrl();
+const models = createModelManager({ baseUrl: modelsBaseUrl(appBase), log });
 let manifestPromise: ReturnType<typeof models.loadManifest> | null = null;
 const loadManifest = () => (manifestPromise ??= models.loadManifest().catch((e) => {
   manifestPromise = null;

@@ -7,6 +7,8 @@ COPY src ./src
 COPY public ./public
 COPY scripts ./scripts
 COPY vendor ./vendor
+ARG VITE_MODELS_BASE_URL
+ENV VITE_MODELS_BASE_URL=$VITE_MODELS_BASE_URL
 RUN npm run build
 
 FROM nginx:1.28-alpine
