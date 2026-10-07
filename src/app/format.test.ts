@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canContinue, failedReasons, filterLog, formatBytes, formatElapsed, formatPosition, modelCards, modelHint, parseBpm, peaksOf, timingRows } from './format';
+import { canContinue, failedReasons, filterLog, formatBytes, formatControlValue, formatElapsed, formatPosition, modelCards, modelHint, parseBpm, peaksOf, timingRows } from './format';
 import type { Manifest } from '../store/modelManager';
 
 const manifest: Manifest = {
@@ -84,5 +84,14 @@ describe('format', () => {
     expect(canContinue(r)).toBe(false);
     expect(canContinue({ ...r, verdict: 'maybe' })).toBe(true);
     expect(canContinue(null)).toBe(false);
+  });
+});
+
+describe('formatControlValue', () => {
+  it('shows at most two decimals and no trailing zeros', () => {
+    expect(formatControlValue(20 * Math.log10(0.8))).toBe('-1.94');
+    expect(formatControlValue(-6)).toBe('-6');
+    expect(formatControlValue(0.7071)).toBe('0.71');
+    expect(formatControlValue(1.5)).toBe('1.5');
   });
 });

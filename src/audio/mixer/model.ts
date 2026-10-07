@@ -21,3 +21,5 @@ export function normalizeMix(m?:Partial<TrackMix>|null):TrackMix {
 }
 export function gainFilter(type:FilterType){return type==='bell'||type==='lowShelf'||type==='highShelf';}
 export function bandwidth(freq:number,q:number){const d=Math.sqrt(4*q*q+1);return [freq*(d-1)/(2*q),freq*(d+1)/(2*q)];}
+/** Level correction after a StereoPannerNode fed a dual-mono signal: unity at center, constant power, at most +3 dB on one side. */
+export function panGain(pan:number){return 1/(Math.SQRT2*Math.cos(Math.PI/4*(1-Math.min(1,Math.abs(pan)))));}

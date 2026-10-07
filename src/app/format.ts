@@ -174,3 +174,8 @@ export function reportFileName(iso: string): string {
 }
 
 export const QUICK_PROMPTS = ['synth lead', 'warm pad', 'pluck', 'bass', 'bell', 'choir', 'laser zap', 'kick'] as const;
+
+/** Numeric field text: at most two decimals, no trailing zeros. */
+export function formatControlValue(v: number): string {
+  return String(Number(v.toFixed(2)));
+}

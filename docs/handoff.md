@@ -1,6 +1,6 @@
 # Handoff
 
-State as of 2026-10-07 (instrument integration). Wave 4 was stopped by the user; the app is hosted for phone testing. This document lists what is done, what is open and a working log that the active worker appends to after every milestone, so a new session can continue at any point.
+State as of 2026-10-07 (mixer verified in desktop Chromium). Wave 4 was stopped by the user; the app is hosted for phone testing. This document lists what is done, what is open and a working log that the active worker appends to after every milestone, so a new session can continue at any point.
 
 ## What this is
 
@@ -8,7 +8,7 @@ Phone-first browser DAW proof of concept. SA3 (Stable Audio 3) generates a sampl
 
 Confirmed decisions: two generation paths, Sample (one-shot sampler) and Instrument (single-note hybrid resynthesis with automatic tuning); one looping pattern per track; single generation auto-kept; hand-drawn melodies only; models Small SFX, Small Music and Medium, each installed with one Download button into Cache Storage and removable (per model, all models, all app data); LAN self-signed HTTPS hosting from the Deck; mixer later.
 
-## Done (each wave reported `npm test`, `npm run typecheck`, `npm run build` exit 0; last full report: 255 tests)
+## Done (each wave reported `npm test`, `npm run typecheck`, `npm run build` exit 0; last full report: 357 tests)
 
 - Wave 1: Svelte 5 + Vite + Vitest scaffold, model link and manifest scripts, HTTPS static server and cert script, logger and report, compatibility verdict, model manager.
 - Wave 2: audio (sample prep, YIN pitch detection, sampler voice, look-ahead scheduler, engine), project model and IndexedDB store (with note velocity), SA3 generation worker and client (resident sessions, staged timings, cancel).
@@ -53,8 +53,6 @@ Intended: hide the info card on the roll screen, fix a console 404 on load, offl
 - Ports: HTTPS 8443; HTTP defaults to 8082 because Steam and another process hold 8080 and 8081.
 - Firewall: firewalld runs on the Deck. Whether LAN clients reach 8443 is to check; do not change firewall settings without the user.
 - Licences: the model weights keep Stability AI Community License (and Gemma terms for the T5Gemma encoder). Redistribution by hosting them for others was not reviewed.
-- The Mix screen is a disabled nav item.
-- Nothing is committed. The repo was initialised with `git init` only.
 
 ## Where things are
 
@@ -66,11 +64,11 @@ Intended: hide the info card on the roll screen, fix a console 404 on load, offl
 
 ## Next steps
 
-1. Read the Wave 4 report; fix any failing e2e step.
-2. Start `npm run host` on the Deck, open the HTTPS URL on the phone, accept the certificate, download Small Music, generate, draw notes, play.
+1. Phone run (Pixel): mixer CPU and latency with several tracks plus reverbs, EQ UI touch dragging, haptics, level meters under real audio, offline reload.
+2. Run `npm run host` on the Deck, open the HTTPS URL on the phone, accept the certificate, download Small Music, generate, draw notes, mix, play.
 3. Record the phone result in `docs/compat.md`.
 4. Listen to Small SFX and Medium output; decide on the SFX encoder.
-5. Commit when the user asks.
+5. Wave 4 leftovers (see above): real-model end-to-end script.
 
 ## Instrument integration — 2026-10-07
 
@@ -78,7 +76,6 @@ Intended: hide the info card on the roll screen, fix a console 404 on load, offl
 - Instrument source analysis/preparation in a dedicated worker, real-time AudioWorklet synthesis, short sinc-resampled attack, evolving partial envelopes and notched noise residual. Hold tone or natural decay. Profile/source persistence in existing IndexedDB records; legacy records remain samples.
 - Unusable single-note sources leave the previous sound intact and offer explicit Use as sample. Analysis cancellation, Stop cancelling future voices, original source preview and instrument track labels.
 - Verification: 293 unit tests, strict typecheck/build; real Medium piano instrument and kick sample, mixed transport, reload and offline playback in Chromium/WebGPU. Actual worklet synth/piano/guitar A3 renders independently measured within .002 cents of 220 Hz. Deck analysis 1.3–2.6 s for 4 s sources. Phone polyphony and source quality remain to check.
-- Git initialized at user request; no commits created.
 
 ## Instrument controls and roll actions — 2026-10-07
 
@@ -96,10 +93,26 @@ Intended: hide the info card on the roll screen, fix a console 404 on load, offl
 - Generated drafts preview without replacing the old sound. Primary Use sound commits; Regenerate/Discard retain it. Add track creates nothing until Use and then opens the new roll. Fresh projects start empty, saved projects preserved. Home lanes now display piano-note previews for both sound types.
 - Light haptics request 3 ms, with persistent Off/Light in project settings. Physical hardware strength remains browser/device-dependent.
 - Verification: 330 tests across 44 files; strict typecheck zero errors/warnings; production build; browser checks at 320×640 and 375×812 for layout, grid bounds, lengths/hidden notes, shared range, Solo, pause/resume, draft acceptance/discard, new-track flow, real instrument worker/worklet preview, controls/history and reload persistence. Fake inference supplied existing PCM in UI tests; real model inference was verified in the prior integration. No browser errors. Independent review fixed range-entry and future-voice cancellation edge cases.
-- HTTPS is served from the project's dist at https://192.168.8.191:8443/ (latest build replaces the prior UI). Git remains initialized without commits. Session evidence: verification/controls.json, playback-ui.json, grid-bounds.json and host.json.
+- HTTPS is served from the project's dist at https://192.168.8.191:8443/ (latest build replaces the prior UI).Session evidence: verification/controls.json, playback-ui.json, grid-bounds.json and host.json.
 
 ## Instrument draft controls — 2026-10-07
 
 - Generated instrument results include the shared playback controls before Use: brightness, attack, release and note behavior. Reset uses source defaults. Preview and Use remain visible in a sticky mobile action row.
 - Draft controls remain local, leaving existing sound/tweaks intact; Use persists them on the accepted track. Regeneration resets them. Preview applies draft settings, with brightness updated on the playing preview; envelope and behavior apply to the next preview note.
 - Verification: 331 tests across 44 files, typecheck zero errors/warnings, production build; browser checks cover draft isolation, real filter application/live brightness, accepted settings, reload, shared editor and mobile layout at 320/375 px. UI inference uses the existing PCM fixture; analysis and audio workers run for real. Independent source review found no release blockers.
+
+## Mixer and effects — 2026-10-07
+
+- What exists: per-track bus (volume -60..+12 dB, pan with unity center and constant power, Mute/Solo gate that includes reverb tails), parametric EQ (any number of bands: bell, shelves, low/high pass with 6-48 dB/oct slopes, band pass, notch, all pass; trim, bypass, spectrum, heatmap, comparison, range listening), Dragonfly Hall/Room/Plate reverb compiled to WASM (`public/dragonfly/*.wasm`, source in `vendor/dragonfly` and `public/dragonfly/source.tar.gz`), stereo meters with clip state, master volume. Mix screen with channel cards, EQ and Reverb sheets with transport. Settings persist in `Track.mix` and `Project.masterDb`. Plan and spec: `docs/superpowers/plans/2026-10-07-mixer.md`, `docs/superpowers/specs/2026-10-07-mixer-design.md`.
+- Defects found in the browser and fixed test-first: the worklet never received the reverb (a compiled `WebAssembly.Module` cannot be posted to an AudioWorklet, so reverb was silent with no error); the worklet now receives the WASM bytes and compiles them (`processor.test.ts`). Hard pan of a dual-mono source was +6 dB; `panGain` gives unity at center and +3 dB at hard pan (`pan.test.ts`). Numeric fields showed unrounded values such as -1.9382002601611281 (`formatControlValue`).
+- Verification (Chromium 1243 headless, served by `node server/serve.mjs` on http://127.0.0.1:8082, crossOriginIsolated true, audio captured by an AudioWorklet recorder on the destination; scripts were kept outside the repo, fixtures generated in the page): 357 tests, strict typecheck zero errors, build exit 0.
+  - Layout at 320x640 and 375x812: no horizontal overflow and no console errors on Home, Mix, EQ sheet and Reverb sheet; Done and all EQ controls reachable.
+  - Volume -6 dB: RMS -6.00 dB; +6 dB: +6.00 dB; master -12 dB: -10.07 dB relative to the default master (-1.94 dB). Pan hard left: right channel exactly silent, left +3.01 dB versus center; pan -0.5: L/R difference 7.7 dB. Same results on an instrument track (volume -6 dB: -6.00 dB; pan right: left silent; high pass 2 kHz 24 dB/oct: -30 dB), so sample and instrument tracks both route through the mixer.
+  - EQ with 100/1000/8000 Hz test tones: bell +12 dB at 1 kHz gives +12.00 dB at 1 kHz and +0.16/+0.21 dB at 100/8000 Hz; bell -12 dB gives -12.00 dB; high pass 2 kHz 24 dB/oct gives -104 dB at 100 Hz and -24.2 dB at 1 kHz; low shelf +9 dB at 300 Hz gives +9.4 dB at 100 Hz and -0.4 dB at 1 kHz; EQ bypass 0.00 dB; trim -6 dB gives -6.00 dB on all tones.
+  - Reverb: with a 50 ms noise burst, Hall/Room/Plate each produce a tail after the source ends (Hall default decay 0.9 s falls about 65 dB per second to the -120 dB floor); with Hall decay 4 s the tail measured 1.3 to 2.3 s after play start is -40.2 dB, and Mute, Solo of another track or reverb Bypass at 1.0 s cut it to digital silence (-180 dB). WASM files return 200 with `application/wasm` (hall, room, plate).
+  - EQ sheet: added 3 bands, type, frequency, gain, Q, slope, disable/enable, remove, bypass, heatmap and comparison all operated; curve and spectrum draw while playing. Reverb sheet: Hall/Room/Plate switch, 25 presets, advanced controls, Plate structure select.
+  - Mix screen meters: per-track and master show dBFS while playing, `CLIP` when track volume +12 dB and master +6 dB, and return to -inf after Stop. The Mix shortcut on a Home lane opens Mix at that track's card.
+  - Offline: after one online visit with the service worker controlling the page, `setOffline(true)` and reload: shell renders, crossOriginIsolated true, `/dragonfly/*.wasm` served from the cache, Room reverb (not fetched earlier) processes (tail -71 dB, no mixer error). The offline reload logs one `ERR_INTERNET_DISCONNECTED` resource error (the models manifest request).
+  - Regression: piano roll (place notes, Longer note, Delete, play from roll), transport play/pause/stop with playhead, Mute and Solo `aria-pressed`, Repeat sheet opens, mix settings (volume, pan, master, EQ band, reverb algorithm and amount) survive a reload and show in the Mix controls.
+- Not verified: phone CPU, latency and track-count limits; touch dragging of EQ nodes; haptics; Repeat range edits changing audible playback with the mixer (only the sheet opening was checked); Room/Plate WASM parity beyond the native comparison recorded in the plan; independent whole-branch review.
+

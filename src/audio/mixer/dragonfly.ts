@@ -8,5 +8,6 @@ export class DragonflyDSP {
  clear(){this.e.dr_mute(this.p);}
  dispose(){this.e.dr_destroy(this.p);}
 }
-const modules=new Map<ReverbAlgorithm,Promise<WebAssembly.Module>>();
-export function loadDragonfly(algorithm:ReverbAlgorithm){let p=modules.get(algorithm);if(!p){p=fetch(`/dragonfly/${algorithm}.wasm`).then(async r=>{if(!r.ok)throw Error(`Dragonfly ${algorithm}: HTTP ${r.status}`);return WebAssembly.compile(await r.arrayBuffer());});modules.set(algorithm,p);p.catch(()=>modules.delete(algorithm));}return p;}
+const modules=new Map<ReverbAlgorithm,Promise<ArrayBuffer>>();
+/** Fetches the algorithm's WASM bytes; the worklet compiles them because a compiled module cannot be posted to an AudioWorklet. */
+export function loadDragonfly(algorithm:ReverbAlgorithm){let p=modules.get(algorithm);if(!p){p=fetch(`/dragonfly/${algorithm}.wasm`).then(async r=>{if(!r.ok)throw Error(`Dragonfly ${algorithm}: HTTP ${r.status}`);return r.arrayBuffer();});modules.set(algorithm,p);p.catch(()=>modules.delete(algorithm));}return p;}
