@@ -160,6 +160,7 @@ export function setTrackSample(p: Project, trackId: string, sampleId: string | n
   return mapTrack(p, trackId, (t) => ({
     ...t,
     sampleId,
+    ...(sampleId!==t.sampleId?{trim:undefined}:{}),
     ...(soundType?{soundType,instrumentControls:undefined,sampleControls:undefined,trim:undefined}:{}),
     ...(rootMidi !== undefined ? { rootMidi: clamp(Math.round(rootMidi), MIDI_MIN, MIDI_MAX) } : {}),
   }));

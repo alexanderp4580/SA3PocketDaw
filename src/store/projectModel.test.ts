@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  createProject, addTrack, removeTrack, renameTrack, toggleMute, setRoot, setTrackSample,
+  createProject, addTrack, removeTrack, renameTrack, toggleMute, setRoot, setTrackSample, setTrackTrim,
   addNote, removeNote, moveNote, resizeNote, transposeNote, setBars, setBpm, MIDI_MIN, MIDI_MAX,
   setNoteVelocity, noteVelocity, velocityGain, DEFAULT_VELOCITY,
 } from './projectModel';
@@ -110,4 +110,11 @@ describe('projectModel', () => {
     expect(velocityGain(undefined)).toBeCloseTo(96 / 127);
     expect(velocityGain(127)).toBe(1);
   });
+ it('clears the trim when a track gets a different sound, also without a sound type, and keeps it for the same sound', () => {
+  let p = addTrack(createProject(), 'A', 't1');
+  p = setTrackTrim(setTrackSample(p, 't1', 's1', 60, 'sample'), 't1', { start: .1, end: .5 });
+  expect(setTrackSample(p, 't1', 's1').tracks[0]!.trim).toEqual({ start: .1, end: .5 });
+  expect(setTrackSample(p, 't1', 's2').tracks[0]!.trim).toBeUndefined();
+  expect(setTrackSample(p, 't1', null).tracks[0]!.trim).toBeUndefined();
+ });
 });
