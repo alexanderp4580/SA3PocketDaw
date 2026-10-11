@@ -16,7 +16,7 @@
 <fieldset class="chop" {disabled}>
  <legend class="sr-only">Chop {name}</legend>
  <div class="st">Chop</div>
- <div class="wave"><Waveform peaks={view.peaks} /><i class="cut" style="left:0;width:{left}%"></i><i class="cut" style="right:0;width:{right}%"></i></div>
+ <div class="wave"><Waveform peaks={view.peaks} />{#if left>0}<i class="cut l" style="width:{left}%"></i>{/if}{#if right>0}<i class="cut r" style="width:{right}%"></i>{/if}</div>
  <div class="kept">Kept <b>{(view.trim.end-view.trim.start).toFixed(2)} s</b> of {view.duration.toFixed(2)} s{#if view.busy}<span class="busy" role="status">Updating sound…</span>{/if}</div>
  <label class="control">Start <b>{view.trim.start.toFixed(2)} s</b><input aria-label="Chop start" type="range" min="0" max={view.duration} step={STEP} value={view.trim.start} oninput={start} onchange={()=>oncommit(view.trim)} /></label>
  <label class="control">End <b>{view.trim.end.toFixed(2)} s</b><input aria-label="Chop end" type="range" min="0" max={view.duration} step={STEP} value={view.trim.end} oninput={end} onchange={()=>oncommit(view.trim)} /></label>
@@ -27,8 +27,9 @@
  .chop{border:0;padding:0;margin:0;min-width:0;}
  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);}
  .wave{position:relative;height:64px;background:#0e1014;border-radius:8px;padding:4px;overflow:hidden;}
- .cut{position:absolute;top:0;bottom:0;background:#0009;border-left:2px solid var(--sa3);pointer-events:none;}
- .cut:last-child{border-left:0;border-right:2px solid var(--sa3);}
+ .cut{position:absolute;top:0;bottom:0;background:#0009;pointer-events:none;}
+ .cut.l{left:0;border-right:2px solid var(--sa3);}
+ .cut.r{right:0;border-left:2px solid var(--sa3);}
  .kept{margin-top:8px;font-size:14px;color:var(--dim);display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;}
  .kept b{color:inherit;font-variant-numeric:tabular-nums;}
  .busy{margin-left:auto;color:var(--sa3);}
