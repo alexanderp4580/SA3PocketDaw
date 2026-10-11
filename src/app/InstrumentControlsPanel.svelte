@@ -1,10 +1,13 @@
 <script lang="ts">
+ import TrimControl,{type ChopView} from './TrimControl.svelte';
+ import type {Trim} from '../audio/trim';
  import type {InstrumentControls} from '../audio/instrument/controls';
  import {BEHAVIORS} from '../gen/instrumentSelections';
- let {controls,onchange,behaviorName='playback-behavior',disabled=false}:{controls:InstrumentControls;onchange:(patch:Partial<InstrumentControls>)=>void;behaviorName?:string;disabled?:boolean}=$props();
+ let {controls,onchange,behaviorName='playback-behavior',disabled=false,chop,onchop,onchopcommit,onchopreset}:{chop?:ChopView;onchop?:(t:Trim)=>void;onchopcommit?:(t:Trim)=>void;onchopreset?:()=>void;controls:InstrumentControls;onchange:(patch:Partial<InstrumentControls>)=>void;behaviorName?:string;disabled?:boolean}=$props();
 </script>
 <fieldset class="panel" {disabled}>
  <legend class="sr-only">Instrument playback controls</legend>
+ {#if chop&&onchop&&onchopcommit&&onchopreset}<TrimControl view={chop} oninput={onchop} oncommit={onchopcommit} onreset={onchopreset} {disabled} name="instrument" />{/if}
  <label class="control">Brightness <b>{Math.round(controls.brightness*100)}%</b><input aria-label="Instrument brightness" type="range" min="0" max="100" step="1" value={Math.round(controls.brightness*100)} oninput={e=>onchange({brightness:Number(e.currentTarget.value)/100})} /></label>
  <label class="control">Attack <b>{Math.round(controls.attack*1000)} ms</b><input aria-label="Instrument attack" type="range" min="3" max="2000" step="1" value={Math.round(controls.attack*1000)} oninput={e=>onchange({attack:Number(e.currentTarget.value)/1000})} /></label>
  <label class="control">Release <b>{Math.round(controls.release*1000)} ms</b><input aria-label="Instrument release" type="range" min="20" max="2000" step="1" value={Math.round(controls.release*1000)} oninput={e=>onchange({release:Number(e.currentTarget.value)/1000})} /></label>

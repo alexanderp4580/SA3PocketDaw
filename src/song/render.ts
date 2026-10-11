@@ -4,6 +4,7 @@ import {normalizeMix} from '../audio/mixer/plugins';
 import {dbGain,panGain,finite,normalizeEqSettings,normalizeReverbSettings,type ReverbSettings} from '../audio/mixer/model';
 import {playNote,type AudioContextLike} from '../audio/sampler';
 import {resolveControls,brightnessHz} from '../audio/instrument/controls';
+import {applyTrim} from '../audio/trim';
 import type {Project} from '../store/projectModel';
 import type {StoredSample} from '../store/projectStore';
 import {compileSong} from './events';
@@ -45,7 +46,7 @@ export async function renderSong(project:Project,sounds:Map<string,StoredSample>
  if(!buffer){const pcm=await new Promise<Float32Array>((resolve,reject)=>{const abort=()=>reject(new DOMException('Export cancelled','AbortError'));signal?.addEventListener('abort',abort,{once:true});const clean=()=>signal?.removeEventListener('abort',abort);worker.onerror=e=>{clean();reject(Error(e.message));};worker.onmessage=m=>{clean();m.data.error?reject(Error(m.data.error)):resolve(m.data.pcm);};worker.postMessage({profile:source.instrument,midi:e.midi,duration:e.duration,velocity:e.velocity,controls});});checkAbort(signal);buffer=ctx.createBuffer(1,pcm.length,RATE);buffer.copyToChannel(pcm as Float32Array<ArrayBuffer>,0);buffers.set(key,buffer);}
  const voice=ctx.createBufferSource();voice.buffer=buffer;voice.connect(filter);voice.start(PREROLL+e.when);nodes.push(voice);onProgress?.({stage:'Preparing',fraction:++count/song.events.length});
  }worker.terminate();
- }else {const buffer=ctx.createBuffer(1,source.pcm.length,source.sampleRate);buffer.copyToChannel(source.pcm as Float32Array<ArrayBuffer>,0);for(const e of events){checkAbort(signal);playNote(ctx as unknown as AudioContextLike,{buffer,root:track.rootMidi,note:e.midi,when:PREROLL+e.when,duration:e.duration,velocity:e.velocity,output:input,controls:track.sampleControls});count++;}onProgress?.({stage:'Preparing',fraction:count/song.events.length});}
+ }else {const cut=applyTrim(source.pcm,source.sampleRate,track.trim),buffer=ctx.createBuffer(1,cut.length,source.sampleRate);buffer.copyToChannel(cut as Float32Array<ArrayBuffer>,0);for(const e of events){checkAbort(signal);playNote(ctx as unknown as AudioContextLike,{buffer,root:track.rootMidi,note:e.midi,when:PREROLL+e.when,duration:e.duration,velocity:e.velocity,output:input,controls:track.sampleControls});count++;}onProgress?.({stage:'Preparing',fraction:count/song.events.length});}
  }
  checkAbort(signal);onProgress?.({stage:'Rendering',fraction:0});checkAbort(signal);
  const length=ctx.length/RATE;
