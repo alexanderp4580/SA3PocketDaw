@@ -36,8 +36,8 @@ class ReverbWorklet extends AudioWorkletProcessor {
  }
 }
 class MeterProcessor extends AudioWorkletProcessor {
- private disposed=false;private meter=new StereoMeter(sampleRate);private frames=0;private zero=new Float32Array(128);
+ private disposed=false;private meter=new StereoMeter(sampleRate);private frames=0;private quiet=false;private zero=new Float32Array(128);
  constructor(){super();this.port.onmessage=e=>{if(e.data.type==='clear')this.meter.clear();else if(e.data.type==='dispose')this.disposed=true;};}
- process(inputs:Float32Array[][],outputs:Float32Array[][]){if(this.disposed)return false;const l=inputs[0]?.[0]??this.zero,r=inputs[0]?.[1]??l,o=outputs[0];o?.[0]?.set(l);o?.[1]?.set(r);this.meter.add(l,r);this.frames+=128;if(this.frames>=sampleRate/25){this.frames=0;this.port.postMessage(this.meter.read());}return true;}
+ process(inputs:Float32Array[][],outputs:Float32Array[][]){if(this.disposed)return false;const l=inputs[0]?.[0]??this.zero,r=inputs[0]?.[1]??l,o=outputs[0];o?.[0]?.set(l);o?.[1]?.set(r);this.meter.add(l,r);this.frames+=128;if(this.frames>=sampleRate/25){this.frames=0;const m=this.meter.read(),quiet=!m.clip&&Math.max(m.rms[0],m.rms[1],m.peak[0],m.peak[1])<1e-6;if(!(quiet&&this.quiet))this.port.postMessage(m);this.quiet=quiet;}return true;}
 }
 registerProcessor('sa3-eq',EqWorklet);registerProcessor('sa3-reverb',ReverbWorklet);registerProcessor('sa3-meter',MeterProcessor);

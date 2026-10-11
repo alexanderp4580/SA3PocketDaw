@@ -1,7 +1,7 @@
 <script lang="ts">
- import {onMount} from 'svelte';import {engine} from './services';import {gainDb} from '../audio/mixer/model';import {emptyMeter} from '../audio/mixer/meter';
+ import {onMount} from 'svelte';import {engine} from './services';import {gainDb} from '../audio/mixer/model';import {emptyMeter} from '../audio/mixer/meter';import {meterPoll} from './meterPoll';
  let {trackId,vertical=false}:{trackId?:string;vertical?:boolean}=$props();let reading=$state(emptyMeter());
- onMount(()=>{const timer=setInterval(()=>{if(!document.hidden)reading=engine.meter(trackId);},40);return ()=>clearInterval(timer);});
+ onMount(()=>meterPoll.subscribe(r=>reading=r,()=>engine.meter(trackId)));
  const width=(x:number)=>Math.max(0,Math.min(100,(gainDb(x)+60)/60*100));
 </script>
 <div class="meter" class:vertical aria-label="Stereo audio level" title="Average level and held peaks in dBFS">

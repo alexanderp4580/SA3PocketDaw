@@ -27,3 +27,11 @@ it('returning to Hall cancels a pending Plate compilation and preserves the work
  const hall=new WebAssembly.Module(readFileSync('public/dragonfly/hall.wasm')),plate=new WebAssembly.Module(readFileSync('public/dragonfly/plate.wasm')),mix=normalizeReverbSettings({wet:1,algorithm:'hall'}),p=new C({processorOptions:{reverb:mix,module:hall,algorithm:'hall'}});const working=p.dsp;let resolve!:(module:WebAssembly.Module)=>void;const compile=vi.spyOn(WebAssembly,'compile').mockImplementation(()=>new Promise(r=>resolve=r));
  p.port.onmessage({data:{type:'settings',reverb:{...mix,algorithm:'plate'}}});const pending=p.port.onmessage({data:{type:'module',bytes:new ArrayBuffer(0),algorithm:'plate'}});p.port.onmessage({data:{type:'settings',reverb:{...mix,algorithm:'hall'}}});resolve(plate);await pending;expect(p.dsp).toBe(working);expect(messages.some(m=>m.type==='ready'&&m.algorithm==='plate')).toBe(false);compile.mockRestore();vi.unstubAllGlobals();
 });
+
+it('the meter worklet stops posting while its input stays silent and resumes with signal',async()=>{
+ vi.resetModules();let C:any;const messages:any[]=[];vi.stubGlobal('sampleRate',48000);vi.stubGlobal('AudioWorkletProcessor',class {port={onmessage:null as any,postMessage:(m:any)=>messages.push(m)};});vi.stubGlobal('registerProcessor',(name:string,c:any)=>{if(name==='sa3-meter')C=c;});
+ await import('./processor');const p=new C(),silent=new Float32Array(128),loud=new Float32Array(128).fill(.5),out=[new Float32Array(128),new Float32Array(128)];
+ for(let i=0;i<1000;i++)p.process([[silent,silent]],[out]);expect(messages.length).toBeLessThanOrEqual(1);
+ const before=messages.length;for(let i=0;i<200;i++)p.process([[loud,loud]],[out]);expect(messages.length).toBeGreaterThan(before+5);
+ expect(messages.at(-1).peak[0]).toBeCloseTo(.5);vi.unstubAllGlobals();
+});
