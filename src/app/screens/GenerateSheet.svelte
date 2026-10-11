@@ -11,7 +11,7 @@
   import { MAX_SECONDS, MIN_SECONDS, clampSeconds, parseSeconds, stepSeconds } from '../../gen/length';
   import { midiToName } from '../../audio/pitch';
   import { formatBytes, formatElapsed, modelHint, peaksOf } from '../format';
-  import { prepareGeneration, useGeneration, tweakDraft, tweakSampleDraft, trimDraft, InstrumentAnalysisError, type GeneratedDraft } from '../generate';
+  import { prepareGeneration, useGeneration, tweakDraft, tweakSampleDraft, trimDraft, mergeTrimmed, InstrumentAnalysisError, type GeneratedDraft } from '../generate';
   import {applyTrim,fullTrim,resolveTrim,type Trim} from '../../audio/trim';
   import {createLatestRunner} from '../latestRunner';
   import type {ChopView} from '../TrimControl.svelte';
@@ -67,7 +67,7 @@
   const draftDuration=$derived(result?result.pcm.length/result.sampleRate:0);
   const draftTrim=$derived(liveTrim??resolveTrim(result?.trim,draftDuration));
   const chop=$derived<ChopView>({duration:draftDuration,peaks,trim:draftTrim,busy:chopBusy,error:chopError});
-  const commitChop=createLatestRunner<Trim>(async t=>{const base=result;if(!base)return;const next=await trimDraft(base,t);if(result===base)result=next;},{onBusy:b=>chopBusy=b,onError:e=>{chopError=e.message;liveTrim=null;}});
+  const commitChop=createLatestRunner<Trim>(async t=>{const base=result;if(!base)return;const next=await trimDraft(base,t);result=mergeTrimmed(result,base,next)??result;},{onBusy:b=>chopBusy=b,onError:e=>{chopError=e.message;liveTrim=null;}});
   function chopInput(t:Trim){liveTrim=t;chopError='';}
   function chopCommit(t:Trim){chopError='';commitChop(t);}
   function chopReset(){const t=fullTrim(draftDuration);liveTrim=t;chopCommit(t);}

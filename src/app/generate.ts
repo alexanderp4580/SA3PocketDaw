@@ -70,6 +70,15 @@ export async function trimDraft(draft:GeneratedDraft,trim:Trim,deps:PreparationO
  if(deps.signal?.aborted)throw Object.assign(new Error('Cancelled'),{code:'cancelled'});
  return {...rest,...(stored?{trim:stored}:{}),record:{...draft.record,instrument}};
 }
+/**
+ * Applies a finished chop (`finished`, made from `base`) onto the draft that is current now, keeping edits made
+ * meanwhile. Returns null when there is no draft or it comes from a different generation (its source differs).
+ */
+export function mergeTrimmed(current:GeneratedDraft|null,base:GeneratedDraft,finished:GeneratedDraft):GeneratedDraft|null {
+ if(!current||current.pcm!==base.pcm)return null;
+ const {trim:_old,...rest}=current;
+ return {...rest,...(finished.trim?{trim:finished.trim}:{}),record:finished.record.instrument?{...current.record,instrument:finished.record.instrument}:current.record};
+}
 /** Use is the commit point: persist the draft and assign it to this track. */
 export async function useGeneration(deps:{store:ProjectStore;engine:Engine;signal?:AbortSignal},trackId:string|null,draft:GeneratedDraft,idFactory:()=>string=()=>newId('s')):Promise<GeneratedResult>{
  if(deps.signal?.aborted)throw Object.assign(new Error('Cancelled'),{code:'cancelled'});

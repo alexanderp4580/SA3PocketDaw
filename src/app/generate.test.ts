@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { describe, expect, it } from 'vitest';
-import { applyGeneration, shiftRoot,prepareGeneration,useGeneration,tweakDraft,tweakSampleDraft,trimDraft,InstrumentAnalysisError } from './generate';
+import { applyGeneration, shiftRoot,prepareGeneration,useGeneration,tweakDraft,tweakSampleDraft,trimDraft,mergeTrimmed,InstrumentAnalysisError } from './generate';
 import { createProjectStore } from '../store/projectStore';
 import { addTrack, createProject } from '../store/projectModel';
 import { createEngine } from '../audio/engine';
@@ -166,4 +166,19 @@ it('re-analyses an instrument draft from the cut source on Use',async()=>{
  await useGeneration(deps,'t1',cut,()=> 'i1');
  expect(deps.store.get()!.tracks[0]!.trim).toEqual({start:.5,end:1.5});
  expect((await deps.store.getSample('i1'))!.instrument!.pcm.length).toBeLessThanOrEqual(44100);
+});
+
+it('merges a finished chop into the current draft and keeps edits made meanwhile',async()=>{
+ const out={channels:[tone(220,2)],sampleRate:44100,stats:{peak:.5,rms:.3,nonFinite:0,dims:[]},timings:[]};
+ const base=await prepareGeneration({...params,mode:'instrument'},'pad',out,{analyseInstrument:async(pcm,sr,dyn)=>analyse(pcm,sr,dyn)});
+ const finished=await trimDraft(base,{start:.5,end:1.5},{analyseInstrument:async(pcm,sr,dyn)=>analyse(pcm,sr,dyn)});
+ const edited=tweakDraft({...base,rootMidi:base.rootMidi+2},{release:1.5});
+ const merged=mergeTrimmed(edited,base,finished)!;
+ expect(merged.trim).toEqual({start:.5,end:1.5});expect(merged.record.instrument).toBe(finished.record.instrument);
+ expect(merged.rootMidi).toBe(base.rootMidi+2);expect(merged.instrumentControls).toEqual(edited.instrumentControls);
+ const other=await prepareGeneration({...params,mode:'instrument'},'pad',{...out,channels:[tone(330,2)]},{analyseInstrument:async(pcm,sr,dyn)=>analyse(pcm,sr,dyn)});
+ expect(mergeTrimmed(other,base,finished)).toBeNull();
+ expect(mergeTrimmed(null,base,finished)).toBeNull();
+ const full=await trimDraft(finished,{start:0,end:2},{analyseInstrument:async(pcm,sr,dyn)=>analyse(pcm,sr,dyn)});
+ expect(mergeTrimmed(finished,finished,full)!.trim).toBeUndefined();
 });
