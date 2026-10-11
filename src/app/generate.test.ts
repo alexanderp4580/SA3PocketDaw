@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { describe, expect, it } from 'vitest';
-import { applyGeneration, shiftRoot,prepareGeneration,useGeneration,tweakDraft,tweakSampleDraft,InstrumentAnalysisError } from './generate';
+import { applyGeneration, shiftRoot,prepareGeneration,useGeneration,tweakDraft,tweakSampleDraft,trimDraft,InstrumentAnalysisError } from './generate';
 import { createProjectStore } from '../store/projectStore';
 import { addTrack, createProject } from '../store/projectModel';
 import { createEngine } from '../audio/engine';
@@ -144,4 +144,26 @@ it('keeps sample envelope edits in the draft until Use and persists them through
  expect(draft.sampleControls).toBeUndefined();expect(deps.store.get()!.tracks[0]!.sampleControls).toBeUndefined();
  await useGeneration(deps,'t1',edited,()=> 'sample');await deps.store.flush();await deps.store.load();expect(deps.store.get()!.tracks[0]!.sampleControls).toEqual({attack:.25,release:.7,brightness:.4});
  await applyGeneration(deps,'t1',params,'replacement',out,()=> 'next');expect(deps.store.get()!.tracks[0]!.sampleControls).toBeUndefined();
+});
+
+it('keeps a sample trim in the draft until Use and persists it',async()=>{
+ const deps=await setup();const out={channels:[tone(440,1)],sampleRate:44100,stats:{peak:.5,rms:.3,nonFinite:0,dims:[]},timings:[]};
+ const draft=await prepareGeneration(params,'sample',out);const dur=draft.pcm.length/draft.sampleRate;
+ const cut=await trimDraft(draft,{start:.1,end:dur-.1});
+ expect(cut.trim).toEqual({start:.1,end:dur-.1});expect(cut.pcm).toBe(draft.pcm);expect(deps.store.get()!.tracks[0]!.trim).toBeUndefined();
+ await useGeneration(deps,'t1',cut,()=> 's1');await deps.store.flush();await deps.store.load();
+ expect(deps.store.get()!.tracks[0]!.trim).toEqual({start:.1,end:dur-.1});
+ expect((await deps.store.getSample('s1'))!.pcm.length).toBe(draft.pcm.length);
+ expect((await trimDraft(cut,{start:0,end:dur})).trim).toBeUndefined();
+ await applyGeneration(deps,'t1',params,'replacement',out,()=> 'next');expect(deps.store.get()!.tracks[0]!.trim).toBeUndefined();
+});
+it('re-analyses an instrument draft from the cut source on Use',async()=>{
+ const deps=await setup();const out={channels:[tone(220,2)],sampleRate:44100,stats:{peak:.5,rms:.3,nonFinite:0,dims:[]},timings:[]};
+ const draft=await prepareGeneration({...params,mode:'instrument'},'pad',out,{analyseInstrument:async(pcm,sr,dyn)=>analyse(pcm,sr,dyn)});
+ const lengths:number[]=[];
+ const cut=await trimDraft(draft,{start:.5,end:1.5},{analyseInstrument:async(pcm,sr,dyn)=>{lengths.push(pcm.length);return analyse(pcm,sr,dyn);}});
+ expect(lengths).toEqual([44100]);expect(cut.pcm).toBe(draft.pcm);expect(cut.record.instrument).not.toBe(draft.record.instrument);
+ await useGeneration(deps,'t1',cut,()=> 'i1');
+ expect(deps.store.get()!.tracks[0]!.trim).toEqual({start:.5,end:1.5});
+ expect((await deps.store.getSample('i1'))!.instrument!.pcm.length).toBeLessThanOrEqual(44100);
 });

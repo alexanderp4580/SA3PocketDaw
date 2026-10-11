@@ -2,6 +2,7 @@ import type {Arrangement} from '../song/arrangement';
 import type {SampleControls} from '../audio/sampleControls';
 import {MAX_PLUGINS,normalizeMix,normalizePlugin,pluginTypes,uniqueId,type PluginSettings,type PluginType,type TrackMix} from '../audio/mixer/plugins';
 import type { InstrumentControls } from '../audio/instrument/controls';
+import type {Trim} from '../audio/trim';
 export const MIDI_MIN = 24;
 export const MIDI_MAX = 96;
 export const BPM_MIN = 40;
@@ -46,6 +47,8 @@ export interface Track {
   solo?:boolean;
   instrumentControls?:Partial<InstrumentControls>;
   sampleControls?:Partial<SampleControls>;
+  /** Kept region of the original source in seconds; missing means the full clip. */
+  trim?:Trim;
   soundType?:'sample'|'instrument';
   id: string;
   name: string;
@@ -157,9 +160,12 @@ export function setTrackSample(p: Project, trackId: string, sampleId: string | n
   return mapTrack(p, trackId, (t) => ({
     ...t,
     sampleId,
-    ...(soundType?{soundType,instrumentControls:undefined,sampleControls:undefined}:{}),
+    ...(soundType?{soundType,instrumentControls:undefined,sampleControls:undefined,trim:undefined}:{}),
     ...(rootMidi !== undefined ? { rootMidi: clamp(Math.round(rootMidi), MIDI_MIN, MIDI_MAX) } : {}),
   }));
+}
+export function setTrackTrim(p: Project, trackId: string, trim: Trim | undefined): Project {
+  return mapTrack(p, trackId, ({trim:_old,...t}) => (trim ? { ...t, trim } : t));
 }
 export function clearNotes(p: Project, trackId: string): Project {
   return mapTrack(p, trackId, (t) => ({ ...t, notes: [] }));

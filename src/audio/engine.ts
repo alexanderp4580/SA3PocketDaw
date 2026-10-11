@@ -11,6 +11,7 @@ import { createScheduler, type NoteEvent } from './scheduler';
 import { createInstrumentPlayer,type InstrumentPlayer } from './instrument/player';
 import {resolveControls,type InstrumentControls} from './instrument/controls';
 import type { InstrumentProfile } from './instrument/types';
+import {applyTrim,trimKey} from './trim';
 
 const scope = log.scope('audio.engine');
 /** A note delivered later than this after its time (main-thread stall) is dropped rather than bunched with the next ones. */
@@ -44,8 +45,8 @@ export function createEngine(options: EngineOptions = {}) {
   let master: GainLike | null = null;
   let project: Project | null = null;
   let mixer:MixerController|null=null;
-  const buffers = new Map<string, EngineBufferLike>();
-  const pending = new Map<string, { pcm: Float32Array; sampleRate: number }>();
+  const sources = new Map<string, { pcm: Float32Array; sampleRate: number }>();
+  const trimmed = new Map<string, { key: string; buffer: EngineBufferLike }>();
   const instruments=new Map<string,InstrumentProfile>();
   const players=new Map<string,Promise<InstrumentPlayer>>();
   const voices:Array<{endTime:number;stop:(at?:number,fade?:number)=>void;trackId?:string}>=[];
@@ -73,18 +74,17 @@ export function createEngine(options: EngineOptions = {}) {
     return b;
   }
 
-  function bufferFor(sampleId: string | null): EngineBufferLike | null {
-    if (!sampleId) return null;
-    const hit = buffers.get(sampleId);
-    if (hit) return hit;
-    const p = pending.get(sampleId);
-    if (p && ctx) {
-      const b = toBuffer(ctx, p.pcm, p.sampleRate);
-      buffers.set(sampleId, b);
-      pending.delete(sampleId);
-      return b;
-    }
-    return null;
+  /** The track's buffer: the source cut to the track's trim, rebuilt only when the cut changes. */
+  function bufferFor(track: Project['tracks'][number] | undefined): EngineBufferLike | null {
+    const sampleId = track?.sampleId;
+    const source = sampleId ? sources.get(sampleId) : undefined;
+    if (!track || !sampleId || !source || !ctx) return null;
+    const key = trimKey(track.trim, source.pcm.length / source.sampleRate);
+    const hit = trimmed.get(sampleId);
+    if (hit && hit.key === key) return hit.buffer;
+    const buffer = toBuffer(ctx, applyTrim(source.pcm, source.sampleRate, track.trim), source.sampleRate);
+    trimmed.set(sampleId, { key, buffer });
+    return buffer;
   }
 
   function onNote(e: NoteEvent) {
@@ -92,7 +92,7 @@ export function createEngine(options: EngineOptions = {}) {
     if (e.when < ctx.currentTime - STALE_NOTE_SEC) { scope.warn('skipped stale note', { trackId: e.trackId, lateBy: ctx.currentTime - e.when }); return; }
     const track = project.tracks.find((t) => t.id === e.trackId);
     if(track?.sampleId&&instruments.has(track.sampleId)){const token=epoch;void playerFor(track.id).then(p=>{if(token===epoch&&project&&project.tracks.some(t=>t.id===e.trackId&&audible(project!,t)))return p.note(e.midi,e.when,e.duration,e.velocity);}).catch(err=>scope.error('instrument playback failed',{error:String(err)}));return;}
-    const buffer = bufferFor(track?.sampleId ?? null);
+    const buffer = bufferFor(track);
     if (!track || !buffer) return;
     for(let i=voices.length-1;i>=0;i--)if(voices[i]!.endTime<ctx.currentTime)voices.splice(i,1);
     voices.push({...playNote(ctx, { buffer, root: track.rootMidi, note: e.midi, when: e.when, duration: e.duration, velocity: e.velocity, output: outputFor(track.id),controls:track.sampleControls }),trackId:track.id});
@@ -151,14 +151,14 @@ export function createEngine(options: EngineOptions = {}) {
     },
     setSample(sampleId: string, pcm: Float32Array, sampleRate: number) {
       instruments.delete(sampleId);
-      buffers.delete(sampleId);
-      pending.set(sampleId, { pcm, sampleRate });
+      trimmed.delete(sampleId);
+      sources.set(sampleId, { pcm, sampleRate });
       scope.debug('sample set', { sampleId, samples: pcm.length, sampleRate });
     },
     hasSample(sampleId: string) {
-      return buffers.has(sampleId) || pending.has(sampleId) || instruments.has(sampleId);
+      return sources.has(sampleId) || instruments.has(sampleId);
     },
-    setInstrument(sampleId:string,profile:InstrumentProfile){buffers.delete(sampleId);pending.delete(sampleId);instruments.set(sampleId,profile);scope.info('instrument set',{sampleId,hz:profile.hz,dynamics:profile.dynamics});},
+    setInstrument(sampleId:string,profile:InstrumentProfile){trimmed.delete(sampleId);sources.delete(sampleId);if(instruments.get(sampleId)!==profile)for(const [id,player] of players)if(playerSources.get(id)===sampleId){void player.then(v=>v.dispose()).catch(()=>{});players.delete(id);}instruments.set(sampleId,profile);scope.info('instrument set',{sampleId,hz:profile.hz,dynamics:profile.dynamics});},
     stopPreview,
     async previewSource(pcm:Float32Array,sampleRate:number,controls?:Partial<SampleControls>){stopPreview();const token=previewEpoch;await unlock();if(ctx&&token===previewEpoch){previewVoice=playNote(ctx,{buffer:toBuffer(ctx,pcm,sampleRate),root:60,note:60,when:ctx.currentTime,duration:controls?samplePreviewDuration(pcm.length/sampleRate,controls):pcm.length/sampleRate,velocity:1,output:master,controls});}},
     setPreviewControls(controls:Partial<InstrumentControls>){const pending=previewPlayer;if(pending)void pending.then(p=>{if(pending===previewPlayer)p.setControls(controls);}).catch(err=>scope.error('preview controls failed',{error:String(err)}));},
@@ -177,7 +177,7 @@ export function createEngine(options: EngineOptions = {}) {
       await unlock();
       const track = project?.tracks.find((t) => t.id === trackId);
       if(ctx&&track?.sampleId&&instruments.has(track.sampleId)){const token=epoch,p=await playerFor(track.id);if(token===epoch)await p.note(midi,ctx.currentTime,duration,velocityGain(velocity));return;}
-      const buffer = bufferFor(track?.sampleId ?? null);
+      const buffer = bufferFor(track);
       if (!ctx || !track || !buffer) {
         scope.warn('audition without sample', { trackId });
         return;

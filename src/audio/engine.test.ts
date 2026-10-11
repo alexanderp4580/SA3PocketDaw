@@ -146,3 +146,27 @@ it('song mode respects placements and stops when arrangement is edited',async()=
  f.state.time=4;for(const cb of [...callbacks])cb();expect(f.started).toHaveLength(1);expect(f.started[0]!.when).toBeCloseTo(4.05);
  e.setProject({...p,arrangement:{...p.arrangement,blocks:[]}});expect(e.isPlaying).toBe(false);e.setPlaybackMode('pattern');await e.play();expect(f.started).toHaveLength(2);
 });
+
+describe('engine trim',()=>{
+ const lengths=(f:ReturnType<typeof fakeCtx>)=>f.buffers.map(b=>b.len);
+ it('plays a legacy track without trim in full',async()=>{
+  const f=fakeCtx(),e=createEngine({createContext:f.mk});e.setProject(proj());e.setSample('s1',new Float32Array(44100*3),44100);
+  await e.audition('t1',60,100,.3);expect(lengths(f)).toEqual([44100*3]);
+ });
+ it('builds the buffer from the trimmed region and rebuilds when the trim changes',async()=>{
+  const f=fakeCtx(),e=createEngine({createContext:f.mk});const p=proj();p.tracks[0]!.trim={start:.5,end:1.5};
+  e.setProject(p);e.setSample('s1',new Float32Array(44100*3),44100);
+  await e.audition('t1',60,100,.3);expect(lengths(f)).toEqual([44100]);
+  await e.audition('t1',60,100,.3);expect(lengths(f)).toEqual([44100]);
+  const q=structuredClone(p);q.tracks[0]!.trim={start:0,end:.5};e.setProject(q);
+  await e.audition('t1',60,100,.3);expect(lengths(f)).toEqual([44100,22050]);
+  const r=structuredClone(p);delete r.tracks[0]!.trim;e.setProject(r);
+  await e.audition('t1',60,100,.3);expect(lengths(f).at(-1)).toBe(44100*3);
+  expect(e.hasSample('s1')).toBe(true);
+ });
+ it('fades the cut edges',async()=>{
+  const f=fakeCtx(),e=createEngine({createContext:f.mk});const p=proj();p.tracks[0]!.trim={start:.5,end:1.5};
+  e.setProject(p);e.setSample('s1',new Float32Array(44100*3).fill(1),44100);await e.audition('t1',60,100,.3);
+  const d=f.buffers[0]!.data!;expect(d[0]).toBe(0);expect(d[d.length-1]).toBe(0);expect(d[22050]).toBe(1);
+ });
+});

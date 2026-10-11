@@ -193,3 +193,16 @@ describe('persisted mixer migration',()=>{
 it('keeps arrangement, notes and source audio through IndexedDB reload',async()=>{
  const {mk}=setup(),store=mk();let p=addTrack(createProject(),'Lead','t');p=setTrackSample(p,'t','source');p.arrangement={blocks:[{id:'b',trackId:'t',startBar:5}]};await store.putSample('source',sample());store.set(p);await store.flush();const reloaded=mk();expect((await reloaded.load())?.arrangement).toEqual(p.arrangement);expect(await reloaded.getSample('source')).not.toBeNull();
 });
+
+describe('persisted trim',()=>{
+ it('reloads a saved trim, drops a malformed one and loads legacy tracks without trim',async()=>{
+  const {mk}=setup(),store=mk();
+  let p=addTrack(addTrack(addTrack(createProject(),'A','a'),'B','b'),'C','c');
+  p={...p,tracks:[{...p.tracks[0]!,trim:{start:.2,end:.9}},{...p.tracks[1]!,trim:{start:2,end:1}} as never,p.tracks[2]!]};
+  store.save(p);await store.flush();
+  const again=mk(),loaded=(await again.load())!;
+  expect(loaded.tracks[0]!.trim).toEqual({start:.2,end:.9});
+  expect(loaded.tracks[1]!.trim).toBeUndefined();
+  expect('trim' in loaded.tracks[2]!).toBe(false);
+ });
+});

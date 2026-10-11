@@ -2,6 +2,7 @@ import {normalizeArrangement} from '../song/arrangement';
 import { log as defaultLog, type Logger } from '../log';
 import type { Project } from './projectModel';
 import {normalizeMix} from '../audio/mixer/plugins';
+import {normalizeStoredTrim} from '../audio/trim';
 import type { InstrumentProfile } from '../audio/instrument/types';
 
 export const DB_NAME = 'sa3daw';
@@ -51,8 +52,12 @@ function done(tx: IDBTransaction): Promise<void> {
   });
 }
 
-/** Normalize persisted mix settings while preserving tracks that have no mix yet. */
-function normalizeProjectMixes(p:Project):Project {return normalizeArrangement({...p,tracks:p.tracks.map(t=>t.mix===undefined?t:{...t,mix:normalizeMix(t.mix)})});}
+function normalizeTrack(t:Project['tracks'][number]):Project['tracks'][number] {
+ const {trim,...rest}=t,valid=normalizeStoredTrim(trim),next=trim===undefined?t:valid?{...rest,trim:valid}:rest;
+ return next.mix===undefined?next:{...next,mix:normalizeMix(next.mix)};
+}
+/** Normalize persisted track settings (mix, trim) while preserving tracks that have none. */
+function normalizeProjectMixes(p:Project):Project {return normalizeArrangement({...p,tracks:p.tracks.map(normalizeTrack)});}
 
 const sampleIds = (p: Project | null): Set<string> =>
   new Set((p?.tracks ?? []).map((t) => t.sampleId).filter((s): s is string => !!s));

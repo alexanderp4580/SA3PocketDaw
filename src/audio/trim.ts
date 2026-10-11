@@ -41,3 +41,7 @@ export function applyTrim(pcm:Float32Array,sampleRate:number,trim:Partial<Trim>|
  if(end<pcm.length)for(let i=0;i<fade;i++)out[out.length-1-i]!*=i/fade;
  return out;
 }
+/** Cache key for a trim: equal keys give equal audio. */
+export function trimKey(trim:Partial<Trim>|null|undefined,duration:number):string {
+ const t=resolveTrim(trim,duration);return isFullTrim(t,duration)?'full':`${t.start}:${t.end}`;
+}

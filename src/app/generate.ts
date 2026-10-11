@@ -8,7 +8,8 @@ import type { Engine } from '../audio/engine';
 import type { GenerationOutput } from '../gen/client';
 import type { GenerateParams } from '../gen/protocol';
 import type { ProjectStore } from '../store/projectStore';
-import { newId, addTrack, setTrackSample, setRoot } from '../store/projectModel';
+import { newId, addTrack, setTrackSample, setRoot, setTrackTrim } from '../store/projectModel';
+import {applyTrim,resolveTrim,storedTrim,type Trim} from '../audio/trim';
 
 export interface GeneratedResult {
   trackId:string;
@@ -21,7 +22,7 @@ export interface GeneratedResult {
 }
 
 export interface PreparationOptions {analyseInstrument?:typeof analyseInstrument;signal?:AbortSignal;onAnalysis?:(f:number)=>void;dynamics?:'sustain'|'decay'}
-export interface GeneratedDraft {sampleControls?:SampleControls;instrumentControls?:InstrumentControls;mode:'sample'|'instrument';pcm:Float32Array;sampleRate:number;rootMidi:number;lowConfidence:boolean;record:import('../store/projectStore').StoredSample}
+export interface GeneratedDraft {trim?:Trim;sampleControls?:SampleControls;instrumentControls?:InstrumentControls;mode:'sample'|'instrument';pcm:Float32Array;sampleRate:number;rootMidi:number;lowConfidence:boolean;record:import('../store/projectStore').StoredSample}
 /** The model finished, but its audio could not be turned into an instrument; the audio is still usable as a sample. */
 export class InstrumentAnalysisError extends Error{readonly code='instrument-rejected' as const;constructor(message:string){super(message);this.name='InstrumentAnalysisError';}}
 /** Prepare an auditionable draft; no project or sample store changes happen here. */
@@ -56,6 +57,19 @@ export function tweakSampleDraft(draft:GeneratedDraft,patch:Partial<SampleContro
  if(draft.record.instrument)return draft;
  return {...draft,sampleControls:resolveSampleControls({...draft.sampleControls,...patch})};
 }
+/**
+ * Chop a draft. The draft keeps its whole source; a sample only records the trim, an instrument is analysed again
+ * from the cut source (the previous draft stays valid if that fails).
+ */
+export async function trimDraft(draft:GeneratedDraft,trim:Trim,deps:PreparationOptions={}):Promise<GeneratedDraft> {
+ const duration=draft.pcm.length/draft.sampleRate,kept=resolveTrim(trim,duration),stored=storedTrim(kept,duration),{trim:_old,...rest}=draft;
+ if(!draft.record.instrument)return stored?{...rest,trim:stored}:rest;
+ let instrument:InstrumentProfile;
+ try{instrument=await (deps.analyseInstrument??analyseInstrument)(applyTrim(draft.pcm,draft.sampleRate,kept),draft.sampleRate,draft.record.instrument.dynamics,deps.signal,deps.onAnalysis);}
+ catch(e){if((e as {code?:string}).code==='cancelled')throw e;throw new InstrumentAnalysisError(e instanceof Error?e.message:String(e));}
+ if(deps.signal?.aborted)throw Object.assign(new Error('Cancelled'),{code:'cancelled'});
+ return {...rest,...(stored?{trim:stored}:{}),record:{...draft.record,instrument}};
+}
 /** Use is the commit point: persist the draft and assign it to this track. */
 export async function useGeneration(deps:{store:ProjectStore;engine:Engine;signal?:AbortSignal},trackId:string|null,draft:GeneratedDraft,idFactory:()=>string=()=>newId('s')):Promise<GeneratedResult>{
  if(deps.signal?.aborted)throw Object.assign(new Error('Cancelled'),{code:'cancelled'});
@@ -64,7 +78,7 @@ export async function useGeneration(deps:{store:ProjectStore;engine:Engine;signa
  if(deps.signal?.aborted||!deps.store.get()||(trackId!==null&&!deps.store.get()?.tracks.some(t=>t.id===trackId))){await deps.store.deleteSample(sampleId);throw Object.assign(new Error('Cancelled'),{code:'cancelled'});}
  if(draft.record.instrument)deps.engine.setInstrument(sampleId,draft.record.instrument);else deps.engine.setSample(sampleId,draft.pcm,draft.sampleRate);
  const targetId=trackId??newId('t');
- deps.store.update(p=>{let next=setTrackSample(trackId===null?addTrack(p,`${draft.mode==='instrument'?'Instrument':'Sample'} ${p.tracks.length+1}`,targetId):p,targetId,sampleId,draft.rootMidi,draft.mode);if(draft.sampleControls&&!draft.record.instrument)next={...next,tracks:next.tracks.map(t=>t.id===targetId?{...t,sampleControls:resolveSampleControls(draft.sampleControls)}:t)};return draft.record.instrument&&draft.instrumentControls?{...next,tracks:next.tracks.map(t=>t.id===targetId?{...t,instrumentControls:resolveControls(draft.instrumentControls,draft.record.instrument!.dynamics)}:t)}:next;});const next=deps.store.get();if(next)deps.engine.setProject(next);
+ deps.store.update(p=>{let next=setTrackSample(trackId===null?addTrack(p,`${draft.mode==='instrument'?'Instrument':'Sample'} ${p.tracks.length+1}`,targetId):p,targetId,sampleId,draft.rootMidi,draft.mode);if(draft.sampleControls&&!draft.record.instrument)next={...next,tracks:next.tracks.map(t=>t.id===targetId?{...t,sampleControls:resolveSampleControls(draft.sampleControls)}:t)};if(draft.trim)next=setTrackTrim(next,targetId,draft.trim);return draft.record.instrument&&draft.instrumentControls?{...next,tracks:next.tracks.map(t=>t.id===targetId?{...t,instrumentControls:resolveControls(draft.instrumentControls,draft.record.instrument!.dynamics)}:t)}:next;});const next=deps.store.get();if(next)deps.engine.setProject(next);
  return {trackId:targetId,sampleId,mode:draft.mode,pcm:draft.pcm,sampleRate:draft.sampleRate,rootMidi:draft.rootMidi,lowConfidence:draft.lowConfidence};
 }
 export async function applyGeneration(deps:{store:ProjectStore;engine:Engine}&PreparationOptions,trackId:string,params:GenerateParams,userPrompt:string,output:GenerationOutput,idFactory:()=>string=()=>newId('s')):Promise<GeneratedResult>{
