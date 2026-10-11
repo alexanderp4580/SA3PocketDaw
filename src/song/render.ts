@@ -1,6 +1,7 @@
 import processorUrl from '../audio/mixer/processor?worker&url';
 import {loadDragonfly} from '../audio/mixer/dragonfly';
-import {normalizeMix} from '../audio/mixer/plugins';
+import {isFxType,normalizeMix,type PluginInstance} from '../audio/mixer/plugins';
+import {masterChain} from '../store/projectModel';
 import {dbGain,panGain,finite,normalizeEqSettings,normalizeReverbSettings,type ReverbSettings} from '../audio/mixer/model';
 import {playNote,type AudioContextLike} from '../audio/sampler';
 import {resolveControls,brightnessHz} from '../audio/instrument/controls';
@@ -20,7 +21,8 @@ export async function renderSong(project:Project,sounds:Map<string,StoredSample>
  const nodes:AudioNode[]=[],workers:Worker[]=[],worklets:AudioWorkletNode[]=[];let context:OfflineAudioContext|null=null;let finished=false;
  let rejectProcessing:(e:Error)=>void=()=>{};const processingFailure=new Promise<never>((_,reject)=>rejectProcessing=reject);void processingFailure.catch(()=>{});
  try{
- const algorithms=new Set(project.tracks.filter(t=>sounds.has(t.id)).flatMap(t=>normalizeMix(t.mix).plugins.flatMap(p=>p.type==='reverb'&&!p.bypass&&normalizeReverbSettings(p.settings as Partial<ReverbSettings>).wet>0?[normalizeReverbSettings(p.settings as Partial<ReverbSettings>).algorithm]:[])));
+ const masterPlugins=masterChain(project),chains=[...project.tracks.filter(t=>sounds.has(t.id)).map(t=>normalizeMix(t.mix).plugins),masterPlugins];
+ const algorithms=new Set(chains.flat().flatMap(p=>{if(p.type!=='reverb'||p.bypass)return [];const r=normalizeReverbSettings(p.settings as Partial<ReverbSettings>);return r.wet>0?[r.algorithm]:[];}));
  const modules=new Map(await Promise.all([...algorithms].map(async a=>[a,await loadDragonfly(a)] as const)));checkAbort(signal);
  // Compile required bytes before rendering, so unavailable or invalid DSP cannot become a dry export.
  await Promise.all([...modules.values()].map(b=>WebAssembly.compile(b)));checkAbort(signal);
@@ -28,15 +30,24 @@ export async function renderSong(project:Project,sounds:Map<string,StoredSample>
  if(!ctx.audioWorklet)throw Error('This browser cannot render the song effects offline.');
  await ctx.audioWorklet.addModule(processorUrl);checkAbort(signal);
  const master=ctx.createGain();master.gain.value=dbGain(finite(project.masterDb,20*Math.log10(.8),-60,6));master.connect(ctx.destination);nodes.push(master);
+ const sum=ctx.createGain();sum.channelCount=2;sum.channelCountMode='explicit';nodes.push(sum);
+ /** Connects inserts after `input`, retaining effect latency while bypassed, and returns the last node. */
+ const insert=(input:AudioNode,plugins:PluginInstance[],owner:string):AudioNode=>{let output=input;
+  for(const p of plugins){
+   if(isFxType(p.type)){const node=new AudioWorkletNode(ctx,`sa3-fx-${p.type}`,{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[2],processorOptions:{settings:p.settings,bypass:p.bypass,bpm:project.bpm}});
+    node.addEventListener('processorerror',()=>rejectProcessing(Error(owner+': an effect failed while rendering.')));output.connect(node);output=node;nodes.push(node);worklets.push(node);continue;}
+   if(p.bypass)continue;
+   const settings=p.type==='eq'?normalizeEqSettings({...p.settings,bypass:false}):normalizeReverbSettings({...p.settings,bypass:false});
+   if(p.type==='reverb'&&normalizeReverbSettings(settings).wet===0)continue;
+   const node=new AudioWorkletNode(ctx,p.type==='eq'?'sa3-eq':'sa3-reverb',{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[2],processorOptions:p.type==='eq'?{eq:settings}:{reverb:settings,bytes:modules.get(normalizeReverbSettings(settings).algorithm)}});
+   node.addEventListener('processorerror',()=>rejectProcessing(Error(owner+': an effect failed while rendering.')));output.connect(node);output=node;nodes.push(node);worklets.push(node);
+  }
+  return output;};
+ insert(sum,masterPlugins,'Master').connect(master);
  let count=0;
- for(const track of project.tracks){const source=sounds.get(track.id);if(!source)continue;const mix=normalizeMix(track.mix),input=ctx.createGain();input.channelCount=2;input.channelCountMode='explicit';nodes.push(input);let output:AudioNode=input;
- for(const p of mix.plugins){if(p.bypass)continue;
- const settings=p.type==='eq'?normalizeEqSettings({...p.settings,bypass:false}):normalizeReverbSettings({...p.settings,bypass:false});
- if(p.type==='reverb'&&normalizeReverbSettings(settings).wet===0)continue;
- const node=new AudioWorkletNode(ctx,p.type==='eq'?'sa3-eq':'sa3-reverb',{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[2],processorOptions:p.type==='eq'?{eq:settings}:{reverb:settings,bytes:modules.get(normalizeReverbSettings(settings).algorithm)}});
- node.addEventListener('processorerror',()=>rejectProcessing(Error(track.name+': an effect failed while rendering.')));output.connect(node);output=node;nodes.push(node);worklets.push(node);
- }
- const pan=ctx.createStereoPanner(),gain=ctx.createGain();pan.pan.value=mix.pan;gain.gain.value=dbGain(mix.volumeDb)*panGain(mix.pan);output.connect(pan);pan.connect(gain);gain.connect(master);nodes.push(pan,gain);
+ for(const track of project.tracks){const source=sounds.get(track.id);if(!source)continue;const mix=normalizeMix(track.mix),input=ctx.createGain();input.channelCount=2;input.channelCountMode='explicit';nodes.push(input);
+ const output=insert(input,mix.plugins,track.name);
+ const pan=ctx.createStereoPanner(),gain=ctx.createGain();pan.pan.value=mix.pan;gain.gain.value=dbGain(mix.volumeDb)*panGain(mix.pan);output.connect(pan);pan.connect(gain);gain.connect(sum);nodes.push(pan,gain);
  const events=song.events.filter(e=>e.trackId===track.id);
  if(source.instrument){
  const controls=resolveControls(track.instrumentControls,source.instrument.dynamics),filter=ctx.createBiquadFilter();filter.type='lowpass';filter.Q.value=.707;filter.frequency.value=brightnessHz(controls.brightness,RATE);filter.connect(input);nodes.push(filter);

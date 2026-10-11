@@ -1,6 +1,6 @@
 import type {Arrangement} from '../song/arrangement';
 import type {SampleControls} from '../audio/sampleControls';
-import {MAX_PLUGINS,normalizeMix,normalizePlugin,pluginTypes,uniqueId,type PluginSettings,type PluginType,type TrackMix} from '../audio/mixer/plugins';
+import {MASTER_ID,MAX_PLUGINS,normalizeChain,normalizeMix,normalizePlugin,pluginTypes,uniqueId,type PluginInstance,type PluginSettings,type PluginType,type TrackMix} from '../audio/mixer/plugins';
 import type { InstrumentControls } from '../audio/instrument/controls';
 import type {Trim} from '../audio/trim';
 export const MIDI_MIN = 24;
@@ -61,6 +61,8 @@ export interface Track {
 export interface Project {
   arrangement?:Arrangement;
   masterDb?:number;
+  /** Ordered insert chain on the master bus; missing = empty. */
+  masterPlugins?:PluginInstance[];
   loop?:LoopRange;
   id: string;
   name: string;
@@ -233,8 +235,9 @@ export function setLoopRange(p:Project,startBar:number,endBar:number):Project {c
 export function setTrackBars(p:Project,id:string,bars:number):Project {const next=mapTrack(p,id,t=>({...t,bars:trackBars({id,bars},p.bars)}));return next.loop?{...next,loop:loopRange(next)}:next;}
 export function toggleSolo(p:Project,id:string):Project {return mapTrack(p,id,t=>({...t,solo:!t.solo}));}
 
-/** Plugin helpers return the same project when nothing changes (unknown id, list full, move past an end). */
+/** Plugin helpers return the same project when nothing changes (unknown id, list full, move past an end). `MASTER_ID` addresses the master chain. */
 function mapPlugins(p:Project,trackId:string,fn:(m:TrackMix)=>TrackMix):Project {
+  if(trackId===MASTER_ID){const m=normalizeMix({plugins:p.masterPlugins}),next=fn(m);return next===m?p:{...p,masterPlugins:next.plugins};}
   const t=p.tracks.find(x=>x.id===trackId);if(!t)return p;const m=normalizeMix(t.mix),next=fn(m);
   return next===m?p:mapTrack(p,trackId,x=>({...x,mix:next}));
 }
@@ -253,3 +256,6 @@ export function setPluginBypass(p:Project,trackId:string,pluginId:string,bypass:
 export function updatePluginSettings(p:Project,trackId:string,pluginId:string,patch:Partial<PluginSettings>):Project {
   return mapPlugins(p,trackId,m=>m.plugins.some(x=>x.id===pluginId)?{...m,plugins:m.plugins.map(x=>x.id===pluginId?normalizePlugin(x.type,x.id,x.bypass,{...x.settings,...patch}):x)}:m);
 }
+
+/** Master chain as stored (normalised), empty when none. */
+export const masterChain=(p:Pick<Project,'masterPlugins'>):PluginInstance[]=>p.masterPlugins===undefined?[]:normalizeChain(p.masterPlugins);

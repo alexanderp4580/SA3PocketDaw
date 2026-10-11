@@ -118,3 +118,19 @@ describe('projectModel', () => {
   expect(setTrackSample(p, 't1', null).tracks[0]!.trim).toBeUndefined();
  });
 });
+
+import {MASTER_ID as MASTER_ID_TEST} from '../audio/mixer/plugins';
+import {addPlugin,movePlugin,removePlugin,setPluginBypass,updatePluginSettings,masterChain} from './projectModel';
+describe('master insert chain',()=>{
+ it('adds, moves, bypasses, updates and removes inserts through the reserved id',()=>{
+  let p=createProject();expect(masterChain(p)).toEqual([]);
+  p=addPlugin(p,MASTER_ID_TEST,'eq',()=>'a');p=addPlugin(p,MASTER_ID_TEST,'limiter',()=>'b');
+  expect(masterChain(p).map(x=>x.id)).toEqual(['a','b']);
+  p=movePlugin(p,MASTER_ID_TEST,'b',-1);expect(masterChain(p).map(x=>x.id)).toEqual(['b','a']);
+  p=setPluginBypass(p,MASTER_ID_TEST,'b',true);expect(masterChain(p)[0]!.bypass).toBe(true);
+  p=updatePluginSettings(p,MASTER_ID_TEST,'b',{ceiling:-3});expect(masterChain(p)[0]!.settings).toMatchObject({ceiling:-3});
+  p=removePlugin(p,MASTER_ID_TEST,'a');expect(masterChain(p).map(x=>x.id)).toEqual(['b']);
+  expect(p.tracks).toEqual([]);expect(removePlugin(p,MASTER_ID_TEST,'zzz')).toBe(p);
+ });
+ it('limits the master chain to the plugin maximum',()=>{let p=createProject();for(let i=0;i<9;i++)p=addPlugin(p,MASTER_ID_TEST,'chorus',()=>`c${i}`);expect(masterChain(p)).toHaveLength(6);});
+});

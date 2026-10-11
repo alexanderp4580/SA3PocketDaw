@@ -2,6 +2,8 @@ import {EqProcessor} from './eq';
 import {DragonflyDSP} from './dragonfly';
 import {type EqSettings,type EqBand,type ReverbSettings,dragonfly,normalizeEqSettings,normalizeReverbSettings} from './model';
 import {StereoMeter} from './meter';
+import {FxHost} from './fx/host';
+import {fxKinds,type FxKind} from './fx/spec';
 declare const sampleRate:number;
 declare class AudioWorkletProcessor {port:MessagePort;constructor();}
 declare function registerProcessor(name:string,processor:typeof AudioWorkletProcessor):void;
@@ -35,9 +37,25 @@ class ReverbWorklet extends AudioWorkletProcessor {
  return true;
  }
 }
+/** One effect plugin of kind `kind`: `settings` messages carry the parameter values, bypass flag and project tempo; `clear` empties the effect state. */
+function fxProcessor(kind:FxKind){
+ return class extends AudioWorkletProcessor {
+  private disposed=false;private flush=0;private host=new FxHost(kind,sampleRate);private zero=new Float32Array(128);private spare=new Float32Array(128);private frames=0;private reported=-1;
+  constructor(options?:{processorOptions?:{settings?:unknown;bypass?:boolean;bpm?:number}}){super();const o=options?.processorOptions;this.host.set(o?.settings??{},o?.bypass===true,o?.bpm??120);
+   this.port.onmessage=e=>{const m=e.data;try{if(m.type==='settings')this.host.set(m.settings,m.bypass===true,m.bpm);else if(m.type==='clear'){this.flush=Math.ceil(sampleRate*.01);this.host.clear();}else if(m.type==='dispose')this.disposed=true;}catch(error){this.port.postMessage({type:'error',message:String(error)});}};}
+  process(inputs:Float32Array[][],outputs:Float32Array[][]){if(this.disposed)return false;const out=outputs[0],l=inputs[0]?.[0]??this.zero,r=inputs[0]?.[1]??l;if(!out?.[0])return true;
+   const n=out[0].length;
+   // Stop fades sources for 5 ms; discard their remaining input before accepting new audio.
+   if(this.flush>0){this.flush-=n;this.host.clear();out[0].fill(0);out[1]?.fill(0);return true;}
+   this.host.process(l,r,out[0],out[1]??this.spare,n);
+   this.frames+=n;if(this.frames>=sampleRate/25){this.frames=0;const g=Math.round(this.host.reduction*10)/10;if(g!==this.reported){this.reported=g;this.port.postMessage({type:'reduction',value:g});}}
+   return true;}
+ };
+}
 class MeterProcessor extends AudioWorkletProcessor {
  private disposed=false;private meter=new StereoMeter(sampleRate);private frames=0;private quiet=false;private zero=new Float32Array(128);
  constructor(){super();this.port.onmessage=e=>{if(e.data.type==='clear')this.meter.clear();else if(e.data.type==='dispose')this.disposed=true;};}
  process(inputs:Float32Array[][],outputs:Float32Array[][]){if(this.disposed)return false;const l=inputs[0]?.[0]??this.zero,r=inputs[0]?.[1]??l,o=outputs[0];o?.[0]?.set(l);o?.[1]?.set(r);this.meter.add(l,r);this.frames+=128;if(this.frames>=sampleRate/25){this.frames=0;const m=this.meter.read(),quiet=!m.clip&&Math.max(m.rms[0],m.rms[1],m.peak[0],m.peak[1])<1e-6;if(!(quiet&&this.quiet))this.port.postMessage(m);this.quiet=quiet;}return true;}
 }
 registerProcessor('sa3-eq',EqWorklet);registerProcessor('sa3-reverb',ReverbWorklet);registerProcessor('sa3-meter',MeterProcessor);
+for(const kind of fxKinds)registerProcessor(`sa3-fx-${kind}`,fxProcessor(kind));

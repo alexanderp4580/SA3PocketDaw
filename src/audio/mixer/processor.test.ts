@@ -35,3 +35,18 @@ it('the meter worklet stops posting while its input stays silent and resumes wit
  const before=messages.length;for(let i=0;i<200;i++)p.process([[loud,loud]],[out]);expect(messages.length).toBeGreaterThan(before+5);
  expect(messages.at(-1).peak[0]).toBeCloseTo(.5);vi.unstubAllGlobals();
 });
+it('clearing a delay prevents fading source audio from refilling its tail',async()=>{
+ vi.resetModules();let C:any;
+ vi.stubGlobal('sampleRate',48000);
+ vi.stubGlobal('AudioWorkletProcessor',class {port={onmessage:null as any,postMessage(){}};});
+ vi.stubGlobal('registerProcessor',(name:string,c:any)=>{if(name==='sa3-fx-delay')C=c;});
+ try{
+  await import('./processor');
+  const p=new C({processorOptions:{settings:{sync:0,time:50,feedback:90,tone:20000,mix:100}}});
+  run(p,new Float32Array(256).fill(.2));
+  p.port.onmessage({data:{type:'clear'}});
+  const fading=new Float32Array(48000);fading.fill(.1,0,240);
+  const y=run(p,fading);
+  expect(y.every(v=>v===0)).toBe(true);
+ }finally{vi.unstubAllGlobals();}
+});

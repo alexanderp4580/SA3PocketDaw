@@ -1,6 +1,6 @@
 # Handoff
 
-State as of 2026-10-07 (mixer verified in desktop Chromium). Wave 4 was stopped by the user; the app is hosted for phone testing. This document lists what is done, what is open and a working log that the active worker appends to after every milestone, so a new session can continue at any point.
+State as of 2026-10-11 (effects and master insert chain verified in desktop Chromium). Wave 4 was stopped by the user; the app is hosted for phone testing. This document lists what is done, what is open and a working log that the active worker appends to after every milestone, so a new session can continue at any point.
 
 ## What this is
 
@@ -8,7 +8,7 @@ Phone-first browser DAW proof of concept. SA3 (Stable Audio 3) generates a sampl
 
 Confirmed decisions: two generation paths, Sample (one-shot sampler) and Instrument (single-note hybrid resynthesis with automatic tuning); one looping pattern per track; single generation auto-kept; hand-drawn melodies only; models Small SFX, Small Music and Medium, each installed with one Download button into Cache Storage and removable (per model, all models, all app data); LAN self-signed HTTPS hosting from the Deck; mixer later.
 
-## Done (each wave reported `npm test`, `npm run typecheck`, `npm run build` exit 0; last full report: 357 tests)
+## Done (each wave reported `npm test`, `npm run typecheck`, `npm run build` exit 0; latest full report: 706 tests)
 
 - Wave 1: Svelte 5 + Vite + Vitest scaffold, model link and manifest scripts, HTTPS static server and cert script, logger and report, compatibility verdict, model manager.
 - Wave 2: audio (sample prep, YIN pitch detection, sampler voice, look-ahead scheduler, engine), project model and IndexedDB store (with note velocity), SA3 generation worker and client (resident sessions, staged timings, cancel).
@@ -158,3 +158,16 @@ Intended: hide the info card on the roll screen, fix a console 404 on load, offl
 - UI: `TrimControl.svelte` inside `SampleControlsPanel` and `InstrumentControlsPanel`, used in the Generate draft (local until Use; Preview and Use wait for a running analysis) and in the Edit sound sheet. Undo history covers only the arrangement and is unchanged.
 - Verified in the real app (Vite dev, injected fake PCM, 375x812 and 320x640): sample chop to 1.00 s, preview, reload persists, reset; instrument Start 0.5 s re-analysed (kept 1.50 s), persists after reload, a 0.05 s chop is rejected and the stored sound is kept; no horizontal overflow; sliders 44 px high; the only console error is the logged expected analysis failure.
 - Not verified: the Generate sheet chop in the browser (needs installed models; covered by `generate.test.ts` for the draft logic only); audible export of a chopped sample (the render path applies the cut; `renderSong` is mocked in tests); phone behaviour.
+
+
+## Effects and master inserts — 2026-10-11
+
+- Current work is in `/home/deck/SketchBook/Projects/sa3BrowserDaw` on `main`. Each track and the Master channel have up to six ordered inserts: EQ, Dragonfly reverb, limiter, compressor, delay, saturation, chorus, phaser, flanger, resonant filter, stereo widener, bitcrusher and transient shaper. `Project.masterPlugins` persists the master chain; missing means empty. The generic effect sheet exposes spec-defined controls, bypass, reset, transport and gain reduction for dynamics. EQ and reverb editors operate on the selected track or master instance.
+- The master chain follows the track sum and precedes master volume/meter. Tempo changes reach synced effects. Free delay time is 1–2000 ms; synced note values retain their full duration (whole note at 40 BPM = 6 seconds). Delay capacity also covers the DSP tempo floor of 20 BPM (12 seconds); its stereo Float64 ring buffers use about 16 MiB per insert at 44.1/48 kHz.
+- Stop clears track and master effect state. Effect worklets discard the following 10 ms of source input, preventing the 5 ms source release from feeding another delay tail. Worklet installation failures appear on the master strip and Retry reinstalls the processors and chain. A limiter begins with the same gain history as after reset.
+- Offline song export uses the same effect processors and master chain. Bypassed effects retain latency, so a bypassed limiter delays the dry path by the same 131 frames at 44.1 kHz in playback and export. Effects reside in the mixer worklet bundle, which the service worker precaches; no extra asset download is required.
+- Fresh verification: 706 tests across 82 files; strict typecheck zero errors/warnings; production build exit 0; independent review and regression fixes. Chromium production-build checks: all 11 effect editors, track/master settings and bypass/reset, master EQ/reverb edits, reordering, reload persistence, no page overflow at 320×640 and 375×812, no script errors. All 11 processors render finite nonzero audio and agree when placed on the single track or master. Offline reload restores effects and exports a decodable stereo MP3 (48,901 bytes, 2.038 s). Live track+master delay capture is exactly silent after Stop; limiter peak 0.25118864 at −12 dBFS ceiling and compressor gain reduction about 16.47 dB.
+- Evidence and reproducible browser probes: `/home/deck/Documents/Codex/2026-10-11-check-current-state-of-sa3-browser/verification/` (`effects-browser.mjs`, `effects-browser.json`, `effects-live.mjs`, `effects-live.json`, `bypass-export.mjs`, test/typecheck/build logs). Probes use locally installed playwright-core at `/tmp/e2e/` and Chromium 1243; they run on throwaway 8085/8455 ports with their own browser data. They use synthetic audio, not fresh SA3 inference.
+- Phone CPU, effect-count/memory limits, hardware touch/haptics and subjective sound quality remain to check. Production is deployed from the `main` branch of `alexanderp4580/SA3PocketDaw` through Coolify.
+
+- Local phone-testing host now serves this main checkout's production build at https://192.168.8.226:8443/ and https://192.168.8.191:8443/ (HTTP loopback 8082). HTTPS returns 200 with isolation headers, its index matches `dist/index.html`, and a fresh mobile-sized browser sees all 13 insert types including the master picker without script errors. Same-origin model caches and IndexedDB data are preserved. Host verification: `verification/host.json` in the session evidence folder.

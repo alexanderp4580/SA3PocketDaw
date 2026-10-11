@@ -9,3 +9,10 @@ Model files are hosted at https://huggingface.co/alexanderp4580/sa3-browser-mode
 Coolify builds the Dockerfile and publishes its port 80 at https://pocketdaw.io.liveleds.io. Browser inference requires a compatible WebGPU device; the server serves static files only.
 
 Dragonfly source, license and reproducible WASM build instructions: `vendor/dragonfly/README.md`. The application serves a corresponding source archive at `/dragonfly/source.tar.gz`.
+
+
+## Effect inserts
+
+Tracks and Master support up to six ordered inserts each: EQ, Dragonfly reverb, limiter, compressor, delay, saturation, chorus, phaser, flanger, resonant filter, stereo widener, bitcrusher and transient shaper. Add plugin opens the picker; each insert has edit, bypass, move and remove controls. Dynamics editors show gain reduction. Parameters, order, bypass and master settings save with the project.
+
+Playback and MP3 export use the same effect processors. Synced delays follow project tempo, bypass retains processor latency, and Stop clears effect tails on both tracks and Master. All effects are included in the offline app bundle. See the latest effects entry in `docs/handoff.md` for verification and phone-testing limits.

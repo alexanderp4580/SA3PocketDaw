@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { IDBFactory } from 'fake-indexeddb';
 import { createProjectStore, type StoredSample } from './projectStore';
-import { createProject, addTrack, removeTrack, setTrackSample, renameProject, noteVelocity } from './projectModel';
+import { createProject, addTrack, removeTrack, setTrackSample, renameProject, noteVelocity, addPlugin, updatePluginSettings, setPluginBypass, masterChain } from './projectModel';
+import { MASTER_ID } from '../audio/mixer/plugins';
 
 const sample = (n = 100): StoredSample => ({
   pcm: Float32Array.from({ length: n }, (_, i) => i / n),
@@ -204,5 +205,27 @@ describe('persisted trim',()=>{
   expect(loaded.tracks[0]!.trim).toEqual({start:.2,end:.9});
   expect(loaded.tracks[1]!.trim).toBeUndefined();
   expect('trim' in loaded.tracks[2]!).toBe(false);
+ });
+});
+
+describe('persisted master chain and effect plugins',()=>{
+ async function open(idb:IDBFactory){return new Promise<IDBDatabase>((resolve,reject)=>{const request=idb.open('sa3daw',1);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});}
+ it('round-trips a master chain and effect settings through IndexedDB',async()=>{
+  const {mk}=setup(),store=mk();let p=addTrack(createProject(),'Lead','t');
+  p=addPlugin(p,MASTER_ID,'limiter',()=>'lim');p=updatePluginSettings(p,MASTER_ID,'lim',{ceiling:-2,release:250});p=addPlugin(p,MASTER_ID,'eq',()=>'eq1');p=setPluginBypass(p,MASTER_ID,'eq1',true);
+  p=addPlugin(p,'t','delay',()=>'dl');p=updatePluginSettings(p,'t','dl',{sync:5,feedback:60});
+  store.set(p);await store.flush();const loaded=(await mk().load())!;
+  expect(masterChain(loaded).map(x=>[x.id,x.type,x.bypass])).toEqual([['lim','limiter',false],['eq1','eq',true]]);
+  expect(masterChain(loaded)[0]!.settings).toMatchObject({threshold:0,ceiling:-2,release:250});
+  expect(loaded.tracks[0]!.mix!.plugins[0]).toMatchObject({type:'delay',settings:{sync:5,feedback:60,mix:30}});
+ });
+ it('loads projects without a master chain unchanged and drops unknown plugin types',async()=>{
+  const {idb,mk}=setup(),primer=mk();await primer.load();await primer.close();const db=await open(idb);
+  const base=addTrack(createProject(),'Lead','t'),legacy={...base,masterPlugins:[{id:'x',type:'vocoder',bypass:false,settings:{}},{id:'c',type:'compressor',bypass:false,settings:{ratio:99,junk:1}}],
+   tracks:[{...base.tracks[0]!,mix:{volumeDb:0,pan:0,plugins:[{id:'q',type:'warp',bypass:false,settings:{}}]}}]};
+  await new Promise<void>((res,rej)=>{const tx=db.transaction('project','readwrite');tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);tx.objectStore('project').put(legacy,'current');});
+  const loaded=(await mk().load())!;expect(masterChain(loaded)).toEqual([{id:'c',type:'compressor',bypass:false,settings:{threshold:-18,ratio:20,attack:10,release:120,knee:6,makeup:0}}]);
+  expect(loaded.tracks[0]!.mix!.plugins).toEqual([]);db.close();
+  const plain=mk();plain.set(addTrack(createProject(),'Solo','s'));await plain.flush();expect(Object.hasOwn((await mk().load())!,'masterPlugins')).toBe(false);
  });
 });

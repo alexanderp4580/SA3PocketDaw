@@ -3,10 +3,15 @@ const scope=log.scope('audio.mixer.plugins');
 import {loadDragonfly} from './dragonfly';
 import {normalizeEqSettings,normalizeReverbSettings,type EqBand,type ReverbSettings} from './model';
 import {type PluginInstance,type PluginType} from './plugins';
+import {normalizeFx} from './fx/spec';
 export interface PluginNode {
  input:AudioNode;output:AudioNode;id:string;type:PluginType;
  update(plugin:PluginInstance):void;dispose():void;clear():void;retry():void;error():string|null;
  spectrum?(post:boolean):{values:Float32Array;sampleRate:number};listen?(band:EqBand|null):void;
+ /** Effect plugins: follows the project tempo. */
+ tempo?(bpm:number):void;
+ /** Effect plugins with a gain-reduction meter: current reduction in dB. */
+ reduction?():number;
 }
 /** Each insert owns a stable input/output pair, even if its processor stops. */
 function createPlugin(ctx:AudioContext,initial:PluginInstance):PluginNode {
@@ -29,4 +34,23 @@ function createPlugin(ctx:AudioContext,initial:PluginInstance):PluginNode {
  clear(){worklet?.port.postMessage({type:'clear'});},retry(){if(!worklet){try{start();}catch(e){failure=String(e);}}else void load();},error(){return failure;},
  ...(pre&&post?{spectrum(after:boolean){(after?post:pre).getFloatFrequencyData(values);return {values,sampleRate:ctx.sampleRate};},listen(b:EqBand|null){band=b;worklet?.port.postMessage({type:'listen',band});}}:{})};
 }
-export const pluginNodeFactories:Record<PluginType,(ctx:AudioContext,plugin:PluginInstance)=>PluginNode>={eq:createPlugin,reverb:createPlugin};
+/** One effect plugin: a worklet processing the stereo input; on a processor failure the insert passes its input through. */
+function createFxPlugin(ctx:AudioContext,initial:PluginInstance,bpm=120):PluginNode {
+ const input=ctx.createGain(),output=ctx.createGain();let plugin=initial,tempo=bpm,worklet:AudioWorkletNode|null=null,disposed=false,failure:string|null=null,gr=0;
+ const message=()=>({type:'settings',settings:normalizeFx(initial.type as never,plugin.settings),bypass:plugin.bypass,bpm:tempo});
+ function connect(){input.disconnect();input.connect(worklet??output);worklet?.connect(output);}
+ function start(){if(disposed)return;const m=message();
+  worklet=new AudioWorkletNode(ctx,`sa3-fx-${initial.type}`,{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[2],processorOptions:{settings:m.settings,bypass:m.bypass,bpm:m.bpm}});const node=worklet;
+  node.port.onmessage=e=>{if(disposed||worklet!==node)return;const d=e.data;if(d.type==='reduction')gr=Number(d.value)||0;else if(d.type==='error'){failure=String(d.message);scope.error('plugin error',{id:plugin.id,error:failure});}};
+  node.addEventListener('processorerror',()=>{if(disposed||worklet!==node)return;failure='Plugin processor stopped. Dry playback is active.';scope.error('processor stopped',{id:plugin.id});node.disconnect();node.port.close();worklet=null;gr=0;connect();});
+  connect();failure=null;}
+ start();
+ return {id:initial.id,type:initial.type,input,output,
+  update(p){plugin=p;worklet?.port.postMessage(message());},tempo(b){if(b===tempo)return;tempo=b;worklet?.port.postMessage(message());},
+  dispose(){disposed=true;worklet?.port.postMessage({type:'dispose'});worklet?.disconnect();worklet?.port.close();input.disconnect();output.disconnect();},
+  clear(){worklet?.port.postMessage({type:'clear'});gr=0;},retry(){if(!worklet){try{start();}catch(e){failure=String(e);}}},error(){return failure;},reduction(){return gr;}};
+}
+export type PluginNodeFactory=(ctx:AudioContext,plugin:PluginInstance,bpm?:number)=>PluginNode;
+export const pluginNodeFactories:Record<PluginType,PluginNodeFactory>={eq:createPlugin,reverb:createPlugin,
+ limiter:createFxPlugin,compressor:createFxPlugin,delay:createFxPlugin,saturation:createFxPlugin,chorus:createFxPlugin,phaser:createFxPlugin,flanger:createFxPlugin,
+ filter:createFxPlugin,widener:createFxPlugin,bitcrusher:createFxPlugin,transient:createFxPlugin};

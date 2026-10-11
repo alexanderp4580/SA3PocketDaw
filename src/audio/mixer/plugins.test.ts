@@ -8,7 +8,7 @@ const ids=(m:{plugins:PluginInstance[]})=>m.plugins.map(p=>p.id);
 describe('plugin mix model',()=>{
  it('empty input gives an empty plugin list with default volume and pan',()=>{const m=normalizeMix();expect(m).toEqual({volumeDb:0,pan:0,plugins:[]});});
  it('registry has eq and reverb with labels and defaults',()=>{expect(pluginTypes.eq.label).toBe('EQ');expect(pluginTypes.reverb.label).toBe('Reverb');expect((pluginTypes.eq.defaults() as any).bands).toEqual([]);expect((pluginTypes.reverb.defaults() as any).wet).toBe(0);});
- it('unknown types are dropped',()=>{const m=normalizeMix({plugins:[eq('a'),{id:'x',type:'flanger',bypass:false,settings:{}},null,7]} as never);expect(ids(m)).toEqual(['a']);});
+ it('unknown types are dropped',()=>{const m=normalizeMix({plugins:[eq('a'),{id:'x',type:'vocoder',bypass:false,settings:{}},null,7]} as never);expect(ids(m)).toEqual(['a']);});
  it('duplicate ids are renamed to unique ids',()=>{const m=normalizeMix({plugins:[eq('a'),eq('a'),eq('a')]} as never);expect(new Set(ids(m)).size).toBe(3);expect(m.plugins[0]!.id).toBe('a');});
  it('missing ids are generated',()=>{const m=normalizeMix({plugins:[{type:'eq',settings:{}},{type:'eq',settings:{}}]} as never);expect(new Set(ids(m)).size).toBe(2);expect(ids(m).every(i=>i.length>0)).toBe(true);});
  it('list is truncated to MAX_PLUGINS',()=>{expect(MAX_PLUGINS).toBe(6);const m=normalizeMix({plugins:Array.from({length:9},(_,i)=>eq(`p${i}`))} as never);expect(ids(m)).toEqual(['p0','p1','p2','p3','p4','p5']);});

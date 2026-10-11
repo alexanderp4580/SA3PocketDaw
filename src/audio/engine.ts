@@ -201,6 +201,7 @@ export function createEngine(options: EngineOptions = {}) {
     meter:(id?:string)=>mixer?.meter(id)??emptyMeter(),
     spectrum:(id:string,pluginId:string,post=true)=>mixer?.spectrum(id,pluginId,post)??null,
     listenRange:(id:string|null,pluginId?:string,band?:EqBand)=>mixer?.listen(id,pluginId,band),
+    pluginReduction:(id:string,pluginId:string)=>mixer?.reduction(id,pluginId)??null,
     mixerError:(id:string)=>mixer?.error(id)??null,
     retryMixer:(id:string)=>mixer?.retry(id),
     sampleRate:()=>mixer?.sampleRate??44100,

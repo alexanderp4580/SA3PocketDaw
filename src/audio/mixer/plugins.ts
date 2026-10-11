@@ -1,8 +1,11 @@
 import {finite,normalizeEqSettings,normalizeReverbSettings,type EqSettings,type FxView,type ReverbSettings} from './model';
-export type PluginType='eq'|'reverb';
+import {defaultFx,fxKinds,fxSpecs,normalizeFx,type FxKind,type FxSettings} from './fx/spec';
+export type PluginType='eq'|'reverb'|FxKind;
+/** Reserved track id that addresses the master insert chain in project helpers and the mixer. */
+export const MASTER_ID='@master';
 export type EqPluginSettings=Omit<EqSettings,'bypass'>;
 export type ReverbPluginSettings=Omit<ReverbSettings,'bypass'>;
-export type PluginSettings=EqPluginSettings|ReverbPluginSettings;
+export type PluginSettings=EqPluginSettings|ReverbPluginSettings|FxSettings;
 export interface PluginInstance {id:string;type:PluginType;bypass:boolean;settings:PluginSettings;}
 export interface TrackMix {volumeDb:number;pan:number;plugins:PluginInstance[];}
 export const MAX_PLUGINS=6;
@@ -10,9 +13,12 @@ interface PluginTypeEntry {label:string;defaults:()=>PluginSettings;normalize:(r
 const strip=<T extends {bypass:boolean}>({bypass:_,...rest}:T):Omit<T,'bypass'>=>rest;
 export const pluginTypes:Record<PluginType,PluginTypeEntry>={
  eq:{label:'EQ',defaults:()=>strip(normalizeEqSettings()),normalize:raw=>strip(normalizeEqSettings(raw as Partial<EqSettings>))},
- reverb:{label:'Reverb',defaults:()=>strip(normalizeReverbSettings()),normalize:raw=>strip(normalizeReverbSettings(raw as Partial<ReverbSettings>))}
+ reverb:{label:'Reverb',defaults:()=>strip(normalizeReverbSettings()),normalize:raw=>strip(normalizeReverbSettings(raw as Partial<ReverbSettings>))},
+ ...Object.fromEntries(fxKinds.map(k=>[k,{label:fxSpecs[k].label,defaults:()=>defaultFx(k),normalize:(raw:unknown)=>normalizeFx(k,raw)}])) as Record<FxKind,PluginTypeEntry>
 };
 export const pluginTypeIds=Object.keys(pluginTypes) as PluginType[];
+export const isFxType=(type:PluginType):type is FxKind=>type!=='eq'&&type!=='reverb';
+const viewTypes=['eq','reverb'] as const;
 const obj=(v:unknown):Record<string,unknown>|null=>v&&typeof v==='object'&&!Array.isArray(v)?v as Record<string,unknown>:null;
 export function normalizePlugin(type:PluginType,id:string,bypass:boolean,settings:unknown):PluginInstance{return {id,type,bypass,settings:pluginTypes[type].normalize(obj(settings)??{})};}
 /** Legacy fused `eq`/`reverb` fields become an EQ (if it has an enabled band or a trim) followed by a Reverb (if wet > 0). */
@@ -42,7 +48,7 @@ export function fxView(m:TrackMix):FxView{
 /** Writes a changed `eq` and/or `reverb` back into the first plugin of that type, appending one when the track has none. */
 export function withFxView(m:TrackMix,patch:Partial<Pick<FxView,'eq'|'reverb'>>):TrackMix{
  let next=m;
- for(const type of pluginTypeIds){
+ for(const type of viewTypes){
   const v=patch[type];if(!v)continue;
   const {bypass,...settings}=v,at=next.plugins.findIndex(p=>p.type===type),plugin=normalizePlugin(type,at<0?uniqueId(next,type):next.plugins[at]!.id,bypass,settings);
   if(at>=0)next={...next,plugins:next.plugins.map((p,i)=>i===at?plugin:p)};
@@ -50,4 +56,6 @@ export function withFxView(m:TrackMix,patch:Partial<Pick<FxView,'eq'|'reverb'>>)
  }
  return next;
 }
+/** Normalised insert chain of any stored plugin list; unknown plugin types are dropped. */
+export const normalizeChain=(plugins:unknown):PluginInstance[]=>normalizeMix({plugins}).plugins;
 export function uniqueId(m:TrackMix,base:string):string{const used=new Set(m.plugins.map(p=>p.id));let id=base,n=2;while(used.has(id))id=`${base}-${n++}`;return id;}

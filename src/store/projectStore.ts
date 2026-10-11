@@ -1,7 +1,7 @@
 import {normalizeArrangement} from '../song/arrangement';
 import { log as defaultLog, type Logger } from '../log';
 import type { Project } from './projectModel';
-import {normalizeMix} from '../audio/mixer/plugins';
+import {normalizeChain,normalizeMix} from '../audio/mixer/plugins';
 import {normalizeStoredTrim} from '../audio/trim';
 import type { InstrumentProfile } from '../audio/instrument/types';
 
@@ -57,7 +57,7 @@ function normalizeTrack(t:Project['tracks'][number]):Project['tracks'][number] {
  return next.mix===undefined?next:{...next,mix:normalizeMix(next.mix)};
 }
 /** Normalize persisted track settings (mix, trim) while preserving tracks that have none. */
-function normalizeProjectMixes(p:Project):Project {return normalizeArrangement({...p,tracks:p.tracks.map(normalizeTrack)});}
+function normalizeProjectMixes(p:Project):Project {const next=normalizeArrangement({...p,tracks:p.tracks.map(normalizeTrack)});return p.masterPlugins===undefined?next:{...next,masterPlugins:normalizeChain(p.masterPlugins)};}
 
 const sampleIds = (p: Project | null): Set<string> =>
   new Set((p?.tracks ?? []).map((t) => t.sampleId).filter((s): s is string => !!s));

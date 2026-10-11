@@ -3,20 +3,20 @@
 // Usage: node scripts/perf-probe/app.mjs '{"tracks":8,"instrumentTracks":8,"screen":"mix","seconds":10}'
 import {createRequire} from 'node:module';
 const {chromium}=createRequire(process.env.PW_REQUIRE_FROM??'/tmp/e2e/')('playwright-core');
-const c={pitches:12,tracks:8,instrumentTracks:8,screen:'tracks',seconds:10,partials:40,notesPerBar:16,reverb:true,...JSON.parse(process.argv[2]??'{}')};
+const c={pitches:12,tracks:8,instrumentTracks:8,screen:'tracks',seconds:10,partials:40,notesPerBar:16,reverb:true,trackFx:[],masterFx:[],...JSON.parse(process.argv[2]??'{}')};
 const SR=44100,base=process.env.URL??'http://localhost:5199';
 function build(){
  const tracks=[],samples={};
  for(let t=0;t<c.tracks;t++){
   const inst=t<c.instrumentTracks,sid=`s${t}`,notes=[];
   for(let i=0;i<c.notesPerBar*2;i++)notes.push({id:`n${t}_${i}`,midi:45+(i*5+t*3)%c.pitches,start:i*(32/(c.notesPerBar*2)),length:Math.max(1,Math.round(64/(c.notesPerBar*2))),velocity:100});
-  const plugins=[{id:`eq${t}`,type:'eq',bypass:false,settings:{}}];if(c.reverb)plugins.push({id:`rv${t}`,type:'reverb',bypass:false,settings:{}});
+  const plugins=[{id:`eq${t}`,type:'eq',bypass:false,settings:{}}];if(c.reverb)plugins.push({id:`rv${t}`,type:'reverb',bypass:false,settings:{}});for(const k of c.trackFx)plugins.push({id:`${k}${t}`,type:k,bypass:false,settings:{}});
   tracks.push({id:`t${t}`,name:`Track ${t+1}`,muted:false,sampleId:sid,rootMidi:57,notes,soundType:inst?'instrument':'sample',bars:2,mix:{volumeDb:-6,pan:0,plugins}});
   const n=SR*2,pcm=Array.from({length:n},(_,i)=>Math.sin(2*Math.PI*220*i/SR)*Math.exp(-i/(SR*.5)));
   if(inst){const count=Math.ceil(n/512);samples[sid]={pcm,sampleRate:SR,meta:{mode:'instrument'},instrument:{version:1,hz:220,sampleRate:SR,hop:512,pcm,residual:pcm.map(()=>0),harmonicEnergy:1,dynamics:'sustain',gain:1,partials:Array.from({length:c.partials},(_,i)=>({ratio:i+1,phase:0,decay:-1,amplitudes:Array.from({length:count},(_,j)=>.15*Math.exp(-j/120)/(i+1))}))}};}
   else samples[sid]={pcm,sampleRate:SR,meta:{mode:'sample'}};
  }
- return {project:{id:'p1',name:'Perf',bpm:120,key:'C',bars:2,tracks},samples};
+ return {project:{id:'p1',name:'Perf',bpm:120,key:'C',bars:2,tracks,masterPlugins:c.masterFx.map((k,i)=>({id:`m${i}`,type:k,bypass:false,settings:{}}))},samples};
 }
 const browser=await chromium.launch({executablePath:process.env.CHROME??`${process.env.HOME}/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome`,headless:true,args:['--headless=new','--no-sandbox','--autoplay-policy=no-user-gesture-required']});
 const page=await browser.newPage({viewport:{width:375,height:812}});const errors=[];
