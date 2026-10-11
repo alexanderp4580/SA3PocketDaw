@@ -37,3 +37,14 @@ it('stops the oldest sounding voice when too many notes play at once',async()=>{
  expect(p.voices.filter((v:any)=>!v.voice.done).length).toBeLessThanOrEqual(8+12);
  const sounding=p.voices.filter((v:any)=>v.start<=0&&!v.voice.releasing);expect(sounding.length).toBeLessThanOrEqual(8);vi.unstubAllGlobals();
 });
+
+it('caps sounding plus releasing voices',async()=>{
+ vi.resetModules();let C:any;vi.stubGlobal('sampleRate',48000);vi.stubGlobal('currentFrame',0);vi.stubGlobal('AudioWorkletProcessor',class {port={onmessage:null as any};});vi.stubGlobal('registerProcessor',(_n:string,c:any)=>C=c);
+ await import('./processor');const p=new C(),send=(m:object)=>p.port.onmessage({data:m}),a=new Float32Array(48000).fill(.2);
+ send({type:'profile',profile:{sampleRate:48000,hop:512,dynamics:'sustain',gain:1,partials:[{ratio:1,amplitudes:new Float32Array(100).fill(.2),phase:0,decay:-1}]}});send({type:'controls',controls:{release:2}});send({type:'assets',midi:57,assets:{attack:a,residual:new Float32Array(48000)}});
+ const out=new Float32Array(128);let frame=0,peak=0;
+ for(let i=0;i<60;i++){vi.stubGlobal('currentFrame',frame);send({type:'note',midi:57,when:frame/48000,duration:.01,velocity:1});out.fill(0);p.process([],[[out]]);frame+=128;
+  const rendering=p.voices.filter((v:any)=>v.start<=frame&&!v.voice.done&&!v.voice.fading);peak=Math.max(peak,rendering.length);}
+ expect(peak).toBeLessThanOrEqual(16);
+ vi.unstubAllGlobals();
+});

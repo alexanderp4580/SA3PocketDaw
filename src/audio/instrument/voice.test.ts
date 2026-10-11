@@ -49,3 +49,12 @@ it('matches the definition after stop and skips partials above the usable band',
  expect(maxDiff(out,reference(p,a,84,5,1,controls,frames,stopFrame))).toBeLessThan(1e-4);
  expect(voice.done).toBe(true);
 });
+
+it('fades an already releasing voice out over the requested time without a jump',()=>{
+ const profile={sampleRate:48000,hop:512,dynamics:'sustain' as const,gain:1,partials:[{ratio:1,amplitudes:new Float32Array(100).fill(.2),phase:0,decay:-1}]};
+ const a=new Float32Array(48000).fill(.2),v=new InstrumentVoice(profile,{attack:a,residual:new Float32Array(48000)},57,48000,.01,1,{release:2});
+ const buf=new Float32Array(4800);v.render(buf,0,4800);expect(v.releasing).toBe(true);
+ v.stop(.01);expect(v.fading).toBe(true);
+ const out=new Float32Array(960);v.render(out,0,960);
+ expect(v.done).toBe(true);expect(out[959]).toBe(0);
+});
