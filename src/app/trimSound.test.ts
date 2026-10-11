@@ -41,4 +41,35 @@ describe('applyTrackTrim',()=>{
   expect(d.store.get()!.tracks[0]!.trim).toBeUndefined();
   expect((await d.store.getSample('s1'))!.instrument!.hz).toBe(before!.hz);
  });
+ it('drops a plain trim when the sound is replaced while the sample is being read',async()=>{
+  const d=await setup(false);let release=()=>{};const gate=new Promise<void>(r=>{release=r;});
+  const slow={...d.store,getSample:async(id:string)=>{const s=await d.store.getSample(id);await gate;return s;}} as typeof d.store;
+  const run=applyTrackTrim({...d,store:slow},'t1',{start:.5,end:1.25});
+  d.store.set(setTrackSample(d.store.get()!,'t1','s2',60,'sample'));
+  release();await run;
+  const t=d.store.get()!.tracks[0]!;expect(t.sampleId).toBe('s2');expect(t.trim).toBeUndefined();
+ });
+ it('leaves no orphan sample or trim when the sound is replaced during instrument analysis',async()=>{
+  const d=await setup(true);let release=()=>{};const gate=new Promise<void>(r=>{release=r;});
+  const run=applyTrackTrim({...d,analyseInstrument:async(pcm,rate,dyn)=>{await gate;return analyse(pcm,rate,dyn);}},'t1',{start:.5,end:1.5});
+  await new Promise(r=>setTimeout(r,0));
+  d.store.set(setTrackSample(d.store.get()!,'t1','s2',60,'sample'));
+  release();await run;await d.store.flush();
+  expect(d.store.get()!.tracks[0]!.trim).toBeUndefined();
+  expect(await d.store.listSampleIds()).not.toContain('s1');
+ });
+ it('removes the written profile when the sound is replaced while it is being stored',async()=>{
+  const d=await setup(true);
+  const racing={...d.store,putSample:async(id:string,sample:Parameters<typeof d.store.putSample>[1])=>{d.store.set(setTrackSample(d.store.get()!,'t1','s2',60,'sample'));await d.store.putSample(id,sample);}} as typeof d.store;
+  await applyTrackTrim({...d,store:racing,analyseInstrument:async(p,r,y)=>analyse(p,r,y)},'t1',{start:.5,end:1.5});
+  await d.store.flush();
+  expect(d.store.get()!.tracks[0]!.trim).toBeUndefined();
+  expect(await d.store.listSampleIds()).not.toContain('s1');
+ });
+ it('persists the new profile and the trim together',async()=>{
+  const d=await setup(true);
+  await applyTrackTrim({...d,analyseInstrument:async(p,r,y)=>analyse(p,r,y)},'t1',{start:.5,end:1.5});
+  await d.store.load();
+  expect(d.store.get()!.tracks[0]!.trim).toEqual({start:.5,end:1.5});
+ });
 });
