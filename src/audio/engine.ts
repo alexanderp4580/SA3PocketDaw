@@ -59,7 +59,7 @@ export function createEngine(options: EngineOptions = {}) {
   let previewProfile:InstrumentProfile|null=null;
   let previewVoice:{stop:()=>void}|null=null;
   const audible=(p:Project,t:Project['tracks'][number])=>!t.muted&&(!p.tracks.some(x=>x.solo)||t.solo);
-  function silence(){epoch++;mixer?.clear();mixer?.listen(null);for(const v of voices)v.stop(ctx?.currentTime,.005);voices.length=0;for(const p of players.values())void p.then(v=>v.stop(true)).catch(()=>{});}
+  function silence(){flushStale();epoch++;mixer?.clear();mixer?.listen(null);for(const v of voices)v.stop(ctx?.currentTime,.005);voices.length=0;for(const p of players.values())void p.then(v=>v.stop(true)).catch(()=>{});}
   function stopPreview(){previewEpoch++;previewVoice?.stop();previewVoice=null;const p=previewPlayer;previewPlayer=null;previewProfile=null;if(p)void p.then(v=>v.dispose()).catch(()=>{});}
 
   const playerSources=new Map<string,string>();
@@ -87,9 +87,23 @@ export function createEngine(options: EngineOptions = {}) {
     return buffer;
   }
 
+  /** Stale-note skips are summed per second of audio time into one warning. */
+  let stale: { second: number; count: number; maxLateBy: number } | null = null;
+  function flushStale() {
+    if (!stale) return;
+    scope.warn('skipped stale notes', { count: stale.count, maxLateBy: stale.maxLateBy });
+    stale = null;
+  }
+
   function onNote(e: NoteEvent) {
     if (!ctx || !project) return;
-    if (e.when < ctx.currentTime - STALE_NOTE_SEC) { scope.warn('skipped stale note', { trackId: e.trackId, lateBy: ctx.currentTime - e.when }); return; }
+    const second = Math.floor(ctx.currentTime);
+    if (stale && stale.second !== second) flushStale();
+    if (e.when < ctx.currentTime - STALE_NOTE_SEC) {
+      const lateBy = ctx.currentTime - e.when;
+      if (stale) { stale.count++; stale.maxLateBy = Math.max(stale.maxLateBy, lateBy); } else stale = { second, count: 1, maxLateBy: lateBy };
+      return;
+    }
     const track = project.tracks.find((t) => t.id === e.trackId);
     if(track?.sampleId&&instruments.has(track.sampleId)){const token=epoch;void playerFor(track.id).then(p=>{if(token===epoch&&project&&project.tracks.some(t=>t.id===e.trackId&&audible(project!,t)))return p.note(e.midi,e.when,e.duration,e.velocity);}).catch(err=>scope.error('instrument playback failed',{error:String(err)}));return;}
     const buffer = bufferFor(track);

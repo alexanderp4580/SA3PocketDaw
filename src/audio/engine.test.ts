@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createEngine, type EngineContextLike } from './engine';
+import { log } from '../log';
 import { createProject, addTrack, addNote, setTrackSample, setRoot } from '../store/projectModel';
 
 function fakeCtx() {
@@ -116,6 +117,27 @@ describe('engine', () => {
     f.state.time = 3.11;
     timers.splice(0).forEach((fn) => fn());
     expect(f.started).toHaveLength(3);
+  });
+
+  it('reports a backlog of stale notes as one warning with a count and the largest lateness', async () => {
+    const f = fakeCtx();
+    const timers: Array<() => void> = [];
+    const e = createEngine({ createContext: f.mk, setTimer: (fn) => { timers.push(fn); return timers.length; }, clearTimer: () => timers.splice(0) });
+    let p = createProject({ bars: 2, bpm: 120 });
+    p = addTrack(p, 'A', 't1');
+    p = setTrackSample(setRoot(p, 't1', 60), 't1', 's1');
+    for (const s of [0, 4, 8, 12, 16]) p = addNote(p, 't1', { midi: 60, start: s, length: 1 });
+    e.setProject(p);
+    e.setSample('s1', new Float32Array(44100), 44100);
+    await e.play();
+    const before = log.entries().filter((x) => x.scope === 'audio.engine' && x.message.includes('stale')).length;
+    f.state.time = 5.0;
+    timers.splice(0).forEach((fn) => fn());
+    e.pause();
+    const warns = log.entries().filter((x) => x.scope === 'audio.engine' && x.message.includes('stale')).slice(before);
+    expect(warns).toHaveLength(1);
+    expect((warns[0]!.data as { count: number }).count).toBeGreaterThan(1);
+    expect((warns[0]!.data as { maxLateBy: number }).maxLateBy).toBeGreaterThan(3);
   });
 
   it('replacing a sample invalidates its buffer', async () => {
