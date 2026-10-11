@@ -13,6 +13,8 @@ import {resolveControls,type InstrumentControls} from './instrument/controls';
 import type { InstrumentProfile } from './instrument/types';
 
 const scope = log.scope('audio.engine');
+/** A note delivered later than this after its time (main-thread stall) is dropped rather than bunched with the next ones. */
+export const STALE_NOTE_SEC = 0.1;
 
 export interface EngineBufferLike extends BufferLike {
   copyToChannel?(src: Float32Array, channel: number): void;
@@ -87,6 +89,7 @@ export function createEngine(options: EngineOptions = {}) {
 
   function onNote(e: NoteEvent) {
     if (!ctx || !project) return;
+    if (e.when < ctx.currentTime - STALE_NOTE_SEC) { scope.warn('skipped stale note', { trackId: e.trackId, lateBy: ctx.currentTime - e.when }); return; }
     const track = project.tracks.find((t) => t.id === e.trackId);
     if(track?.sampleId&&instruments.has(track.sampleId)){const token=epoch;void playerFor(track.id).then(p=>{if(token===epoch&&project&&project.tracks.some(t=>t.id===e.trackId&&audible(project!,t)))return p.note(e.midi,e.when,e.duration,e.velocity);}).catch(err=>scope.error('instrument playback failed',{error:String(err)}));return;}
     const buffer = bufferFor(track?.sampleId ?? null);

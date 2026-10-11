@@ -92,6 +92,32 @@ describe('engine', () => {
     expect(e.playhead()).toBe(0);
   });
 
+  it('skips notes that a stalled main thread delivered long after their time, but plays slightly late ones', async () => {
+    const f = fakeCtx();
+    const timers: Array<() => void> = [];
+    const e = createEngine({ createContext: f.mk, setTimer: (fn) => { timers.push(fn); return timers.length; }, clearTimer: () => timers.splice(0) });
+    let p = createProject({ bars: 2, bpm: 120 });
+    p = addTrack(p, 'A', 't1');
+    p = setTrackSample(setRoot(p, 't1', 60), 't1', 's1');
+    p = addNote(p, 't1', { midi: 72, start: 0, length: 2 });
+    p = addNote(p, 't1', { midi: 60, start: 8, length: 1 });
+    p = addNote(p, 't1', { midi: 62, start: 16, length: 1 });
+    p = addNote(p, 't1', { midi: 64, start: 24, length: 1 });
+    e.setProject(p);
+    e.setSample('s1', new Float32Array(44100), 44100);
+    await e.play();
+    expect(f.started).toHaveLength(1);
+    // 1.05 s (midi 60) is 0.95 s old at 2.0 s and is dropped; 2.05 s (midi 62) is on time.
+    f.state.time = 2.0;
+    timers.splice(0).forEach((fn) => fn());
+    expect(f.started).toHaveLength(2);
+    expect(f.started[1]!.rate).toBeCloseTo(2 ** (2 / 12));
+    // 3.05 s (midi 64) delivered 60 ms late still plays.
+    f.state.time = 3.11;
+    timers.splice(0).forEach((fn) => fn());
+    expect(f.started).toHaveLength(3);
+  });
+
   it('replacing a sample invalidates its buffer', async () => {
     const f = fakeCtx();
     const e = createEngine({ createContext: f.mk });

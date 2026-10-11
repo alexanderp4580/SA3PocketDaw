@@ -1,7 +1,7 @@
 import { log } from '../log';
 import { velocityGain,trackBars,loopRange,type LoopRange } from '../store/projectModel';
 const scope=log.scope('audio.scheduler');
-export const STEPS_PER_BAR=16,LOOKAHEAD_SEC=.15,TICK_MS=25,START_DELAY_SEC=.05;
+export const STEPS_PER_BAR=16,LOOKAHEAD_SEC=.3,TICK_MS=25,START_DELAY_SEC=.05;
 export interface PatternNote {id:string;midi:number;start:number;length:number;velocity?:number}
 export interface PatternTrack {id:string;muted:boolean;solo?:boolean;bars?:number;notes:PatternNote[]}
 export interface Pattern {bars:number;loop?:LoopRange;tracks:PatternTrack[]}

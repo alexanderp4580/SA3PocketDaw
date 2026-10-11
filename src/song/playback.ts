@@ -1,4 +1,4 @@
-import type {NoteEvent,SchedulerOptions} from '../audio/scheduler';
+import {LOOKAHEAD_SEC,TICK_MS,type NoteEvent,type SchedulerOptions} from '../audio/scheduler';
 import type {CompiledSong} from './events';
 export function createSongPlayback(opts:SchedulerOptions&{onEnd?:()=>void}){
  let song:CompiledSong={duration:0,events:[]},bpm=120,playing=false,repeat=false,offset=0,anchor=0,scheduled=0,timer:unknown=null;
@@ -6,9 +6,9 @@ export function createSongPlayback(opts:SchedulerOptions&{onEnd?:()=>void}){
  const elapsed=()=>Math.max(offset,opts.now()-anchor);
  function tick(){if(!playing)return;const time=elapsed(),end=song.duration;
  if(!repeat&&time>=end){playing=false;offset=end;clear();opts.onEnd?.();return;}
- const horizon=Math.min(repeat?Infinity:end,time+(opts.lookahead??.15));
+ const horizon=Math.min(repeat?Infinity:end,time+(opts.lookahead??LOOKAHEAD_SEC));
  for(let cycle=Math.floor(scheduled/end);end>0&&cycle<=Math.floor(horizon/end);cycle++)for(const e of song.events){const at=cycle*end+e.when;if(at>=scheduled&&at<horizon)opts.onNote({...e,when:anchor+at});}
- scheduled=horizon;timer=opts.setTimer(tick,opts.tickMs??25);
+ scheduled=horizon;timer=opts.setTimer(tick,opts.tickMs??TICK_MS);
  }
  return {
  get isPlaying(){return playing;},
