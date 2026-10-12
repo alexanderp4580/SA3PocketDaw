@@ -3,6 +3,7 @@ import * as ort from 'onnxruntime-web/webgpu';
 import type { ScopedLogger } from '../log';
 import type { Manifest } from '../store/modelManager';
 import { type ModelLayout, type OpenFile, readGraphFiles, resolveLayout, wasmThreads } from './layout';
+import { rewriteGatherBlockQuantized } from './cpuEncoder';
 import type { GenDevice } from './device';
 import type { ModelSession, Ports, SessionKind, TensorSpec, Tokenize } from './pipeline';
 import type { ModelId } from './protocol';
@@ -56,9 +57,18 @@ export function createOrtPorts(options: OrtPortsOptions): Ports {
   }
 
   async function createSession(path: string, label: string, provider: 'webgpu' | 'wasm'): Promise<ModelSession> {
-    const { graph, externalData } = await readGraphFiles(openFile, path, (p, bytes) => {
+    const { graph: stored, externalData } = await readGraphFiles(openFile, path, (p, bytes) => {
       options.progress?.(`Read ${p} (${(bytes / 1e6).toFixed(1)} MB)`);
     });
+    let graph = stored;
+    if (provider === 'wasm') {
+      // The WASM build has no GatherBlockQuantized kernel; the text encoder's token embedding becomes standard ops.
+      const patched = rewriteGatherBlockQuantized(stored);
+      if (patched.rewritten) {
+        graph = patched.bytes;
+        log.info(`${label}: GatherBlockQuantized rewritten into standard ops for the CPU`);
+      }
+    }
     log.info(`initializing ${label} on ${provider === 'wasm' ? 'CPU (WASM)' : 'WebGPU; shader compilation can take a while'}`, { path });
     const t0 = performance.now();
     const session = await ort.InferenceSession.create(graph, { executionProviders: [provider], externalData });
@@ -151,12 +161,8 @@ export function createOrtPorts(options: OrtPortsOptions): Ports {
       };
       const path = pick[kind];
       if (!path) throw new Error(`${model} has no ${kind} graph`);
-      // The text encoder embeds tokens with GatherBlockQuantized, which this WASM build has no CPU kernel for (measured:
-      // "Could not find an implementation"), so it always runs on WebGPU. DiT, number conditioner and decoder follow `device`.
-      const provider = device === 'cpu' && kind !== 'text-encoder' ? 'wasm' : 'webgpu';
-      if (provider === 'webgpu' && !(navigator as Navigator).gpu) {
-        throw new Error('WebGPU is unavailable in this browser. The text encoder needs WebGPU even when the CPU runs the other stages.');
-      }
+      const provider = device === 'cpu' ? 'wasm' : 'webgpu';
+      if (provider === 'webgpu' && !(navigator as Navigator).gpu) throw new Error('WebGPU is unavailable in this browser.');
       return createSession(path, `${model} ${kind}`, provider);
     },
 
