@@ -1,5 +1,5 @@
 import {moveEnd,moveStart,type Trim} from '../audio/trim';
-/** Chop view maths: a visible time window over the source, pixel mapping, zoom/pan/pinch and column peaks. */
+/** Chop view maths: a visible time window over the source, pixel mapping, zoom/pan and column peaks. */
 export interface Win {start:number;end:number}
 /** Deepest zoom: one pixel covers this many seconds. */
 export const MAX_SEC_PER_PX=.001;
@@ -24,14 +24,8 @@ export function zoomAbout(win:Win,factor:number,centre:number,duration:number,wi
  return place(centre-frac*next,next,duration);
 }
 export function panBy(win:Win,deltaSec:number,duration:number):Win {return place(win.start+deltaSec,win.end-win.start,duration);}
-/** Window for a pinch: `scale` is the finger distance ratio since the pinch began, `centreSec` the time under the fingers' midpoint then, `midFrac` the midpoint now as a 0..1 plot fraction. */
-export function pinchWindow(start:Win,scale:number,centreSec:number,midFrac:number,duration:number,widthPx:number):Win {
- const span=start.end-start.start,next=clamp(span/(scale>0?scale:1),minSpan(duration,widthPx),duration);
- if(next>=duration)return fullWindow(duration);
- return place(centreSec-midFrac*next,next,duration);
-}
-/** Pinch distance ratio; a starting distance under `minStart` px is raised to it so touching fingers do not explode the scale. */
-export const pinchScale=(d0:number,d1:number,minStart=24)=>d1>0?d1/Math.max(d0,minStart):1;
+/** The zoom window to keep when the sound's duration goes from `prev` to `next`: unchanged for the same duration, none (fit) otherwise. */
+export const keepWindow=(win:Win|null,prev:number,next:number):Win|null=>prev===next?win:null;
 export const sameTrim=(a:Trim,b:Trim)=>a.start===b.start&&a.end===b.end;
 export const secToPx=(t:number,win:Win,widthPx:number)=>win.end>win.start?(t-win.start)/(win.end-win.start)*widthPx:0;
 export const pxToSec=(x:number,win:Win,widthPx:number)=>widthPx>0?win.start+x/widthPx*(win.end-win.start):win.start;

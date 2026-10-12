@@ -1,10 +1,10 @@
 import {describe,expect,it} from 'vitest';
-import {MAX_SEC_PER_PX,clampWindow,columnPeaks,dragHandle,fixedPeaksWindow,memoColumnPeaks,minSpan,panBy,pinchScale,pinchWindow,pxToSec,sameTrim,secToPx,zoomAbout} from './chopView';
+import {MAX_SEC_PER_PX,clampWindow,columnPeaks,dragHandle,fixedPeaksWindow,memoColumnPeaks,minSpan,keepWindow,panBy,pxToSec,sameTrim,secToPx,zoomAbout} from './chopView';
 import {MIN_KEPT_SEC} from '../audio/trim';
 
 const D=4,W=400;
 describe('chopView window',()=>{
- it('zoom keeps the pinch centre time fixed',()=>{
+ it('zoom keeps the centre time fixed',()=>{
   const win={start:1,end:3},c=1.5,frac=(c-win.start)/(win.end-win.start);
   const z=zoomAbout(win,2,c,D,W);
   expect(z.end-z.start).toBeCloseTo(1,9);
@@ -36,13 +36,11 @@ describe('chopView window',()=>{
   for(const x of [0,1,137.5,400])expect(secToPx(pxToSec(x,win,W),win,W)).toBeCloseTo(x,9);
   expect(pxToSec(0,win,W)).toBe(.5);expect(pxToSec(W,win,W)).toBe(2.5);
  });
- it('pinch window zooms about the start centre and follows the fingers',()=>{
-  const win={start:0,end:4},c=2;
-  const same=pinchWindow(win,2,c,.5,D,W);
-  expect(same.start).toBeCloseTo(1,9);expect(same.end).toBeCloseTo(3,9);
-  const moved=pinchWindow(win,2,c,.25,D,W);
-  expect(moved.start).toBeCloseTo(1.5,9);
-  expect(pxToSec(.25*W,moved,W)).toBeCloseTo(c,9);
+ it('keepWindow keeps the zoom while the duration is unchanged and drops it when the duration changes',()=>{
+  const win={start:1,end:2};
+  expect(keepWindow(win,D,D)).toBe(win);
+  expect(keepWindow(null,D,D)).toBeNull();
+  expect(keepWindow(win,D,D+.5)).toBeNull();
  });
 });
 describe('chopView peaks',()=>{
@@ -94,12 +92,6 @@ describe('chopView handle drag',()=>{
  });
 });
 describe('chopView guards',()=>{
- it('pinch scale raises a tiny starting distance to the minimum',()=>{
-  expect(pinchScale(2,48)).toBe(2);
-  expect(pinchScale(100,200)).toBe(2);
-  expect(pinchScale(0,50)).toBeCloseTo(50/24,9);
-  expect(pinchScale(50,0)).toBe(1);
- });
  it('secToPx and pxToSec stay finite for a zero-width window',()=>{
   expect(secToPx(0,{start:0,end:0},300)).toBe(0);
   expect(pxToSec(10,{start:0,end:0},0)).toBe(0);

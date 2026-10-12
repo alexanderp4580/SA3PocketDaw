@@ -6,7 +6,7 @@
 <script lang="ts">
  import Waveform from './Waveform.svelte';
  import {MIN_KEPT_SEC} from '../audio/trim';
- import {clampWindow,dragHandle,memoColumnPeaks,sameTrim,fixedPeaksWindow,fullWindow,minSpan,panBy,pinchScale,pinchWindow,pxToSec,secToPx,zoomAbout,type Win} from './chopView';
+ import {clampWindow,dragHandle,memoColumnPeaks,sameTrim,fixedPeaksWindow,fullWindow,minSpan,keepWindow,panBy,secToPx,zoomAbout,type Win} from './chopView';
  let {view,oninput,oncommit,onreset,disabled=false,name='sound'}:{view:ChopView;oninput:(t:Trim)=>void;oncommit:(t:Trim)=>void;onreset:()=>void;disabled?:boolean;name?:string}=$props();
  const FALLBACK_W=300,KEY_PX=1;
  let plotW=$state(0),win=$state<Win|null>(null);
@@ -24,7 +24,9 @@
  const sx=$derived(px(view.trim.start)),ex=$derived(px(view.trim.end));
  const sOff=$derived(view.trim.start<cur.start||view.trim.start>cur.end),eOff=$derived(view.trim.end<cur.start||view.trim.end>cur.end);
  let box:HTMLDivElement|undefined=$state();
- $effect(()=>{view.duration;win=null;});
+ // The parent rebuilds `view` on every change (drag, busy, analysis); only a new duration resets the zoom.
+ let lastDur=0;
+ $effect(()=>{const d=view.duration;win=keepWindow(win,lastDur,d);lastDur=d;});
  const sec=(v:number)=>v.toFixed(3);
  const setWin=(next:Win)=>{win=clampWindow(next,view.duration,w);};
  const zoom=(f:number)=>setWin(zoomAbout(cur,f,(cur.start+cur.end)/2,view.duration,w));
@@ -60,37 +62,18 @@
   oninput(next);oncommit(next);
  }
 
- // Empty-waveform gestures: one finger pans when zoomed, two fingers pinch.
- const pts=new Map<number,number>();
- let pan0:{x:number;win:Win}|null=null,pinch0:{dist:number;centre:number;win:Win}|null=null;
+ // Empty-waveform gesture: one finger pans when zoomed.
+ let pan0:{id:number;x:number;win:Win}|null=null;
  function wdown(e:PointerEvent){
-  if(disabled)return;
+  if(disabled||pan0)return;
   (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  pts.set(e.pointerId,localX(e));
-  if(pts.size===1)pan0={x:localX(e),win:cur};
-  else if(pts.size===2)seedPinch();
- }
- function seedPinch(){
-  const [a,b]=[...pts.values()] as [number,number];
-  pan0=null;pinch0={dist:Math.abs(a-b),centre:pxToSec((a+b)/2,cur,w),win:cur};
+  pan0={id:e.pointerId,x:localX(e),win:cur};
  }
  function wmove(e:PointerEvent){
-  if(!pts.has(e.pointerId))return;
-  pts.set(e.pointerId,localX(e));
-  if(pinch0&&pts.size>=2){
-   const [a,b]=[...pts.values()] as [number,number];
-   setWin(pinchWindow(pinch0.win,pinchScale(pinch0.dist,Math.abs(a-b)),pinch0.centre,(a+b)/2/w,view.duration,w));
-  }else if(pan0&&zoomed){
-   const dt=-(localX(e)-pan0.x)/w*(pan0.win.end-pan0.win.start);
-   setWin(panBy(pan0.win,dt,view.duration));
-  }
+  if(!pan0||pan0.id!==e.pointerId||!zoomed)return;
+  setWin(panBy(pan0.win,-(localX(e)-pan0.x)/w*(pan0.win.end-pan0.win.start),view.duration));
  }
- function wup(e:PointerEvent){
-  if(!pts.delete(e.pointerId))return;
-  pinch0=null;
-  if(pts.size>=2)seedPinch();
-  else if(pts.size===1){const [x]=[...pts.values()] as [number];pan0={x,win:cur};}else pan0=null;
- }
+ function wup(e:PointerEvent){if(pan0?.id===e.pointerId)pan0=null;}
 </script>
 <fieldset class="chop" {disabled}>
  <legend class="sr-only">Chop {name}</legend>
@@ -119,7 +102,7 @@
   <span>Kept <b>{sec(view.trim.end-view.trim.start)} s</b> of {sec(view.duration)} s</span>
   {#if view.busy}<span class="busy" role="status">Updating sound…</span>{/if}
  </div>
- <div class="hint">Drag the handles; pinch or use +/− to zoom; drag the waveform to pan when zoomed. Minimum {Math.round(MIN_KEPT_SEC*1000)} ms.</div>
+ <div class="hint">Drag the handles; use +/− to zoom and ◀ ▶ to pan; drag the waveform to pan when zoomed. Minimum {Math.round(MIN_KEPT_SEC*1000)} ms.</div>
  {#if view.error}<div class="note bad" role="alert">{view.error} The previous sound is kept.</div>{/if}
  <div class="btnrow"><button class="btn" disabled={full||disabled} onclick={onreset}>Reset chop</button></div>
 </fieldset>
