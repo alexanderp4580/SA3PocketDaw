@@ -15,7 +15,7 @@
   const scope=log.scope('instrument.controls');
   let {trackId,onclose,ongenerate,onmodels}:{trackId:string;onclose:()=>void;ongenerate:()=>void;onmodels:()=>void}=$props();
   let sourceBehavior=$state<'sustain'|'decay'>('sustain');
-  let sampleDuration=$state(1);
+  let sampleDuration=$state(1),samplePcm=$state.raw<Float32Array|undefined>(),sampleRateHz=$state(0);
   let ready=$state(false),hasInstrument=$state(false),loadError=$state('');
   const canGenerate=$derived(ui.modelCards.some(c=>c.available&&c.status==='installed'));
   const track=$derived(ui.project?.tracks.find(t=>t.id===trackId));
@@ -23,13 +23,13 @@
   const sampleControls=$derived(resolveSampleControls(track?.sampleControls));
   let live=$state<Trim|null>(null),chopBusy=$state(false),chopError=$state('');
   const trim=$derived(live??resolveTrim(track?.trim,sampleDuration));
-  const chop=$derived<ChopView>({duration:sampleDuration,peaks:track?.sampleId?ui.peaks[track.sampleId]:undefined,trim,busy:chopBusy,error:chopError});
+  const chop=$derived<ChopView>({duration:sampleDuration,peaks:track?.sampleId?ui.peaks[track.sampleId]:undefined,pcm:samplePcm,sampleRate:sampleRateHz,trim,busy:chopBusy,error:chopError});
   const commitChop=createLatestRunner<Trim>(t=>applyTrackTrim({store:projectStore,engine},trackId,t),{onBusy:b=>chopBusy=b,onError:e=>{chopError=e.message;live=null;scope.error('chop failed',{trackId,error:e.message});}});
   function chopInput(t:Trim){live=t;chopError='';}
   function chopCommit(t:Trim){chopError='';commitChop(t);}
   function chopReset(){const t=fullTrim(sampleDuration);live=t;chopCommit(t);}
   onMount(()=>{let active=true;const id=track?.sampleId;
-    if(id)void projectStore.getSample(id).then(sample=>{if(!active)return;if(!sample){loadError='Saved sound is unavailable.';return;}sampleDuration=sample.pcm.length/sample.sampleRate;hasInstrument=!!sample.instrument;if(sample.instrument)sourceBehavior=sample.instrument.dynamics;ready=true;}).catch(e=>{if(active)loadError=String(e);});
+    if(id)void projectStore.getSample(id).then(sample=>{if(!active)return;if(!sample){loadError='Saved sound is unavailable.';return;}sampleDuration=sample.pcm.length/sample.sampleRate;samplePcm=sample.pcm;sampleRateHz=sample.sampleRate;hasInstrument=!!sample.instrument;if(sample.instrument)sourceBehavior=sample.instrument.dynamics;ready=true;}).catch(e=>{if(active)loadError=String(e);});
     else loadError='This track has no sound.';
     return ()=>{active=false;};
   });

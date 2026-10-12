@@ -66,7 +66,7 @@
   let liveTrim=$state<Trim|null>(null),chopBusy=$state(false),chopError=$state('');
   const draftDuration=$derived(result?result.pcm.length/result.sampleRate:0);
   const draftTrim=$derived(liveTrim??resolveTrim(result?.trim,draftDuration));
-  const chop=$derived<ChopView>({duration:draftDuration,peaks,trim:draftTrim,busy:chopBusy,error:chopError});
+  const chop=$derived<ChopView>({duration:draftDuration,peaks,pcm:result?.pcm,sampleRate:result?.sampleRate,trim:draftTrim,busy:chopBusy,error:chopError});
   const commitChop=createLatestRunner<Trim>(async t=>{const base=result;if(!base)return;const next=await trimDraft(base,t);result=mergeTrimmed(result,base,next)??result;},{onBusy:b=>chopBusy=b,onError:e=>{chopError=e.message;liveTrim=null;}});
   function chopInput(t:Trim){liveTrim=t;chopError='';}
   function chopCommit(t:Trim){chopError='';commitChop(t);}
