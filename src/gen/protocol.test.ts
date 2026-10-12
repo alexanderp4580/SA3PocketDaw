@@ -45,3 +45,13 @@ describe('event guard', () => {
     expect(isWorkerEvent('x')).toBe(false);
   });
 });
+
+describe('device field', () => {
+  const base = { model: 'small-music', prompt: 'p', seconds: 1, steps: 4, seed: 1 };
+  it('accepts webgpu, cpu and a missing device only', () => {
+    expect(isGenerateParams({ ...base })).toBe(true);
+    expect(isGenerateParams({ ...base, device: 'cpu' })).toBe(true);
+    expect(isGenerateParams({ ...base, device: 'webgpu' })).toBe(true);
+    expect(isGenerateParams({ ...base, device: 'gpu' })).toBe(false);
+  });
+});

@@ -30,6 +30,8 @@ export interface GenerateParams {
   seconds: number;
   steps: number;
   seed: number;
+  /** Processor for the model sessions; missing = WebGPU. */
+  device?: 'webgpu' | 'cpu';
 }
 
 export interface AudioStats {
@@ -73,6 +75,7 @@ export function isGenerateParams(v: unknown): v is GenerateParams {
   if (!isObj(v)) return false;
   return (
     (v.mode === undefined || v.mode === 'sample' || v.mode === 'instrument') &&
+    (v.device === undefined || v.device === 'webgpu' || v.device === 'cpu') &&
     isModelId(v.model) &&
     typeof v.prompt === 'string' &&
     v.prompt.trim().length > 0 &&

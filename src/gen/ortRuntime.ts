@@ -3,6 +3,7 @@ import * as ort from 'onnxruntime-web/webgpu';
 import type { ScopedLogger } from '../log';
 import type { Manifest } from '../store/modelManager';
 import { type ModelLayout, type OpenFile, readGraphFiles, resolveLayout, wasmThreads } from './layout';
+import type { GenDevice } from './device';
 import type { ModelSession, Ports, SessionKind, TensorSpec, Tokenize } from './pipeline';
 import type { ModelId } from './protocol';
 
@@ -54,13 +55,13 @@ export function createOrtPorts(options: OrtPortsOptions): Ports {
     return JSON.parse(new TextDecoder().decode(new Uint8Array(await (await openFile(path)).arrayBuffer())));
   }
 
-  async function createSession(path: string, label: string): Promise<ModelSession> {
+  async function createSession(path: string, label: string, provider: 'webgpu' | 'wasm'): Promise<ModelSession> {
     const { graph, externalData } = await readGraphFiles(openFile, path, (p, bytes) => {
       options.progress?.(`Read ${p} (${(bytes / 1e6).toFixed(1)} MB)`);
     });
-    log.info(`initializing ${label} on WebGPU; shader compilation can take a while`, { path });
+    log.info(`initializing ${label} on ${provider === 'wasm' ? 'CPU (WASM)' : 'WebGPU; shader compilation can take a while'}`, { path });
     const t0 = performance.now();
-    const session = await ort.InferenceSession.create(graph, { executionProviders: ['webgpu'], externalData });
+    const session = await ort.InferenceSession.create(graph, { executionProviders: [provider], externalData });
     externalData.length = 0;
     log.info(`${label} ready in ${Math.round(performance.now() - t0)} ms`);
     return {
@@ -139,7 +140,7 @@ export function createOrtPorts(options: OrtPortsOptions): Ports {
       };
     },
 
-    async loadSession(model: ModelId, kind: SessionKind) {
+    async loadSession(model: ModelId, kind: SessionKind, device: GenDevice = 'webgpu') {
       configure();
       const layout = await layoutFor(model);
       const pick: Record<SessionKind, string | null> = {
@@ -150,7 +151,13 @@ export function createOrtPorts(options: OrtPortsOptions): Ports {
       };
       const path = pick[kind];
       if (!path) throw new Error(`${model} has no ${kind} graph`);
-      return createSession(path, `${model} ${kind}`);
+      // The text encoder embeds tokens with GatherBlockQuantized, which this WASM build has no CPU kernel for (measured:
+      // "Could not find an implementation"), so it always runs on WebGPU. DiT, number conditioner and decoder follow `device`.
+      const provider = device === 'cpu' && kind !== 'text-encoder' ? 'wasm' : 'webgpu';
+      if (provider === 'webgpu' && !(navigator as Navigator).gpu) {
+        throw new Error('WebGPU is unavailable in this browser. The text encoder needs WebGPU even when the CPU runs the other stages.');
+      }
+      return createSession(path, `${model} ${kind}`, provider);
     },
 
     reset() {

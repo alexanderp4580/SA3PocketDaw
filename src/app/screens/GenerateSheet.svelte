@@ -8,6 +8,7 @@
   import { MAX_STEPS } from '../../gen/protocol';
   import { INSTRUMENTS,CHARACTERS,ATTACKS,BEHAVIORS,instrumentDefaults,instrumentPrompt,type InstrumentId } from '../../gen/instrumentSelections';
   import { generationPresets,generationHint,lengthHint,loadModeSettings,saveModeSettings,type GenerationMode } from '../../gen/mode';
+  import { DEVICE_LABELS, generateWithFallback, loadDevice, saveDevice, type GenDevice } from '../../gen/device';
   import { MAX_SECONDS, MIN_SECONDS, clampSeconds, parseSeconds, stepSeconds } from '../../gen/length';
   import { midiToName } from '../../audio/pitch';
   import { formatBytes, formatElapsed, modelHint, peaksOf } from '../format';
@@ -42,6 +43,10 @@
   let steps = $state(loadModeSettings(store,'sample').steps);
   let instrumentWarning=$state('');
   let seed = $state(randomSeed());
+  const DEVICES: GenDevice[] = ['webgpu', 'cpu'];
+  let device = $state<GenDevice>(loadDevice(store));
+  let fallbackNote = $state('');
+  let usedDevice = $state<GenDevice>('webgpu');
   const cards = $derived(ui.modelCards);
   const anyInstalled = $derived(cards.some(c=>c.available&&c.status==='installed'));
   let stage = $state('');
@@ -114,7 +119,7 @@
     saveModeSettings(store,mode,{seconds,steps});
     const raw=mode==='instrument'?instrumentField.text.trim():prompt.trim();
     const dynamics=instrument.behavior;
-    const params: GenerateParams = { mode,model, prompt: mode==='instrument'?raw:buildPrompt(raw,model,mode), seconds, steps, seed };
+    const params: GenerateParams = { mode,model,device, prompt: mode==='instrument'?raw:buildPrompt(raw,model,mode), seconds, steps, seed };
     instrumentWarning='';
     engine.stopPreview();result=null;liveTrim=null;chopError='';
     phase = 'running';
@@ -125,17 +130,33 @@
     elapsed = 0;
     clearInterval(timer);
     timer = setInterval(() => (elapsed = performance.now() - startedAt), 100);
+    fallbackNote = '';
     controller = new AbortController();
     try {
       await engine.unlock();
-      const out = await generation.generate(params, {
-        signal: controller.signal,
-        onProgress: (p) => {
-          stage = p.stage;
-          fraction = p.fraction;
-          message = p.message;
+      const signal = controller.signal;
+      const { output: out, device: ran } = await generateWithFallback(
+        (p) =>
+          generation.generate(p, {
+            signal,
+            onProgress: (e) => {
+              stage = e.stage;
+              fraction = e.fraction;
+              message = e.message;
+            },
+          }),
+        params,
+        {
+          signal,
+          onFallback: (why) => {
+            fallbackNote = `The GPU run failed (${why}). Retrying on the CPU, which is slower. Cancel to stop.`;
+            stage = 'Retrying on CPU';
+            fraction = 0;
+            message = '';
+          },
         },
-      });
+      );
+      usedDevice = ran;
       try {
         result = await prepareGeneration(params,raw,out,{signal:controller.signal,dynamics,onAnalysis:f=>{stage='Creating instrument';fraction=f;message='Measuring the note and extracting its evolving tone.';}});
       } catch (e) {
@@ -158,6 +179,11 @@
       elapsed = performance.now() - startedAt;
       controller = null;
     }
+  }
+
+  function pickDevice(next: GenDevice) {
+    device = next;
+    saveDevice(store, next);
   }
 
   function regenerate() {
@@ -237,6 +263,14 @@
     {/if}
     {#if mode==='instrument'&&model==='small-sfx'}<div class="note warn">Small Music or Medium is better suited to single instrument notes.</div>{/if}
 
+    <div class="st">Processor</div>
+    <div class="seg">
+      {#each DEVICES as d (d)}
+        <button class="sg" class:sa3on={device === d} aria-pressed={device === d} onclick={() => pickDevice(d)}>{DEVICE_LABELS[d]}</button>
+      {/each}
+    </div>
+    <div class="note">{device === 'cpu' ? 'CPU runs the diffusion and decoder in WASM, slower than the GPU (Steam Deck, 1 s clip, one thread: about 2.5 times; phone speed to check). The text encoder still uses the GPU. Uses more memory (phone memory to check).' : 'GPU is fastest. If a GPU run fails, it is retried once on the CPU automatically.'}</div>
+
     <div class="st">Length</div>
     <div class="stepper">
       <button class="btn fit" aria-label="Shorter by 0.25 seconds" disabled={seconds <= MIN_SECONDS} onclick={() => setSeconds(stepSeconds(seconds, -1, model))}>−</button>
@@ -272,6 +306,7 @@
       <div class="row"><b class="grow">{stage}</b><span class="note">{formatElapsed(elapsed)}</span></div>
       <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(fraction * 100)}><i style="width:{Math.round(fraction * 100)}%"></i></div>
       <div class="note">{message}</div>
+      {#if fallbackNote}<div class="note warn" role="status">{fallbackNote}</div>{/if}
       {#if model === 'medium'}<div class="note warn">Medium may be slow or fail on phones.</div>{/if}
       <div class="btnrow"><button class="btn danger" onclick={() => controller?.abort()}>Cancel</button></div>
       <div class="note" style="margin-top:8px">A model call that is already running finishes its current step before generation stops.</div>
@@ -297,7 +332,7 @@
       {#if result.lowConfidence}
         <div class="note warn" style="margin-top:6px">Low confidence. Defaulted to C4. Adjust the root with the buttons.</div>
       {/if}
-      <div class="note" style="margin-top:6px">Generated in {formatElapsed(elapsed)}.</div>
+      <div class="note" style="margin-top:6px">Generated in {formatElapsed(elapsed)} on the {DEVICE_LABELS[usedDevice]}.{fallbackNote ? ' The GPU run failed first, so this ran on the CPU.' : ''}</div>
       {#if result.record.instrument}<div class="st">Tweak instrument</div><div class="note">Press Preview to hear your settings. Use sound keeps them on the track.</div><InstrumentControlsPanel controls={draftControls} onchange={tweak} behaviorName="draft-behavior" disabled={saving} {chop} onchop={chopInput} onchopcommit={chopCommit} onchopreset={chopReset} /><div class="btnrow"><button class="btn" disabled={saving} onclick={resetTweaks}>Reset controls</button></div>{:else}<div class="st">Tweak sample</div><div class="note">Press Preview to hear your settings. Use sound keeps them on the track.</div><SampleControlsPanel controls={draftSampleControls} onchange={tweakSample} disabled={saving} {chop} onchop={chopInput} onchopcommit={chopCommit} onchopreset={chopReset} /><div class="btnrow"><button class="btn" disabled={saving} onclick={()=>tweakSample(resolveSampleControls())}>Reset controls</button></div>{/if}
       {#if result.mode==='instrument'}<div class="btnrow"><button class="btn" onclick={()=>result&&void engine.previewSource(result.pcm,result.sampleRate)}>Play source note</button></div>{/if}
       <p class="note">Preview this sound. Choose Use to replace the sound on this track.</p>

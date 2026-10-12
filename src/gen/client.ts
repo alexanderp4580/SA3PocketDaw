@@ -171,6 +171,7 @@ export function createGenerationClient(options: GenerationClientOptions) {
             seconds: job.params.seconds,
             steps: job.params.steps,
             seed: job.params.seed,
+            device: job.params.device ?? 'webgpu',
             totalMs: total ? total.endMs - total.startMs : null,
             stages: data.timings,
             stats: data.stats,

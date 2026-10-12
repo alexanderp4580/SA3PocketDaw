@@ -176,3 +176,27 @@ Intended: hide the info card on the roll screen, fix a console 404 on load, offl
 - Phone CPU, effect-count/memory limits, hardware touch/haptics and subjective sound quality remain to check. Production is deployed from the `main` branch of `alexanderp4580/SA3PocketDaw` through Coolify.
 
 - Local phone-testing host now serves this main checkout's production build at https://192.168.8.226:8443/ and https://192.168.8.191:8443/ (HTTP loopback 8082). HTTPS returns 200 with isolation headers, its index matches `dist/index.html`, and a fresh mobile-sized browser sees all 13 insert types including the master picker without script errors. Same-origin model caches and IndexedDB data are preserved. Host verification: `verification/host.json` in the session evidence folder.
+
+## CPU generation variant — 2026-10-12 (branch `cpu-variant`)
+
+- What exists: Generate sheet has a Processor choice, GPU (default) or CPU, stored in localStorage `sa3daw.genDevice` (`src/gen/device.ts`). `GenerateParams.device` reaches `Ports.loadSession(model, kind, device)`; `ortRuntime.ts` creates the DiT, number conditioner and decoder with `executionProviders: ['wasm']` on CPU. The pipeline releases resident sessions when the device changes and skips the GPU probe on CPU. When a GPU run fails (any error except cancel, not installed, not available, worker crash) `generateWithFallback` retries once on the CPU; the running card shows the GPU error and "Retrying on the CPU", and the result line states which processor ran. Cancel stops the retry.
+- The text encoder always runs on WebGPU: its `GatherBlockQuantized(1)` embedding node has no kernel in the ORT Web 1.27.0 WASM build ("Could not find an implementation for GatherBlockQuantized(1) node"; also with the INT4 weight reinterpreted as uint8). So CPU mode needs WebGPU for the ~1.3 s encoder step and a device without WebGPU still cannot generate; the compat gate is unchanged. A graph rewrite (replace that node with Gather/BitShift/Mul ops, new `text_encoder_q4.onnx`) would remove the dependency; not done.
+- Measured on the Steam Deck (Chromium 1243, headless, cross-origin isolated; prompt "a punchy kick drum", seed 7, 4 steps; encoder on GPU in all CPU runs; correlation of the 1 s output against the WebGPU output of the same run settings):
+
+| Pack | Length | Processor | Total | Per-stage notes | Renderer RSS peak | Correlation vs GPU |
+| --- | --- | --- | ---: | --- | ---: | ---: |
+| Small Music | 1 s | GPU | 16.5 s | decode 2.0 s | 2.3 GB all processes | 1 |
+| Small Music | 1 s | CPU, 1 thread | 38.9 s | step 1 6.2 s, decode 6.1 s | 2.6 GB all processes | 0.9996 |
+| Small Music | 1 s | CPU, 4 threads | 17.4 s | step 1 2.2 s, decode 1.9 s | 2.8 GB all processes | 0.9996 |
+| Small SFX | 1 s | GPU | 19.8 s | | 2.3 GB all processes | 1 |
+| Small SFX | 1 s | CPU, 1 thread | 41.1 s | step 1 6.3 s, decode 5.9 s | 2.7 GB all processes | 0.9998 |
+| Medium | 1 s | GPU | 39.8 s | DiT load 22.4 s | 4.7 GB all processes | 1 |
+| Medium | 1 s | CPU, 4 threads | 53.9 s | step 1 5.0 s | 5.3 GB all processes | 0.998 |
+| Medium | 1 s | CPU, 1 thread | 105.8 s | DiT load 20.5 s, step 1 15.0 s, decoder load 8.3 s, decode 6.5 s | 4.4 GB renderer | 0.998 |
+| Medium | 5 s | GPU | 42.6 s | | 3.4 GB renderer | 1 |
+| Medium | 5 s | CPU, 1 thread | 146.0 s | step 1 19.0 s, decode 36.2 s | 4.7 GB renderer | 0.973 |
+
+  All CPU outputs finite and non-silent (peak 0.84 to 1.0). fp16 Medium decoder, q4 `MatMulNBits` DiTs and all session creations work on the WASM provider with `numThreads` 1 and 4; no initialization timeout occurred (45 s limit set in `configure`). Medium DiT external data (about 2 GB) loaded within the WASM32 address space on desktop.
+- The Deck's GPU ran the 5 s Medium length that fails on the user's phone, so the phone's `Where` kernel failure was not reproduced here. The fallback was exercised in the production build in Chromium at 375x812 by answering the worker's WebGPU generate message with a forced error: the retry note appeared, the CPU run produced the sample (42 s, Small Music, 4 threads), and the result line read "ran on the CPU". Sheet layout at 320x640 and 375x812: scrollWidth equals clientWidth.
+- Service worker: no new files; the CPU provider uses the already shipped `ort-wasm-simd-threaded.asyncify.wasm`. Precache stays 31 URLs.
+- Not verified (to check): phone CPU speed (Android uses 1 thread, so expect the 1-thread ratio of about 2.3 to 3.5 times the GPU time or worse on a phone core); phone memory with Medium on CPU (4.4 to 4.7 GB renderer on the Deck is above many phone limits); whether the phone's GPU encoder session works in the same page after its DiT failed.

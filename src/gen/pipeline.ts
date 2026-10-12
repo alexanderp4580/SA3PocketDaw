@@ -11,6 +11,7 @@ import {
   randomNormal,
   smallLatentLength,
 } from './sampling';
+import type { GenDevice } from './device';
 import type { TimingRecorder } from './timing';
 
 export interface TensorSpec {
@@ -35,7 +36,7 @@ export type Tokenize = (prompt: string) => Promise<{ ids: BigInt64Array; mask: B
 export interface Ports {
   probeGpu(): Promise<string>;
   loadTokenizer(model: ModelId): Promise<Tokenize>;
-  loadSession(model: ModelId, kind: SessionKind): Promise<ModelSession>;
+  loadSession(model: ModelId, kind: SessionKind, device?: GenDevice): Promise<ModelSession>;
   /** Drop runtime state that outlives sessions (called by unload). */
   reset?(): Promise<void> | void;
 }
@@ -68,6 +69,7 @@ const TEXT_DIM = 768;
 
 interface Held {
   model: ModelId;
+  device: GenDevice;
   tokenize?: Tokenize;
   text?: ModelSession;
   number?: ModelSession;
@@ -121,10 +123,12 @@ export function createPipeline(ports: Ports, log?: ScopedLogger) {
   async function generate(p: GenerateParams, hooks: PipelineHooks): Promise<GenerationResult> {
     const { timing } = hooks;
     const isMedium = p.model === 'medium';
+    const device: GenDevice = p.device ?? 'webgpu';
     timing.begin('total');
     try {
       if (held && held.model !== p.model) await releaseAll(`switching ${held.model} to ${p.model}`);
-      const h: Held = (held ??= { model: p.model });
+      else if (held && held.device !== device) await releaseAll(`switching ${held.device} to ${device}`);
+      const h: Held = (held ??= { model: p.model, device });
 
       const stage = async <T>(name: string, fraction: number, message: string, fn: () => Promise<T>): Promise<T> => {
         if (hooks.isCancelled()) throw new CancelledError();
@@ -132,7 +136,7 @@ export function createPipeline(ports: Ports, log?: ScopedLogger) {
         return timing.run(name, fn);
       };
 
-      if (!gpuChecked) {
+      if (device === 'webgpu' && !gpuChecked) {
         const info = await stage('gpu-probe', 0.01, 'Checking WebGPU', () => ports.probeGpu());
         log?.info('gpu probe passed', info);
         gpuChecked = true;
@@ -141,8 +145,8 @@ export function createPipeline(ports: Ports, log?: ScopedLogger) {
       if (!h.text || !h.tokenize || (!isMedium && !h.number)) {
         await stage('load-encoder', 0.03, 'Loading text encoder', async () => {
           h.tokenize ??= await ports.loadTokenizer(p.model);
-          h.text ??= await ports.loadSession(p.model, 'text-encoder');
-          if (!isMedium) h.number ??= await ports.loadSession(p.model, 'number-conditioner');
+          h.text ??= await ports.loadSession(p.model, 'text-encoder', device);
+          if (!isMedium) h.number ??= await ports.loadSession(p.model, 'number-conditioner', device);
         });
       } else log?.debug('encoder sessions resident; reused');
 
@@ -170,7 +174,7 @@ export function createPipeline(ports: Ports, log?: ScopedLogger) {
 
       if (!h.dit) {
         await stage('load-dit', 0.22, 'Loading diffusion model', async () => {
-          h.dit = await ports.loadSession(p.model, 'dit');
+          h.dit = await ports.loadSession(p.model, 'dit', device);
         });
       }
       const dit = h.dit!;
@@ -224,7 +228,7 @@ export function createPipeline(ports: Ports, log?: ScopedLogger) {
 
       if (!h.decoder) {
         await stage('load-decoder', 0.87, 'Loading decoder', async () => {
-          h.decoder = await ports.loadSession(p.model, 'decoder');
+          h.decoder = await ports.loadSession(p.model, 'decoder', device);
         });
       }
       const decoder = h.decoder!;

@@ -239,3 +239,37 @@ describe('fatal errors', () => {
     expect(p.resident()).toBeNull();
   });
 });
+
+describe('device', () => {
+  it('passes the device to every session load and skips the GPU probe on the CPU', async () => {
+    const f = fakePorts();
+    const seen: Array<[string, string | undefined]> = [];
+    const orig = f.ports.loadSession;
+    f.ports.loadSession = async (m, k, d) => {
+      seen.push([k, d]);
+      return orig(m, k, d);
+    };
+    const r = await createPipeline(f.ports).generate(params({ device: 'cpu' }), hooks().h);
+    expect(seen).toEqual([['text-encoder', 'cpu'], ['number-conditioner', 'cpu'], ['dit', 'cpu'], ['decoder', 'cpu']]);
+    expect(f.events).not.toContain('probe');
+    expect(r.stages.map((s) => s.name)).not.toContain('gpu-probe');
+  });
+
+  it('defaults to webgpu and releases resident sessions when the device changes', async () => {
+    const f = fakePorts();
+    const seen: Array<string | undefined> = [];
+    const orig = f.ports.loadSession;
+    f.ports.loadSession = async (m, k, d) => {
+      seen.push(d);
+      return orig(m, k, d);
+    };
+    const p = createPipeline(f.ports);
+    await p.generate(params(), hooks().h);
+    expect(new Set(seen)).toEqual(new Set(['webgpu']));
+    f.events.length = 0;
+    await p.generate(params({ device: 'cpu' }), hooks().h);
+    const releases = f.events.filter((e) => e.startsWith('release'));
+    expect(releases).toHaveLength(4);
+    expect(f.events.indexOf('release decoder')).toBeLessThan(f.events.indexOf('load text-encoder'));
+  });
+});
