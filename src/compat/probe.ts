@@ -34,6 +34,17 @@ export async function runOnnxGpuProbe(): Promise<void> {
   }
 }
 
+/** Validates a minimal module using a v128 instruction. */
+const SIMD_MODULE = Uint8Array.of(0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11);
+
+export function detectWasmSimd(wasm: { validate?: (bytes: any) => boolean } | undefined): boolean {
+  try {
+    return typeof wasm?.validate === 'function' && wasm.validate(SIMD_MODULE);
+  } catch {
+    return false;
+  }
+}
+
 export async function probeEnvironment(options: ProbeOptions = {}): Promise<CompatEnv> {
   const g = options.globals ?? globalThis;
   const nav = g.navigator ?? {};
@@ -105,6 +116,8 @@ export async function probeEnvironment(options: ProbeOptions = {}): Promise<Comp
     requiredBytes: options.requiredBytes ?? null,
     deviceMemoryGB: nav.deviceMemory,
     webAudio: typeof g.AudioContext === 'function' || typeof g.webkitAudioContext === 'function',
+    webAssembly: typeof g.WebAssembly === 'object' && g.WebAssembly !== null,
+    wasmSimd: detectWasmSimd(g.WebAssembly),
     timings,
   };
   scope.info('environment probed', env);

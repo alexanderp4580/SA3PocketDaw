@@ -8,7 +8,7 @@
   import { MAX_STEPS } from '../../gen/protocol';
   import { INSTRUMENTS,CHARACTERS,ATTACKS,BEHAVIORS,instrumentDefaults,instrumentPrompt,type InstrumentId } from '../../gen/instrumentSelections';
   import { generationPresets,generationHint,lengthHint,loadModeSettings,saveModeSettings,type GenerationMode } from '../../gen/mode';
-  import { DEVICE_LABELS, generateWithFallback, loadDevice, saveDevice, type GenDevice } from '../../gen/device';
+  import { DEVICE_LABELS, effectiveDevice, generateWithFallback, gpuAllowed, loadDevice, saveDevice, type GenDevice } from '../../gen/device';
   import { MAX_SECONDS, MIN_SECONDS, clampSeconds, parseSeconds, stepSeconds } from '../../gen/length';
   import { midiToName } from '../../audio/pitch';
   import { formatBytes, formatElapsed, modelHint, peaksOf } from '../format';
@@ -44,7 +44,9 @@
   let instrumentWarning=$state('');
   let seed = $state(randomSeed());
   const DEVICES: GenDevice[] = ['webgpu', 'cpu'];
-  let device = $state<GenDevice>(loadDevice(store));
+  const gpuOk = $derived(gpuAllowed(typeof navigator !== 'undefined' && !!(navigator as Navigator).gpu, ui.compat ? ui.compat.gpuUsable : null));
+  let storedDevice = $state<GenDevice>(loadDevice(store));
+  const device = $derived(effectiveDevice(storedDevice, gpuOk));
   let fallbackNote = $state('');
   let usedDevice = $state<GenDevice>('webgpu');
   const cards = $derived(ui.modelCards);
@@ -182,7 +184,8 @@
   }
 
   function pickDevice(next: GenDevice) {
-    device = next;
+    if (next === 'webgpu' && !gpuOk) return;
+    storedDevice = next;
     saveDevice(store, next);
   }
 
@@ -266,10 +269,10 @@
     <div class="st">Processor</div>
     <div class="seg">
       {#each DEVICES as d (d)}
-        <button class="sg" class:sa3on={device === d} aria-pressed={device === d} onclick={() => pickDevice(d)}>{DEVICE_LABELS[d]}</button>
+        <button class="sg" class:sa3on={device === d} aria-pressed={device === d} disabled={d === 'webgpu' && !gpuOk} onclick={() => pickDevice(d)}>{DEVICE_LABELS[d]}</button>
       {/each}
     </div>
-    <div class="note">{device === 'cpu' ? 'CPU runs the diffusion and decoder in WASM, slower than the GPU (Steam Deck, 1 s clip, one thread: about 2.5 times; phone speed to check). The text encoder still uses the GPU. Uses more memory (phone memory to check).' : 'GPU is fastest. If a GPU run fails, it is retried once on the CPU automatically.'}</div>
+    <div class="note">{!gpuOk ? 'WebGPU is not usable on this device, so generation runs on the CPU (WASM): slower than the GPU and heavier on memory. Speed and memory on phones: to check.' : device === 'cpu' ? 'CPU runs every stage in WASM, slower than the GPU (Steam Deck, 1 s clip, one thread: about 2.5 times; phone speed to check). Uses more memory (phone memory to check).' : 'GPU is fastest. If a GPU run fails, it is retried once on the CPU automatically.'}</div>
 
     <div class="st">Length</div>
     <div class="stepper">

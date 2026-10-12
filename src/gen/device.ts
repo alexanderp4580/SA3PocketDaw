@@ -32,6 +32,16 @@ export function saveDevice(storage: StorageLike | null, device: GenDevice): void
   }
 }
 
+/** The stored choice, or the CPU when the GPU cannot be used on this device. */
+export function effectiveDevice(stored: GenDevice, gpuIsAllowed: boolean): GenDevice {
+  return gpuIsAllowed ? stored : 'cpu';
+}
+
+/** GPU generation needs the WebGPU API and, when the compatibility check ran, its GPU checks passing (null = check did not run). */
+export function gpuAllowed(hasWebgpuApi: boolean, compatGpuUsable: boolean | null): boolean {
+  return hasWebgpuApi && compatGpuUsable !== false;
+}
+
 const NO_RETRY = new Set(['cancelled', 'not-installed', 'not-available', 'worker-crashed']);
 
 /** A failed WebGPU run is retried once on the CPU; cancellations, missing models and worker crashes are not. */

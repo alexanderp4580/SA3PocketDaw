@@ -10,6 +10,8 @@ export interface CompatCheck {
 
 export interface CompatResult {
   verdict: Verdict;
+  /** True when the GPU checks passed, so generation may use WebGPU; false means generation runs on the CPU only. */
+  gpuUsable: boolean;
   checks: CompatCheck[];
 }
 
@@ -38,6 +40,10 @@ export interface CompatEnv {
   requiredBytes: number | null;
   deviceMemoryGB?: number;
   webAudio: boolean;
+  /** WebAssembly is available (the CPU provider and ONNX Runtime need it). */
+  webAssembly: boolean;
+  /** WebAssembly SIMD validates. */
+  wasmSimd: boolean;
   timings?: Record<string, number>;
 }
 
@@ -60,32 +66,46 @@ export function evaluate(env: CompatEnv): CompatResult {
   add('secure-context', 'Secure context (HTTPS)', env.secureContext ? 'pass' : 'fail',
     env.secureContext
       ? 'The page is served over HTTPS or localhost.'
-      : 'This page is not in a secure context (HTTPS), so the browser blocks WebGPU. Open the https:// address instead.');
+      : 'This page is not in a secure context (HTTPS), so the browser blocks WebGPU, Cache Storage and the service worker. Open the https:// address instead.');
 
-  add('webgpu-api', 'WebGPU', env.webgpuApi ? 'pass' : 'fail',
-    env.webgpuApi ? 'WebGPU is available.' : 'WebGPU is not available in this browser, so the SA3 model cannot run on this device.');
+  // GPU checks never block: without a usable GPU the app generates on the CPU (WASM), which is slower.
+  const CPU = 'Generation will run on the CPU, which is slower.';
+  add('webgpu-api', 'WebGPU', env.webgpuApi ? 'pass' : 'warn',
+    env.webgpuApi ? 'WebGPU is available.' : `WebGPU is not available in this browser. ${CPU}`);
 
-  if (!env.webgpuApi) add('gpu-adapter', 'GPU adapter', 'fail', 'No GPU adapter was requested because WebGPU is missing.');
-  else if (!env.adapter) add('gpu-adapter', 'GPU adapter', 'fail', 'WebGPU exists but the browser returned no GPU adapter, so the model cannot use this device\'s graphics chip.');
+  if (!env.webgpuApi) add('gpu-adapter', 'GPU adapter', 'warn', `No GPU adapter was requested because WebGPU is missing. ${CPU}`);
+  else if (!env.adapter) add('gpu-adapter', 'GPU adapter', 'warn', `WebGPU exists but the browser returned no GPU adapter. ${CPU}`);
   else add('gpu-adapter', 'GPU adapter', 'pass', [env.adapter.vendor, env.adapter.architecture, env.adapter.description].filter(Boolean).join(' ') || 'Adapter found.');
 
   const f16 = env.features.includes('shader-f16');
   add('shader-f16', 'GPU 16-bit float (shader-f16)', f16 ? 'pass' : 'warn',
-    f16 ? 'Supported.' : 'This GPU does not report 16-bit float support. Generation may be slower, and the Medium model may not run.');
+    f16 ? 'Supported.' : 'This GPU does not report 16-bit float support. GPU generation may be slower, and the Medium model may not run on the GPU.');
 
   const sb = env.limits.maxStorageBufferBindingSize;
-  if (sb === undefined) add('storage-buffer', 'GPU storage buffer size', 'fail', 'The GPU limits are unknown, so a 128 MiB storage buffer cannot be confirmed.');
-  else if (sb < MIN_STORAGE_BUFFER) add('storage-buffer', 'GPU storage buffer size', 'fail', `The GPU allows only ${mib(sb)} per storage buffer; the model needs at least 128 MiB.`);
-  else add('storage-buffer', 'GPU storage buffer size', 'pass', `${mib(sb)} per storage buffer (at least 128 MiB needed).`);
+  if (sb === undefined) {
+    add('storage-buffer', 'GPU storage buffer size', 'warn', `The GPU limits are unknown, so a 128 MiB storage buffer cannot be confirmed. ${CPU}`);
+  } else if (sb < MIN_STORAGE_BUFFER) {
+    add('storage-buffer', 'GPU storage buffer size', 'warn', `The GPU allows only ${mib(sb)} per storage buffer; the model needs at least 128 MiB. ${CPU}`);
+  } else add('storage-buffer', 'GPU storage buffer size', 'pass', `${mib(sb)} per storage buffer (at least 128 MiB needed).`);
 
   const p = env.probe;
   if (p.status === 'pass') add('onnx-probe', 'ONNX WebGPU test', 'pass', `The small test model ran on the GPU${p.ms !== undefined ? ` in ${Math.round(p.ms)} ms` : ''}.`);
-  else if (p.status === 'timeout') add('onnx-probe', 'ONNX WebGPU test', 'fail', 'The small ONNX test model did not finish within 60 seconds, so the GPU cannot run the SA3 model reliably.');
-  else if (p.status === 'skipped') add('onnx-probe', 'ONNX WebGPU test', 'fail', 'The small ONNX test was not run because no GPU adapter is available.');
-  else add('onnx-probe', 'ONNX WebGPU test', 'fail', `The small ONNX test model failed on the GPU${p.error ? `: ${p.error}` : '.'}`);
+  else {
+    if (p.status === 'timeout') add('onnx-probe', 'ONNX WebGPU test', 'warn', `The small ONNX test model did not finish within 60 seconds, so the GPU is not used. ${CPU}`);
+    else if (p.status === 'skipped') add('onnx-probe', 'ONNX WebGPU test', 'warn', `The small ONNX test was not run because no GPU adapter is available. ${CPU}`);
+    else add('onnx-probe', 'ONNX WebGPU test', 'warn', `The small ONNX test model failed on the GPU${p.error ? `: ${p.error}` : '.'} ${CPU}`);
+  }
+  const gpuUsable = env.webgpuApi && !!env.adapter && sb !== undefined && sb >= MIN_STORAGE_BUFFER && p.status === 'pass';
 
   add('module-workers', 'Module web workers', env.moduleWorkers ? 'pass' : 'fail',
     env.moduleWorkers ? 'Supported.' : 'This browser cannot run module web workers, so generation cannot run in the background.');
+  const wasmOk = env.webAssembly && env.wasmSimd;
+  add('webassembly', 'WebAssembly (CPU generation)', wasmOk ? 'pass' : 'fail',
+    wasmOk
+      ? 'WebAssembly with SIMD is available.'
+      : !env.webAssembly
+        ? 'WebAssembly is not available in this browser, so the models cannot run on the CPU or the GPU.'
+        : 'WebAssembly SIMD is not available in this browser, so the models cannot run.');
   add('cache-storage', 'Cache Storage', env.cacheStorage ? 'pass' : 'fail',
     env.cacheStorage ? 'Available.' : 'Cache Storage is not available, so models cannot be saved on this device.');
   add('indexeddb', 'IndexedDB', env.indexedDB ? 'pass' : 'fail',
@@ -120,5 +140,5 @@ export function evaluate(env: CompatEnv): CompatResult {
   }
 
   const verdict: Verdict = checks.some((c) => c.status === 'fail') ? 'no' : checks.some((c) => c.status === 'warn') ? 'maybe' : 'ok';
-  return { verdict, checks };
+  return { verdict, gpuUsable, checks };
 }

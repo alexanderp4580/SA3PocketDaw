@@ -22,10 +22,14 @@ function goodEnv(over: Partial<CompatEnv> = {}): CompatEnv {
     requiredBytes: 683 * MIB,
     deviceMemoryGB: 8,
     webAudio: true,
+    webAssembly: true,
+    wasmSimd: true,
     ...over,
   };
 }
 const status = (r: ReturnType<typeof evaluate>, id: string) => r.checks.find((c) => c.id === id)!;
+
+const canContinueVerdict = (r: ReturnType<typeof evaluate>) => r.verdict !== 'no';
 
 describe('evaluate', () => {
   it('passes everything on a capable device', () => {
@@ -34,18 +38,16 @@ describe('evaluate', () => {
     expect(r.checks.every((c) => c.status === 'pass')).toBe(true);
     expect(r.checks.map((c) => c.id)).toEqual([
       'secure-context', 'webgpu-api', 'gpu-adapter', 'shader-f16', 'storage-buffer', 'onnx-probe',
-      'module-workers', 'cache-storage', 'indexeddb', 'storage-quota', 'device-memory', 'web-audio', 'browser-family',
+      'module-workers', 'webassembly', 'cache-storage', 'indexeddb', 'storage-quota', 'device-memory', 'web-audio', 'browser-family',
     ]);
+    expect(r.gpuUsable).toBe(true);
   });
 
   const hard: [string, string, Partial<CompatEnv>][] = [
     ['secure-context', 'secure', { secureContext: false }],
-    ['webgpu-api', 'WebGPU is not available in this browser, so the SA3 model cannot run on this device.', { webgpuApi: false, adapter: null, features: [], limits: {}, probe: { status: 'skipped' } }],
-    ['gpu-adapter', 'adapter', { adapter: null, probe: { status: 'skipped' } }],
-    ['storage-buffer', '128 MiB', { limits: { maxBufferSize: 2 * GIB, maxStorageBufferBindingSize: 64 * MIB } }],
-    ['onnx-probe', 'did not finish', { probe: { status: 'timeout' } }],
-    ['onnx-probe', 'boom', { probe: { status: 'fail', error: 'boom' } }],
     ['module-workers', 'worker', { moduleWorkers: false }],
+    ['webassembly', 'WebAssembly', { webAssembly: false }],
+    ['webassembly', 'SIMD', { wasmSimd: false }],
     ['cache-storage', 'Cache Storage', { cacheStorage: false }],
     ['indexeddb', 'IndexedDB', { indexedDB: false }],
     ['storage-quota', 'storage', { storage: { quota: 100 * MIB, usage: 0 } }],
@@ -59,9 +61,33 @@ describe('evaluate', () => {
     expect(c.detail.toLowerCase()).toContain(text.toLowerCase());
   });
 
-  it('uses the exact WebGPU sentence', () => {
-    const r = evaluate(goodEnv({ webgpuApi: false, adapter: null, probe: { status: 'skipped' } }));
-    expect(status(r, 'webgpu-api').detail).toBe('WebGPU is not available in this browser, so the SA3 model cannot run on this device.');
+  const gpuMissing: [string, Partial<CompatEnv>][] = [
+    ['webgpu-api', { webgpuApi: false, adapter: null, features: [], limits: {}, probe: { status: 'skipped' } }],
+    ['gpu-adapter', { adapter: null, features: [], limits: {}, probe: { status: 'skipped' } }],
+    ['storage-buffer', { limits: { maxBufferSize: 2 * GIB, maxStorageBufferBindingSize: 64 * MIB } }],
+    ['storage-buffer', { limits: {} }],
+    ['onnx-probe', { probe: { status: 'timeout' } }],
+    ['onnx-probe', { probe: { status: 'fail', error: 'boom' } }],
+  ];
+  it.each(gpuMissing)('GPU problem %s warns, the app runs on the CPU', (id, over) => {
+    const r = evaluate(goodEnv(over));
+    expect(r.verdict).toBe('maybe');
+    expect(r.gpuUsable).toBe(false);
+    const c = status(r, id);
+    expect(c.status).toBe('warn');
+    expect(c.detail).toContain('CPU');
+    expect(r.checks.some((x) => x.status === 'fail')).toBe(false);
+  });
+
+  it('no WebGPU at all still allows the app and says the CPU is used', () => {
+    const r = evaluate(goodEnv({ webgpuApi: false, adapter: null, features: [], limits: {}, probe: { status: 'skipped' } }));
+    expect(status(r, 'webgpu-api').detail).toBe('WebGPU is not available in this browser. Generation will run on the CPU, which is slower.');
+    expect(canContinueVerdict(r)).toBe(true);
+  });
+
+  it('a missing GPU does not hide a hard failure', () => {
+    const r = evaluate(goodEnv({ webgpuApi: false, adapter: null, features: [], limits: {}, probe: { status: 'skipped' }, cacheStorage: false }));
+    expect(r.verdict).toBe('no');
   });
 
   it('subtracts existing usage from the quota', () => {

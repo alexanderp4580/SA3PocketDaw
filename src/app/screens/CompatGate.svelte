@@ -1,6 +1,6 @@
 <script lang="ts">
   import { ui, runCompatCheck } from '../appState.svelte';
-  import { COMPAT_TEXT, canContinue, failedReasons } from '../format';
+  import { canContinue, compatHeadline, failedReasons } from '../format';
   import { copyReport } from '../report';
   import { notify } from '../appState.svelte';
 
@@ -17,13 +17,13 @@
     {#if ui.compatRunning}
       <div class="card" aria-live="polite">
         <b>Checking this browser</b>
-        <div class="note">The GPU test can take several seconds.</div>
+        <div class="note">The GPU test can take several seconds. A failed GPU test does not block the app; it runs on the CPU.</div>
         <div class="bar"><i class="indeterminate"></i></div>
       </div>
     {:else if ui.compat}
       {@const result = ui.compat}
       <div class="card verdict {result.verdict}" aria-live="polite">
-        <div class="row"><b class="grow">{COMPAT_TEXT[result.verdict]}</b><span class="tag" class:ok={result.verdict === 'ok'} class:warn={result.verdict === 'maybe'} class:bad={result.verdict === 'no'}>{result.verdict}</span></div>
+        <div class="row"><b class="grow">{compatHeadline(result)}</b><span class="tag" class:ok={result.verdict === 'ok'} class:warn={result.verdict === 'maybe'} class:bad={result.verdict === 'no'}>{result.verdict}</span></div>
         {#if result.verdict === 'no'}
           <ul class="reasons">
             {#each failedReasons(result) as reason (reason)}<li>{reason}</li>{/each}

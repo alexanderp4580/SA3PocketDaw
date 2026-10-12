@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canContinue, failedReasons, filterLog, formatBytes, formatControlValue, formatElapsed, formatPosition, modelCards, modelHint, parseBpm, peaksOf, timingRows } from './format';
+import { COMPAT_TEXT, canContinue, compatHeadline, failedReasons, filterLog, formatBytes, formatControlValue, formatElapsed, formatPosition, modelCards, modelHint, parseBpm, peaksOf, timingRows } from './format';
 import type { Manifest } from '../store/modelManager';
 
 const manifest: Manifest = {
@@ -79,11 +79,17 @@ describe('format', () => {
     expect(timingRows(null)).toEqual([]);
   });
   it('derives compat gate state', () => {
-    const r = { verdict: 'no' as const, checks: [{ id: 'a', label: 'WebGPU', status: 'fail' as const, detail: 'missing' }, { id: 'b', label: 'x', status: 'pass' as const, detail: '' }] };
+    const r = { verdict: 'no' as const, gpuUsable: false, checks: [{ id: 'a', label: 'WebGPU', status: 'fail' as const, detail: 'missing' }, { id: 'b', label: 'x', status: 'pass' as const, detail: '' }] };
     expect(failedReasons(r)).toEqual(['WebGPU: missing']);
     expect(canContinue(r)).toBe(false);
     expect(canContinue({ ...r, verdict: 'maybe' })).toBe(true);
     expect(canContinue(null)).toBe(false);
+  });
+  it('names the CPU fallback in the compat headline', () => {
+    const base = { checks: [] };
+    expect(compatHeadline({ ...base, verdict: 'ok', gpuUsable: true })).toBe(COMPAT_TEXT.ok);
+    expect(compatHeadline({ ...base, verdict: 'maybe', gpuUsable: false })).toBe(COMPAT_TEXT.cpu);
+    expect(compatHeadline({ ...base, verdict: 'no', gpuUsable: false })).toBe(COMPAT_TEXT.no);
   });
 });
 

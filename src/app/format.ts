@@ -163,7 +163,15 @@ export function canContinue(result: CompatResult | null): boolean {
   return !!result && result.verdict !== 'no';
 }
 
+/** Headline for the compatibility card; names the CPU fallback when only the GPU checks failed. */
+export function compatHeadline(result: CompatResult): string {
+  if (result.verdict === 'no') return COMPAT_TEXT.no;
+  if (!result.gpuUsable) return COMPAT_TEXT.cpu;
+  return COMPAT_TEXT[result.verdict];
+}
+
 export const COMPAT_TEXT = {
+  cpu: 'This browser can run the app, but WebGPU is not usable here. Generation will run on the CPU and is slower. Speed and memory on this device: to check.',
   ok: 'This browser can run the app.',
   maybe: 'This browser might run the app. Some checks could not be confirmed.',
   no: 'This app will not run on this browser.',

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { DEVICE_STORAGE_KEY, loadDevice, parseDevice, saveDevice, shouldFallback, generateWithFallback } from './device';
+import { DEVICE_STORAGE_KEY, loadDevice, parseDevice, saveDevice, shouldFallback, generateWithFallback, effectiveDevice, gpuAllowed } from './device';
 import { GenerationError } from './client';
 
 describe('parseDevice', () => {
@@ -73,5 +73,26 @@ describe('generateWithFallback', () => {
     const gen = vi.fn(async (p: { device?: string }) => { throw new GenerationError(p.device === 'cpu' ? 'cpu broke' : 'gpu broke', 'failed'); });
     await expect(generateWithFallback(gen, { ...params, device: 'webgpu' }, { onFallback: vi.fn() })).rejects.toThrow('cpu broke');
     expect(gen).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('effectiveDevice', () => {
+  it('keeps the stored choice when the GPU is allowed', () => {
+    expect(effectiveDevice('webgpu', true)).toBe('webgpu');
+    expect(effectiveDevice('cpu', true)).toBe('cpu');
+  });
+  it('forces the CPU when the GPU is not allowed', () => {
+    expect(effectiveDevice('webgpu', false)).toBe('cpu');
+    expect(effectiveDevice('cpu', false)).toBe('cpu');
+  });
+});
+
+describe('gpuAllowed', () => {
+  it('needs the WebGPU API and no failed compatibility verdict for the GPU', () => {
+    expect(gpuAllowed(true, null)).toBe(true);
+    expect(gpuAllowed(true, true)).toBe(true);
+    expect(gpuAllowed(true, false)).toBe(false);
+    expect(gpuAllowed(false, null)).toBe(false);
+    expect(gpuAllowed(false, true)).toBe(false);
   });
 });

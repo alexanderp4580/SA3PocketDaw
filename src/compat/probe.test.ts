@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { probeEnvironment } from './probe';
+import { detectWasmSimd, probeEnvironment } from './probe';
 
 function fakeGlobals(over: Record<string, unknown> = {}) {
   const adapter = {
@@ -18,6 +18,7 @@ function fakeGlobals(over: Record<string, unknown> = {}) {
     indexedDB: {},
     Worker: class {},
     AudioContext: class {},
+    WebAssembly: { validate: () => true },
     ...over,
   } as any;
 }
@@ -30,7 +31,7 @@ describe('probeEnvironment', () => {
       userAgent: 'UA', secureContext: true, webgpuApi: true, features: ['shader-f16'],
       limits: { maxBufferSize: 100, maxStorageBufferBindingSize: 200 },
       storage: { quota: 1000, usage: 10 }, requiredBytes: 5, deviceMemoryGB: 8,
-      moduleWorkers: true, cacheStorage: true, indexedDB: true, webAudio: true,
+      moduleWorkers: true, cacheStorage: true, indexedDB: true, webAudio: true, webAssembly: true, wasmSimd: true,
     });
     expect(env.adapter).toEqual({ vendor: 'v', architecture: 'a', description: 'd', device: 'dev' });
     expect(env.probe.status).toBe('pass');
@@ -71,5 +72,22 @@ describe('probeEnvironment', () => {
     g.navigator.gpu.requestAdapter = async () => { throw new Error('no'); };
     const env = await probeEnvironment({ globals: g, runProbe: vi.fn() });
     expect(env.adapter).toBeNull();
+  });
+});
+
+describe('WebAssembly detection', () => {
+  it('reports no WebAssembly or no SIMD from the injected globals', async () => {
+    const none = await probeEnvironment({ globals: fakeGlobals({ WebAssembly: undefined }), runProbe: vi.fn() });
+    expect(none.webAssembly).toBe(false);
+    expect(none.wasmSimd).toBe(false);
+    const noSimd = await probeEnvironment({ globals: fakeGlobals({ WebAssembly: { validate: () => false } }), runProbe: vi.fn() });
+    expect(noSimd.webAssembly).toBe(true);
+    expect(noSimd.wasmSimd).toBe(false);
+  });
+  it('treats a throwing validate as no SIMD', () => {
+    expect(detectWasmSimd({ validate: () => { throw new Error('x'); } })).toBe(false);
+  });
+  it('validates the real SIMD module in this runtime', () => {
+    expect(detectWasmSimd(globalThis.WebAssembly)).toBe(true);
   });
 });
