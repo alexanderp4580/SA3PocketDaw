@@ -15,7 +15,9 @@ import {applyTrim,trimKey} from './trim';
 
 const scope = log.scope('audio.engine');
 /** A note delivered later than this after its time (main-thread stall) is dropped rather than bunched with the next ones. */
-export const STALE_NOTE_SEC = 0.1;
+export const STALE_NOTE_SEC = 0.25;
+/** A late note keeps its original end; one with less than this left is skipped. */
+export const MIN_LATE_NOTE_SEC = 0.03;
 
 export interface EngineBufferLike extends BufferLike {
   copyToChannel?(src: Float32Array, channel: number): void;
@@ -63,6 +65,12 @@ export function createEngine(options: EngineOptions = {}) {
   function stopPreview(){previewEpoch++;previewVoice?.stop();previewVoice=null;const p=previewPlayer;previewPlayer=null;previewProfile=null;if(p)void p.then(v=>v.dispose()).catch(()=>{});}
 
   const playerSources=new Map<string,string>();
+  const pitchesOf=(t:Project['tracks'][number])=>new Set(t.notes.map(n=>n.midi));
+  /** Players keep every pitch their track plays installed; with `prefetch`, missing pitches are prepared in the background. */
+  function syncPlayerPitches(prefetch:boolean){
+   if(!project)return;
+   for(const [id,player] of players){const t=project.tracks.find(x=>x.id===id);if(!t)continue;const set=pitchesOf(t);void player.then(p=>{p.retain(set);if(prefetch)void p.prefetch(set);}).catch(()=>{});}
+  }
   const outputFor=(id:string)=>mixer?.input(id)??master;
   function playerFor(trackId:string):Promise<InstrumentPlayer>{let player=players.get(trackId);if(!player){const track=project!.tracks.find(t=>t.id===trackId)!;playerSources.set(trackId,track.sampleId!);player=createInstrumentPlayer(ctx as unknown as AudioContext,outputFor(trackId) as unknown as AudioNode,instruments.get(track.sampleId!)!).then(p=>{p.setControls(project?.tracks.find(t=>t.id===trackId)?.instrumentControls);return p;});players.set(trackId,player);player.catch(()=>players.delete(trackId));}return player;}
 
@@ -99,11 +107,12 @@ export function createEngine(options: EngineOptions = {}) {
     if (!ctx || !project) return;
     const second = Math.floor(ctx.currentTime);
     if (stale && stale.second !== second) flushStale();
-    if (e.when < ctx.currentTime - STALE_NOTE_SEC) {
-      const lateBy = ctx.currentTime - e.when;
+    const lateBy = Math.max(0, ctx.currentTime - e.when);
+    if (lateBy > STALE_NOTE_SEC || e.duration - lateBy < MIN_LATE_NOTE_SEC) {
       if (stale) { stale.count++; stale.maxLateBy = Math.max(stale.maxLateBy, lateBy); } else stale = { second, count: 1, maxLateBy: lateBy };
       return;
     }
+    if (lateBy > 0) e = { ...e, duration: e.duration - lateBy };
     const track = project.tracks.find((t) => t.id === e.trackId);
     if(track?.sampleId&&instruments.has(track.sampleId)){const token=epoch;void playerFor(track.id).then(p=>{if(token===epoch&&project&&project.tracks.some(t=>t.id===e.trackId&&audible(project!,t)))return p.note(e.midi,e.when,e.duration,e.velocity);}).catch(err=>scope.error('instrument playback failed',{error:String(err)}));return;}
     const buffer = bufferFor(track);
@@ -158,6 +167,7 @@ export function createEngine(options: EngineOptions = {}) {
       }}
       const keep=new Set(p.tracks.map(t=>t.sampleId));for(const [id,player] of players)if(!p.tracks.some(t=>t.id===id&&t.sampleId===playerSources.get(id))){void player.then(v=>v.dispose()).catch(()=>{});players.delete(id);}for(const id of instruments.keys())if(!keep.has(id))instruments.delete(id);
       project = p;
+      syncPlayerPitches(transport().isPlaying);
       mixer?.sync(p);
       for(const [id,player] of players){const t=p.tracks.find(t=>t.id===id);if(t)void player.then(v=>v.setControls(t.instrumentControls)).catch(e=>scope.error('instrument controls failed',{error:String(e)}));}
       scheduler.setBpm(p.bpm);
@@ -179,7 +189,7 @@ export function createEngine(options: EngineOptions = {}) {
     async previewInstrument(profile:InstrumentProfile,midi=57,controls?:Partial<InstrumentControls>){const token=previewEpoch;await unlock();if(token!==previewEpoch)return;if(previewProfile!==profile){stopPreview();previewProfile=profile;previewPlayer=createInstrumentPlayer(ctx as unknown as AudioContext,master as unknown as AudioNode,profile);}const pending=previewPlayer!,p=await pending;if(pending!==previewPlayer)return;const settings=resolveControls(controls,profile.dynamics);p.setControls(settings);await p.note(midi,ctx!.currentTime,Math.max(1.2,settings.attack+1),velocityGain(96));},
     async play() {
       await unlock();
-      const token=epoch;await Promise.all((project?.tracks??[]).filter(t=>t.sampleId&&instruments.has(t.sampleId)).map(async t=>{const p=await playerFor(t.id);await Promise.all([...new Set(t.notes.map(n=>n.midi))].map(m=>p.prepare(m)));}));if(token!==epoch)return;
+      const token=epoch;await Promise.all((project?.tracks??[]).filter(t=>t.sampleId&&instruments.has(t.sampleId)).map(async t=>{const p=await playerFor(t.id),set=pitchesOf(t);p.retain(set);await Promise.all([...set].map(m=>p.prepare(m)));}));if(token!==epoch)return;
       transport().play();
     },
     pause(){silence();stopPreview();transport().pause();},

@@ -58,3 +58,18 @@ it('fades an already releasing voice out over the requested time without a jump'
  const out=new Float32Array(960);v.render(out,0,960);
  expect(v.done).toBe(true);expect(out[959]).toBe(0);
 });
+
+it('renders only the strongest partials when a partial limit is given',()=>{
+ const p=profile(40),a=assets(),frames=SR,controls={behavior:'sustain' as const,attack:.01,release:.2};
+ const limited=new InstrumentVoice(p,a,60,SR,.6,1,controls,8),out=new Float32Array(frames);
+ for(let at=0;at<frames;at+=128)limited.render(out,at,128);
+ const expected=reference({...p,partials:p.partials.slice(0,8)},a,60,.6,1,controls,frames);
+ expect(maxDiff(out,expected)).toBeLessThan(1e-4);
+ const full=rendered(p,a,60,.6,1,controls,frames).out;expect(maxDiff(out,full)).toBeGreaterThan(1e-3);
+});
+it('keeps the order of the kept partials and ignores a limit larger than the partial count',()=>{
+ const p=profile(6),a=assets(),frames=SR/2,controls={release:.2};
+ const big=new InstrumentVoice(p,a,60,SR,.3,1,controls,100),plain=rendered(p,a,60,.3,1,controls,frames).out,out=new Float32Array(frames);
+ for(let at=0;at<frames;at+=128)big.render(out,at,128);
+ expect(maxDiff(out,plain)).toBe(0);
+});

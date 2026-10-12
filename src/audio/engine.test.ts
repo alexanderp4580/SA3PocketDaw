@@ -119,6 +119,40 @@ describe('engine', () => {
     expect(f.started).toHaveLength(3);
   });
 
+  it('plays a note delivered 0.2 s late and keeps its original end', async () => {
+    const f = fakeCtx();
+    const timers: Array<() => void> = [];
+    const e = createEngine({ createContext: f.mk, setTimer: (fn) => { timers.push(fn); return timers.length; }, clearTimer: () => timers.splice(0) });
+    let p = createProject({ bars: 2, bpm: 120 });
+    p = addTrack(p, 'A', 't1');
+    p = setTrackSample(setRoot(p, 't1', 60), 't1', 's1');
+    p = addNote(p, 't1', { midi: 60, start: 16, length: 4 });
+    e.setProject(p);
+    e.setSample('s1', new Float32Array(44100), 44100);
+    await e.play();
+    f.state.time = 2.25;
+    timers.splice(0).forEach((fn) => fn());
+    expect(f.started).toHaveLength(1);
+    expect(f.started[0]!.when).toBeCloseTo(2.25);
+    expect(f.started[0]!.until).toBeCloseTo(2.05 + 0.5 + 0.05, 2);
+  });
+
+  it('skips a late note whose remaining length is too short to hear', async () => {
+    const f = fakeCtx();
+    const timers: Array<() => void> = [];
+    const e = createEngine({ createContext: f.mk, setTimer: (fn) => { timers.push(fn); return timers.length; }, clearTimer: () => timers.splice(0) });
+    let p = createProject({ bars: 2, bpm: 120 });
+    p = addTrack(p, 'A', 't1');
+    p = setTrackSample(setRoot(p, 't1', 60), 't1', 's1');
+    p = addNote(p, 't1', { midi: 60, start: 16, length: 1 });
+    e.setProject(p);
+    e.setSample('s1', new Float32Array(44100), 44100);
+    await e.play();
+    f.state.time = 2.2;
+    timers.splice(0).forEach((fn) => fn());
+    expect(f.started).toHaveLength(0);
+  });
+
   it('reports a backlog of stale notes as one warning with a count and the largest lateness', async () => {
     const f = fakeCtx();
     const timers: Array<() => void> = [];

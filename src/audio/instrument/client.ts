@@ -1,5 +1,6 @@
 import { log } from '../../log';
 import { ingestWorkerMessage } from '../../log/logger';
+import { createKeyLru,PROFILE_CAPACITY } from './profileShare';
 import type { InstrumentProfile,PreparedNote } from './types';
 interface Job {worker:number;resolve:(v:unknown)=>void;reject:(e:Error)=>void;progress?:(f:number)=>void}
 /** Analysis runs on worker 0; note preparation spreads over up to POOL workers, least busy first. */
@@ -11,7 +12,7 @@ function workerAt(slot:number):Worker{
  let w=workers[slot];if(w)return w;
  w=new Worker(new URL('./worker.ts',import.meta.url),{type:'module'});workers[slot]=w;
  w.onmessage=e=>{if(ingestWorkerMessage(log,e.data))return;const j=jobs.get(e.data.id);if(!j)return;if(e.data.type==='progress'){j.progress?.(e.data.fraction);return;}jobs.delete(e.data.id);e.data.error?j.reject(new Error(e.data.error)):j.resolve(e.data.result);};
- w.onerror=e=>{for(const [key,j] of jobs)if(j.worker===slot){jobs.delete(key);j.reject(new Error(e.message));}w?.terminate();workers[slot]=null;};
+ w.onerror=e=>{for(const [key,j] of jobs)if(j.worker===slot){jobs.delete(key);j.reject(new Error(e.message));}w?.terminate();workers[slot]=null;held.delete(slot);};
  return w;
 }
 const busyness=(slot:number)=>{let n=0;for(const j of jobs.values())if(j.worker===slot)n++;return n;};
@@ -22,4 +23,16 @@ function request<T>(data:object,slot:number,signal?:AbortSignal,progress?:(f:num
  return new Promise<T>((resolve,reject)=>{const abort=()=>{jobs.delete(n);reject(Object.assign(new Error('Cancelled'),{code:'cancelled'}));};signal?.addEventListener('abort',abort,{once:true});jobs.set(n,{worker:slot,resolve:v=>{signal?.removeEventListener('abort',abort);resolve(v as T);},reject:e=>{signal?.removeEventListener('abort',abort);reject(e);},progress});worker.postMessage({...data,id:n});});
 }
 export const analyseInstrument=(pcm:Float32Array,sampleRate:number,dynamics:'sustain'|'decay',signal?:AbortSignal,progress?:(f:number)=>void)=>request<InstrumentProfile>({type:'analyse',pcm,sampleRate,dynamics},0,signal,progress);
-export const prepareInstrumentNote=(profile:InstrumentProfile,midi:number)=>request<PreparedNote>({type:'prepare',profile,midi},leastBusy());
+/** A profile is sent to each worker once; later prepare requests carry only its key and the pitch. */
+const profileKeys=new WeakMap<InstrumentProfile,number>();
+const held=new Map<number,ReturnType<typeof createKeyLru>>();
+let keyId=0;
+export async function prepareInstrumentNote(profile:InstrumentProfile,midi:number):Promise<PreparedNote>{
+ let key=profileKeys.get(profile);if(key===undefined){key=++keyId;profileKeys.set(profile,key);}
+ for(let attempt=0;;attempt++){
+  const slot=leastBusy();let mirror=held.get(slot);if(!mirror){mirror=createKeyLru(PROFILE_CAPACITY);held.set(slot,mirror);}
+  const send=mirror.touch(key);
+  try{return await request<PreparedNote>({type:'prepare',key,midi,...(send?{profile}:{})},slot);}
+  catch(e){mirror.delete(key);if(attempt>=1||!(e instanceof Error&&e.message==='profile-missing'))throw e;}
+ }
+}

@@ -21,10 +21,11 @@ export class InstrumentVoice {
  private fadeLen=0;
  readonly endFrame:number;
  private controls:InstrumentControls;
- constructor(private p:InstrumentProfile,private assets:PreparedNote,midi:number,private rate:number,duration:number,private velocity:number,controls?:Partial<InstrumentControls>){
+ constructor(private p:InstrumentProfile,private assets:PreparedNote,midi:number,private rate:number,duration:number,private velocity:number,controls?:Partial<InstrumentControls>,maxPartials=Infinity){
   this.controls=resolveControls(controls,p.dynamics);
   this.stopAt=duration;this.endFrame=Math.ceil((duration+this.controls.release)*rate);
-  const hz=noteHz(midi),limit=Math.min(rate,p.sampleRate)*.47,active=p.partials.filter(x=>hz*x.ratio<limit);
+  const hz=noteHz(midi),limit=Math.min(rate,p.sampleRate)*.47;let active=p.partials.filter(x=>hz*x.ratio<limit);
+  if(active.length>maxPartials){const peak=new Map(active.map(x=>{let m=0;for(const a of x.amplitudes)if(a>m)m=a;return [x,m] as const;})),keep=new Set([...active].sort((a,b)=>peak.get(b)!-peak.get(a)!).slice(0,Math.max(1,Math.floor(maxPartials))));active=active.filter(x=>keep.has(x));}
   this.amps=active.map(x=>x.amplitudes);
   this.cos=Float64Array.from(active,x=>Math.cos(x.phase));this.sin=Float64Array.from(active,x=>Math.sin(x.phase));
   this.rotCos=Float64Array.from(active,x=>Math.cos(2*Math.PI*hz*x.ratio/rate));this.rotSin=Float64Array.from(active,x=>Math.sin(2*Math.PI*hz*x.ratio/rate));

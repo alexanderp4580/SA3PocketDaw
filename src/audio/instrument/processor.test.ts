@@ -48,3 +48,29 @@ it('caps sounding plus releasing voices',async()=>{
  expect(peak).toBeLessThanOrEqual(16);
  vi.unstubAllGlobals();
 });
+
+async function setup(partials=1,rate=48000){
+ vi.resetModules();let C:any;vi.stubGlobal('sampleRate',rate);vi.stubGlobal('currentFrame',0);vi.stubGlobal('AudioWorkletProcessor',class {port={onmessage:null as any};});vi.stubGlobal('registerProcessor',(_n:string,c:any)=>C=c);
+ await import('./processor');const p=new C(),send=(m:object)=>p.port.onmessage({data:m}),a=new Float32Array(rate).fill(.2);
+ send({type:'profile',profile:{sampleRate:rate,hop:512,dynamics:'sustain',gain:1,partials:Array.from({length:partials},(_,i)=>({ratio:i+1,amplitudes:new Float32Array(100).fill(.05),phase:0,decay:-1}))}});
+ send({type:'assets',midi:57,assets:{attack:a,residual:new Float32Array(rate)}});
+ return {p,send};
+}
+it('plays a note from the assets of a nearby pitch when asked to',async()=>{
+ const {p,send}=await setup();
+ send({type:'note',midi:58,when:0,duration:1,velocity:1});expect(p.voices.length).toBe(0);
+ send({type:'note',midi:58,assetMidi:57,when:0,duration:1,velocity:1});expect(p.voices.length).toBe(1);
+ const out=new Float32Array(128);p.process([],[[out]]);expect(out.some(v=>v!==0)).toBe(true);vi.unstubAllGlobals();
+});
+it('thins new voices when many voices already sound, without dropping notes',async()=>{
+ const {p,send}=await setup(64);
+ for(let i=0;i<8;i++)send({type:'note',midi:57,when:0,duration:5,velocity:1});
+ const counts=p.voices.map((v:any)=>v.voice.amps.length);
+ expect(counts.length).toBe(8);expect(counts[0]).toBe(64);expect(counts[3]).toBe(64);expect(counts[7]).toBeLessThan(64);expect(counts[7]).toBeGreaterThanOrEqual(12);
+ vi.unstubAllGlobals();
+});
+it('a disposed processor leaves the shared voice budget and ends',async()=>{
+ const {p,send}=await setup(64);
+ send({type:'note',midi:57,when:0,duration:5,velocity:1});send({type:'dispose'});
+ expect(p.voices.length).toBe(0);expect(p.process([],[[new Float32Array(128)]])).toBe(false);vi.unstubAllGlobals();
+});
