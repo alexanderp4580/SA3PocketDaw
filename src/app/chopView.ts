@@ -30,9 +30,11 @@ export function pinchWindow(start:Win,scale:number,centreSec:number,midFrac:numb
  if(next>=duration)return fullWindow(duration);
  return place(centreSec-midFrac*next,next,duration);
 }
-export const pinchScale=(d0:number,d1:number)=>d0>0&&d1>0?d1/d0:1;
-export const secToPx=(t:number,win:Win,widthPx:number)=>(t-win.start)/(win.end-win.start)*widthPx;
-export const pxToSec=(x:number,win:Win,widthPx:number)=>win.start+x/widthPx*(win.end-win.start);
+/** Pinch distance ratio; a starting distance under `minStart` px is raised to it so touching fingers do not explode the scale. */
+export const pinchScale=(d0:number,d1:number,minStart=24)=>d1>0?d1/Math.max(d0,minStart):1;
+export const sameTrim=(a:Trim,b:Trim)=>a.start===b.start&&a.end===b.end;
+export const secToPx=(t:number,win:Win,widthPx:number)=>win.end>win.start?(t-win.start)/(win.end-win.start)*widthPx:0;
+export const pxToSec=(x:number,win:Win,widthPx:number)=>widthPx>0?win.start+x/widthPx*(win.end-win.start):win.start;
 /** New trim for a handle dragged to plot pixel `px` (`grab` is the pointer-to-line offset at grab time). */
 export function dragHandle(handle:'start'|'end',trim:Trim,px:number,win:Win,widthPx:number,duration:number,grab=0):Trim {
  const t=pxToSec(px-grab,win,widthPx);
@@ -56,4 +58,12 @@ export function fixedPeaksWindow(peaks:Float32Array,duration:number,win:Win):Flo
  const n=peaks.length;if(n===0||!(duration>0))return peaks;
  const i0=clamp(Math.floor(win.start/duration*n),0,n-1),i1=clamp(Math.ceil(win.end/duration*n),i0+1,n);
  return peaks.subarray(i0,i1);
+}
+/** columnPeaks that returns the previous result while pcm, rate, window and column count are unchanged. */
+export function memoColumnPeaks():(pcm:Float32Array,sampleRate:number,win:Win,columns:number)=>{min:Float32Array;max:Float32Array} {
+ let k:{pcm:Float32Array;sr:number;s:number;e:number;c:number}|null=null,r:{min:Float32Array;max:Float32Array}|null=null;
+ return (pcm,sr,win,c)=>{
+  if(r&&k&&k.pcm===pcm&&k.sr===sr&&k.s===win.start&&k.e===win.end&&k.c===c)return r;
+  r=columnPeaks(pcm,sr,win,c);k={pcm,sr,s:win.start,e:win.end,c};return r;
+ };
 }

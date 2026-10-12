@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {MAX_SEC_PER_PX,clampWindow,columnPeaks,dragHandle,fixedPeaksWindow,minSpan,panBy,pinchWindow,pxToSec,secToPx,zoomAbout} from './chopView';
+import {MAX_SEC_PER_PX,clampWindow,columnPeaks,dragHandle,fixedPeaksWindow,memoColumnPeaks,minSpan,panBy,pinchScale,pinchWindow,pxToSec,sameTrim,secToPx,zoomAbout} from './chopView';
 import {MIN_KEPT_SEC} from '../audio/trim';
 
 const D=4,W=400;
@@ -91,5 +91,27 @@ describe('chopView handle drag',()=>{
  it('pointer past the edges clamps to the clip',()=>{
   expect(dragHandle('start',trim,-5000,win,1000,D).start).toBe(0);
   expect(dragHandle('end',trim,9000,win,1000,D).end).toBe(D);
+ });
+});
+describe('chopView guards',()=>{
+ it('pinch scale raises a tiny starting distance to the minimum',()=>{
+  expect(pinchScale(2,48)).toBe(2);
+  expect(pinchScale(100,200)).toBe(2);
+  expect(pinchScale(0,50)).toBeCloseTo(50/24,9);
+  expect(pinchScale(50,0)).toBe(1);
+ });
+ it('secToPx and pxToSec stay finite for a zero-width window',()=>{
+  expect(secToPx(0,{start:0,end:0},300)).toBe(0);
+  expect(pxToSec(10,{start:0,end:0},0)).toBe(0);
+ });
+ it('sameTrim compares both ends',()=>{
+  expect(sameTrim({start:1,end:2},{start:1,end:2})).toBe(true);
+  expect(sameTrim({start:1,end:2},{start:1,end:2.1})).toBe(false);
+ });
+ it('memoised column peaks reuse the result for equal inputs only',()=>{
+  const f=memoColumnPeaks(),pcm=new Float32Array(100);
+  const a=f(pcm,100,{start:0,end:1},10);
+  expect(f(pcm,100,{start:0,end:1},10)).toBe(a);
+  expect(f(pcm,100,{start:0,end:.5},10)).not.toBe(a);
  });
 });

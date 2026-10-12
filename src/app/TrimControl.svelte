@@ -6,7 +6,7 @@
 <script lang="ts">
  import Waveform from './Waveform.svelte';
  import {MIN_KEPT_SEC} from '../audio/trim';
- import {clampWindow,columnPeaks,dragHandle,fixedPeaksWindow,fullWindow,minSpan,panBy,pinchScale,pinchWindow,pxToSec,secToPx,zoomAbout,type Win} from './chopView';
+ import {clampWindow,dragHandle,memoColumnPeaks,sameTrim,fixedPeaksWindow,fullWindow,minSpan,panBy,pinchScale,pinchWindow,pxToSec,secToPx,zoomAbout,type Win} from './chopView';
  let {view,oninput,oncommit,onreset,disabled=false,name='sound'}:{view:ChopView;oninput:(t:Trim)=>void;oncommit:(t:Trim)=>void;onreset:()=>void;disabled?:boolean;name?:string}=$props();
  const FALLBACK_W=300,KEY_PX=1;
  let plotW=$state(0),win=$state<Win|null>(null);
@@ -16,7 +16,8 @@
  const zoomed=$derived(span<view.duration-1e-9);
  const atMax=$derived(span<=minSpan(view.duration,w)+1e-9);
  const cols=$derived(Math.max(1,Math.min(600,Math.round(w))));
- const cp=$derived(view.pcm&&view.sampleRate&&view.duration>0?columnPeaks(view.pcm,view.sampleRate,cur,cols):null);
+ const peaksOf=memoColumnPeaks();
+ const cp=$derived(view.pcm&&view.sampleRate&&view.duration>0?peaksOf(view.pcm,view.sampleRate,cur,cols):null);
  const fixed=$derived(!cp&&view.peaks?fixedPeaksWindow(view.peaks,view.duration,cur):undefined);
  const full=$derived(view.trim.start<=0&&view.trim.end>=view.duration);
  const px=(t:number)=>Math.max(0,Math.min(w,secToPx(t,cur,w)));
@@ -31,28 +32,31 @@
  const localX=(e:PointerEvent)=>e.clientX-(box?.getBoundingClientRect().left??0);
 
  // Handle drag: continuous, commits on release.
- let drag:{id:number;handle:'start'|'end';grab:number;trim:Trim;moved:boolean}|null=null;
+ let drag:{id:number;handle:'start'|'end';grab:number;trim:Trim;start:Trim;moved:boolean}|null=null;
  function hdown(e:PointerEvent,handle:'start'|'end'){
   if(disabled)return;e.preventDefault();e.stopPropagation();
+  if(drag||(handle==='start'?sOff:eOff))return;
   (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   const line=handle==='start'?sx:ex;
-  drag={id:e.pointerId,handle,grab:localX(e)-line,trim:view.trim,moved:false};
+  drag={id:e.pointerId,handle,grab:localX(e)-line,trim:view.trim,start:view.trim,moved:false};
  }
  function hmove(e:PointerEvent){
   if(!drag||drag.id!==e.pointerId)return;
   const next=dragHandle(drag.handle,drag.trim,localX(e),cur,w,view.duration,drag.grab);
-  if(next.start===drag.trim.start&&next.end===drag.trim.end)return;
+  if(sameTrim(next,drag.trim))return;
   drag.trim=next;drag.moved=true;oninput(next);
  }
  function hup(e:PointerEvent){
   if(!drag||drag.id!==e.pointerId)return;
-  const d=drag;drag=null;if(d.moved)oncommit(d.trim);
+  e.stopPropagation();
+  const d=drag;drag=null;if(d.moved&&!sameTrim(d.trim,d.start))oncommit(d.trim);
  }
  function hkey(e:KeyboardEvent,handle:'start'|'end'){
   if(disabled||(e.key!=='ArrowLeft'&&e.key!=='ArrowRight'))return;
   e.preventDefault();
   const dt=(e.key==='ArrowLeft'?-1:1)*KEY_PX*span/w*(e.shiftKey?10:1),from=handle==='start'?view.trim.start:view.trim.end;
   const next=dragHandle(handle,view.trim,secToPx(from+dt,cur,w),cur,w,view.duration);
+  if(sameTrim(next,view.trim))return;
   oninput(next);oncommit(next);
  }
 
@@ -64,10 +68,11 @@
   (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   pts.set(e.pointerId,localX(e));
   if(pts.size===1)pan0={x:localX(e),win:cur};
-  else if(pts.size===2){
-   const [a,b]=[...pts.values()] as [number,number];
-   pan0=null;pinch0={dist:Math.abs(a-b),centre:pxToSec((a+b)/2,cur,w),win:cur};
-  }
+  else if(pts.size===2)seedPinch();
+ }
+ function seedPinch(){
+  const [a,b]=[...pts.values()] as [number,number];
+  pan0=null;pinch0={dist:Math.abs(a-b),centre:pxToSec((a+b)/2,cur,w),win:cur};
  }
  function wmove(e:PointerEvent){
   if(!pts.has(e.pointerId))return;
@@ -81,9 +86,10 @@
   }
  }
  function wup(e:PointerEvent){
-  pts.delete(e.pointerId);
+  if(!pts.delete(e.pointerId))return;
   pinch0=null;
-  if(pts.size===1){const [x]=[...pts.values()] as [number];pan0={x,win:cur};}else pan0=null;
+  if(pts.size>=2)seedPinch();
+  else if(pts.size===1){const [x]=[...pts.values()] as [number];pan0={x,win:cur};}else pan0=null;
  }
 </script>
 <fieldset class="chop" {disabled}>
@@ -113,7 +119,7 @@
   <span>Kept <b>{sec(view.trim.end-view.trim.start)} s</b> of {sec(view.duration)} s</span>
   {#if view.busy}<span class="busy" role="status">Updating sound…</span>{/if}
  </div>
- <div class="hint">Drag the handles; pinch or use +/− to zoom. Minimum {Math.round(MIN_KEPT_SEC*1000)} ms.</div>
+ <div class="hint">Drag the handles; pinch or use +/− to zoom; drag the waveform to pan when zoomed. Minimum {Math.round(MIN_KEPT_SEC*1000)} ms.</div>
  {#if view.error}<div class="note bad" role="alert">{view.error} The previous sound is kept.</div>{/if}
  <div class="btnrow"><button class="btn" disabled={full||disabled} onclick={onreset}>Reset chop</button></div>
 </fieldset>
@@ -137,8 +143,8 @@
  .handle.e::after{left:17px;}
  .handle.off{opacity:.45;}
  .handle:focus-visible::after{outline:2px solid #fff;}
- .zoombar{display:flex;gap:6px;align-items:center;margin-top:8px;}
- .zoombar .view{margin-right:auto;font-size:13px;color:var(--dim);font-variant-numeric:tabular-nums;}
+ .zoombar{display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap;}
+ .zoombar .view{margin-right:auto;flex:1 1 100%;min-width:0;font-size:13px;color:var(--dim);font-variant-numeric:tabular-nums;}
  .zoombar .btn{min-width:44px;min-height:44px;}
  .read{margin-top:8px;font-size:14px;color:var(--dim);display:flex;gap:4px 14px;flex-wrap:wrap;align-items:baseline;}
  .read b{color:inherit;font-variant-numeric:tabular-nums;}
