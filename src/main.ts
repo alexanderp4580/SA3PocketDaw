@@ -8,6 +8,7 @@ import { applyGeneration } from './app/generate';
 import { buildPrompt } from './gen/prompt';
 import type { GenerateParams } from './gen/protocol';
 import { installHaptics } from './app/haptics';
+import { installNoPageZoom } from './app/noPageZoom';
 import { registerServiceWorker } from './registerSw';
 import './styles/theme.css';
 import './app/app.css';
@@ -41,6 +42,7 @@ Object.defineProperty(window, '__sa3', {
 
 export default mount(App, { target: document.getElementById('app')! });
 const stopHaptics=installHaptics();
-if(import.meta.hot)import.meta.hot.dispose(stopHaptics);
+const stopNoPageZoom=installNoPageZoom();
+if(import.meta.hot)import.meta.hot.dispose(()=>{stopHaptics();stopNoPageZoom();});
 
 void registerServiceWorker({ secure: window.isSecureContext, prod: import.meta.env.PROD, sw: 'serviceWorker' in navigator ? navigator.serviceWorker : undefined });
