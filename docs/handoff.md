@@ -223,3 +223,11 @@ Intended: hide the info card on the roll screen, fix a console 404 on load, offl
 - Nothing else assumes at most 16 steps: progress fractions scale with the step count, the Debug timing table folds every denoise step into one row, the latent and ONNX sessions are loaded once per run, and run time grows with the step count.
 - Checks on the final tree: `npm test` exit 0 (95 files, 828 tests), `npm run typecheck` exit 0 (0 errors, 0 warnings), `npm run build` exit 0.
 - Not verified (to check): the real POST response CORS behaviour from a browser (only the preflight is known to allow the `authorization` and `accept` headers); whether an account has Stable Audio 3 API access (HTTP 403 may also mean content moderation); real-network behaviour with a live key; phone behaviour of the new controls; whether more than 16 on-device steps improve the sound (no quality claim is made); on-device time and memory at high step counts on phones.
+
+## Cloud entry points without models — 2026-10-17 (branch `fix/cloud-entry-points`)
+
+- Fixed: the Tracks screen (empty-state text, "✦ Generate" add button, selected-track Generate) and the Edit sound sheet (Regenerate) checked only installed models, so a saved Stability key alone left only "Download models". They now use `canGenerateAnywhere(ui.modelCards, ui.hasKey)` from `src/gen/source.ts`; "Download models" shows only when no model is installed and no key is saved. `ui.hasKey` in `src/app/appState.svelte.ts` is read from localStorage at startup and refreshed by `refreshKeyState()` after Save key, Clear key and Clear all app data on the Models screen, and when the Generate sheet mounts; the Generate sheet reads it instead of a local copy.
+- Edit sound sheet: Regenerate calls `ongenerate`, which opens the Generate sheet for that track; that sheet already handles the Cloud source, so nothing there assumes an installed model.
+- Other gates: the Generate sheet's own checks (model picker, on-device Generate, "Download models" with no key) are per source and unchanged; the piano roll "Generate sound" button is not gated on models.
+- Checks: `npm test` exit 0 (95 files, 830 tests), `npm run typecheck` exit 0 (0 errors, 0 warnings), `npm run build` exit 0.
+- Not verified (to check): the buttons appearing and disappearing in the real UI after Save/Clear key; behaviour with a live key; phone.

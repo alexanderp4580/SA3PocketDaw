@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount, untrack } from 'svelte';
-  import { ui, notify, setPeaks, refreshModelCards } from '../appState.svelte';
+  import { ui, notify, setPeaks, refreshModelCards, refreshKeyState } from '../appState.svelte';
   import { engine, generation, projectStore } from '../services';
   import { CLOUD_MODEL_LABEL, MODEL_LABELS, buildPrompt, randomSeed } from '../../gen/prompt';
   import { editField, resetField, startField, syncField } from '../../gen/promptField';
@@ -47,7 +47,7 @@
   let steps = $state(loadModeSettings(store,'sample').steps);
   let cloudSteps = $state(CLOUD_MAX_STEPS);
   let storedSource = $state<GenSource>(loadSource(store));
-  let hasKey = $state(loadApiKey(store)!==null);
+  const hasKey = $derived(ui.hasKey);
   const source = $derived(effectiveSource(storedSource,hasKey));
   const cloud = $derived(source==='cloud');
   const limit = $derived<LengthLimit>(cloud?'cloud':model);
@@ -108,7 +108,7 @@
     if(source.meta.steps!==undefined)steps=clampSteps(source.meta.steps,false);
     if(source.meta.prompt){if(mode==='instrument')instrumentField=editField(instrumentField,source.meta.prompt,suggestedInstrumentPrompt);else prompt=source.meta.prompt;}
   }
-  onMount(()=>{hasKey=loadApiKey(store)!==null;void refreshModelCards();void restoreSource().catch(e=>notify(String(e))).finally(()=>sourceReady=true);});
+  onMount(()=>{refreshKeyState();void refreshModelCards();void restoreSource().catch(e=>notify(String(e))).finally(()=>sourceReady=true);});
   onDestroy(() => {clearInterval(timer);engine.stopPreview();});
 
   function pickModel(id: ModelId) {

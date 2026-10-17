@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ui, updateProject, stop } from '../appState.svelte';
+  import { canGenerateAnywhere } from '../../gen/source';
   import { removeTrack, renameTrack, toggleMute, toggleSolo, trackBars, timelineBars, loopRange } from '../../store/projectModel';
   import { midiToName } from '../../audio/pitch';
   import { resolveSelected } from '../trackSelection';
@@ -8,7 +9,7 @@
 
   let { onroll, ongenerate, ontweak, onadd, onmix, onmodels }: { onroll: (id: string) => void; ongenerate: (id: string) => void; ontweak:(id:string)=>void;onadd:()=>void;onmix:(id:string)=>void;onmodels:()=>void } = $props();
 
-  const canGenerate=$derived(ui.modelCards.some(c=>c.available&&c.status==='installed'));
+  const canGenerate=$derived(canGenerateAnywhere(ui.modelCards,ui.hasKey));
   const COLORS = ['#ff8a3d', '#4fb3ff', '#b685ff', '#3ddc84', '#ff6fa8', '#ffd23d', '#9aa3b5'];
   let selected = $state<string | null>(null);
   let menuId = $state<string | null>(null);

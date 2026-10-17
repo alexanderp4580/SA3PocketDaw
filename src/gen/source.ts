@@ -30,6 +30,11 @@ export function effectiveSource(stored: GenSource, hasKey: boolean): GenSource {
   return stored === 'cloud' && hasKey ? 'cloud' : 'device';
 }
 
+/** True when an available installed model exists or a cloud key is saved. */
+export function canGenerateAnywhere(cards: readonly { available: boolean; status: string }[], hasKey: boolean): boolean {
+  return hasKey || cards.some((c) => c.available && c.status === 'installed');
+}
+
 export function cloudBlockedReason(hasKey: boolean): string {
   return hasKey ? '' : 'Save a Stability AI key on the Models screen to use the cloud.';
 }

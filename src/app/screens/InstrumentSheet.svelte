@@ -11,13 +11,14 @@
   import {applyTrackTrim} from '../trimSound';
   import {createLatestRunner} from '../latestRunner';
   import type {ChopView} from '../TrimControl.svelte';
+  import { canGenerateAnywhere } from '../../gen/source';
   import { log } from '../../log';
   const scope=log.scope('instrument.controls');
   let {trackId,onclose,ongenerate,onmodels}:{trackId:string;onclose:()=>void;ongenerate:()=>void;onmodels:()=>void}=$props();
   let sourceBehavior=$state<'sustain'|'decay'>('sustain');
   let sampleDuration=$state(1),samplePcm=$state.raw<Float32Array|undefined>(),sampleRateHz=$state(0);
   let ready=$state(false),hasInstrument=$state(false),loadError=$state('');
-  const canGenerate=$derived(ui.modelCards.some(c=>c.available&&c.status==='installed'));
+  const canGenerate=$derived(canGenerateAnywhere(ui.modelCards,ui.hasKey));
   const track=$derived(ui.project?.tracks.find(t=>t.id===trackId));
   const controls=$derived(resolveControls(track?.instrumentControls,sourceBehavior));
   const sampleControls=$derived(resolveSampleControls(track?.sampleControls));

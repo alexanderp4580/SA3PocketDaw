@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  import { ui, clearEverything, notify } from '../appState.svelte';
+  import { ui, clearEverything, notify, refreshKeyState } from '../appState.svelte';
   import { generation, models } from '../services';
   import { MODEL_NOTES, formatBytes, modelCards, type ModelCard } from '../format';
   import type { DownloadProgress } from '../../store/modelManager';
@@ -14,12 +14,14 @@
   function saveKey() {
     if (!saveApiKey(keyStore, keyInput)) return notify('The key was not saved');
     savedKey = loadApiKey(keyStore);
+    refreshKeyState();
     keyInput = '';
     notify('Key saved');
   }
   function clearKey() {
     clearApiKey(keyStore);
     savedKey = loadApiKey(keyStore);
+    refreshKeyState();
     keyInput = '';
     notify('Key cleared');
   }
@@ -75,7 +77,7 @@
     if (!c) return;
     if (c.kind === 'model') await models.deletePack(c.card.id);
     else if (c.kind === 'all') await models.deleteAll();
-    else await clearEverything();
+    else { await clearEverything(); savedKey = loadApiKey(keyStore); }
     await refresh();
     notify('Done');
   }

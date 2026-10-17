@@ -1,11 +1,16 @@
 import { runCompat, type CompatResult } from '../compat';
 import { createProject, type Project } from '../store/projectModel';
 import { modelCards, peaksOf } from './format';
+import { loadApiKey } from '../store/apiKey';
 import { engine, log, models, projectStore } from './services';
 
 const scope = log.scope('app');
 
 export const WAVE_BINS = 64;
+
+function loadSavedKey(): boolean {
+  return loadApiKey(typeof localStorage === 'undefined' ? null : localStorage) !== null;
+}
 
 export const ui = $state({
   toast: '',
@@ -21,7 +26,13 @@ export const ui = $state({
   manifestError: null as string | null,
   modelCards: modelCards(null, {}),
   modelsReady: false,
+  hasKey: loadSavedKey(),
 });
+
+/** Re-reads whether a cloud key is saved; call after saving or clearing it. */
+export function refreshKeyState() {
+  ui.hasKey = loadSavedKey();
+}
 
 let raf = 0;
 
@@ -114,6 +125,7 @@ export async function runCompatCheck() {
 export async function clearEverything() {
   stop();
   await models.clearAllAppData();
+  refreshKeyState();
   ui.peaks = {};
   void models.loadManifest().catch(() => {});
 }
