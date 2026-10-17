@@ -9,6 +9,10 @@ describe('request guards', () => {
     expect(isWorkerRequest({ type: 'cancel', id: 1 })).toBe(true);
     expect(isWorkerRequest({ type: 'unload' })).toBe(true);
   });
+  it('accepts the looped mode and rejects unknown modes', () => {
+    expect(isWorkerRequest({ type: 'generate', id: 1, ...ok, mode: 'loop' })).toBe(true);
+    expect(isWorkerRequest({ type: 'generate', id: 1, ...ok, mode: 'other' })).toBe(false);
+  });
   it('rejects malformed requests', () => {
     expect(isWorkerRequest(null)).toBe(false);
     expect(isWorkerRequest({ type: 'nope' })).toBe(false);

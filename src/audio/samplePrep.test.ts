@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { prepareSample, resample } from './samplePrep';
+import { applyFadeOut, prepareSample, resample } from './samplePrep';
 
 const sine = (hz: number, sr: number, sec: number, amp = 0.5) =>
   Float32Array.from({ length: Math.round(sr * sec) }, (_, i) => amp * Math.sin((2 * Math.PI * hz * i) / sr));
@@ -54,5 +54,23 @@ describe('prepareSample', () => {
     const r = prepareSample([new Float32Array(1000)], 44100);
     expect(r.pcm.length).toBe(0);
     expect(r.durationSec).toBe(0);
+  });
+
+  it('keeps the tail when the fade-out is disabled', () => {
+    const r = prepareSample([new Float32Array(44100).fill(0.5)], 44100, { fadeOutSec: 0 });
+    expect(r.pcm[r.pcm.length - 1]).toBeCloseTo(Math.pow(10, -1 / 20), 3);
+  });
+});
+
+describe('applyFadeOut', () => {
+  it('fades the last frames in place and never touches frames before notBefore', () => {
+    const pcm = new Float32Array(44100).fill(1);
+    applyFadeOut(pcm, 44100, 0.04, 44100 - 100);
+    expect(pcm[44100 - 101]).toBe(1);
+    expect(pcm[44100 - 1]).toBeLessThan(0.02);
+    const all = new Float32Array(44100).fill(1);
+    applyFadeOut(all, 44100, 0.04);
+    expect(all[44100 - 1 - Math.round(0.04 * 44100)]).toBe(1);
+    expect(all[44100 - 1]).toBe(0);
   });
 });

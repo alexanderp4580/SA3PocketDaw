@@ -79,6 +79,19 @@ describe('projectStore', () => {
     expect((await b.getSample('cloud'))!.meta.source).toBe('cloud');
   });
 
+  it('keeps a loop with its sample, loads samples saved without one and drops a malformed one', async () => {
+    const { mk } = setup();
+    const a = mk();
+    await a.putSample('old', sample());
+    await a.putSample('loop', { ...sample(), loop: { start: 0.0005, end: 0.002 }, meta: { ...sample().meta, mode: 'loop' } });
+    await a.putSample('bad', { ...sample(), loop: { start: 2, end: 1 } as never });
+    const b = mk();
+    expect((await b.getSample('old'))!.loop).toBeUndefined();
+    expect((await b.getSample('loop'))!.loop).toEqual({ start: 0.0005, end: 0.002 });
+    expect((await b.getSample('loop'))!.meta.mode).toBe('loop');
+    expect((await b.getSample('bad'))!.loop).toBeUndefined();
+  });
+
   it('loads notes saved without a velocity', async () => {
     const { mk } = setup();
     const a = mk();

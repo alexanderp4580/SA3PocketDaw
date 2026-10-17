@@ -8,6 +8,8 @@
   import SampleControlsPanel from '../SampleControlsPanel.svelte';
   import InstrumentControlsPanel from '../InstrumentControlsPanel.svelte';
   import {fullTrim,resolveTrim,type Trim} from '../../audio/trim';
+  import {formatLoop,loopHoldSeconds,trimmedLoop,type LoopRegion} from '../../audio/loopPoints';
+  import {soundTypeLabel} from '../../store/projectModel';
   import {applyTrackTrim} from '../trimSound';
   import {createLatestRunner} from '../latestRunner';
   import type {ChopView} from '../TrimControl.svelte';
@@ -18,19 +20,22 @@
   let sourceBehavior=$state<'sustain'|'decay'>('sustain');
   let sampleDuration=$state(1),samplePcm=$state.raw<Float32Array|undefined>(),sampleRateHz=$state(0);
   let ready=$state(false),hasInstrument=$state(false),loadError=$state('');
+  let sampleLoop=$state<LoopRegion|undefined>();
   const canGenerate=$derived(canGenerateAnywhere(ui.modelCards,ui.hasKey));
   const track=$derived(ui.project?.tracks.find(t=>t.id===trackId));
   const controls=$derived(resolveControls(track?.instrumentControls,sourceBehavior));
   const sampleControls=$derived(resolveSampleControls(track?.sampleControls));
   let live=$state<Trim|null>(null),chopBusy=$state(false),chopError=$state('');
   const trim=$derived(live??resolveTrim(track?.trim,sampleDuration));
+  const activeLoop=$derived(trimmedLoop(sampleLoop,track?.trim,samplePcm?.length??0,sampleRateHz||1));
+  const loopText=$derived(sampleLoop?activeLoop?formatLoop(activeLoop):'The chop cuts into the loop, so this plays as a one-shot sample. Widen the chop to loop again.':'');
   const chop=$derived<ChopView>({duration:sampleDuration,peaks:track?.sampleId?ui.peaks[track.sampleId]:undefined,pcm:samplePcm,sampleRate:sampleRateHz,trim,busy:chopBusy,error:chopError});
   const commitChop=createLatestRunner<Trim>(t=>applyTrackTrim({store:projectStore,engine},trackId,t),{onBusy:b=>chopBusy=b,onError:e=>{chopError=e.message;live=null;scope.error('chop failed',{trackId,error:e.message});}});
   function chopInput(t:Trim){live=t;chopError='';}
   function chopCommit(t:Trim){chopError='';commitChop(t);}
   function chopReset(){const t=fullTrim(sampleDuration);live=t;chopCommit(t);}
   onMount(()=>{let active=true;const id=track?.sampleId;
-    if(id)void projectStore.getSample(id).then(sample=>{if(!active)return;if(!sample){loadError='Saved sound is unavailable.';return;}sampleDuration=sample.pcm.length/sample.sampleRate;samplePcm=sample.pcm;sampleRateHz=sample.sampleRate;hasInstrument=!!sample.instrument;if(sample.instrument)sourceBehavior=sample.instrument.dynamics;ready=true;}).catch(e=>{if(active)loadError=String(e);});
+    if(id)void projectStore.getSample(id).then(sample=>{if(!active)return;if(!sample){loadError='Saved sound is unavailable.';return;}sampleDuration=sample.pcm.length/sample.sampleRate;samplePcm=sample.pcm;sampleRateHz=sample.sampleRate;sampleLoop=sample.loop;hasInstrument=!!sample.instrument;if(sample.instrument)sourceBehavior=sample.instrument.dynamics;ready=true;}).catch(e=>{if(active)loadError=String(e);});
     else loadError='This track has no sound.';
     return ()=>{active=false;};
   });
@@ -40,7 +45,7 @@
   function updateSample(patch:Partial<SampleControls>){projectStore.update(p=>({...p,tracks:p.tracks.map(t=>t.id===trackId?{...t,sampleControls:resolveSampleControls({...sampleControls,...patch})}:t)}));}
   function resetSample(){updateSample(resolveSampleControls());scope.info('reset sample controls',{trackId});}
   function reset(){update(resolveControls(undefined,sourceBehavior));scope.info('reset',{trackId});}
-  async function preview(){try{await engine.audition(trackId,hasInstrument?57:track?.rootMidi??60,96,hasInstrument?Math.max(1.2,controls.attack+1):samplePreviewDuration(trim.end-trim.start,sampleControls));}catch(e){notify(e instanceof Error?e.message:String(e));}}
+  async function preview(){try{await engine.audition(trackId,hasInstrument?57:track?.rootMidi??60,96,hasInstrument?Math.max(1.2,controls.attack+1):activeLoop?loopHoldSeconds(activeLoop):samplePreviewDuration(trim.end-trim.start,sampleControls));}catch(e){notify(e instanceof Error?e.message:String(e));}}
 </script>
 <Sheet title="Edit sound" sub={track?.name??''} {onclose}>
   {#if ready&&track}
@@ -49,7 +54,8 @@
       <InstrumentControlsPanel {controls} onchange={update} {chop} onchop={chopInput} onchopcommit={chopCommit} onchopreset={chopReset} />
       <div class="btnrow"><button class="btn pri" onclick={preview}>▶ Play A3</button><button class="btn" onclick={reset}>Reset controls</button></div>
     {:else}
-      <div class="note">Tweak your sample. Changes are saved automatically. Press Preview to hear your settings.</div>
+      <div class="note">Tweak your {track.soundType==='loop'?'looped sound':'sample'}. Changes are saved automatically. Press Preview to hear your settings.</div>
+      {#if track.soundType==='loop'}<div class="note" role="status"><b>{soundTypeLabel(track)}</b>{loopText?` · ${loopText}`:''}</div>{/if}
       <SampleControlsPanel controls={sampleControls} onchange={updateSample} {chop} onchop={chopInput} onchopcommit={chopCommit} onchopreset={chopReset} />
       <div class="btnrow"><button class="btn pri" onclick={preview}>▶ Preview sound</button><button class="btn" onclick={resetSample}>Reset controls</button></div>
     {/if}

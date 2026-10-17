@@ -4,6 +4,7 @@ import type { Project } from './projectModel';
 import {normalizeChain,normalizeMix} from '../audio/mixer/plugins';
 import {normalizeStoredTrim} from '../audio/trim';
 import type { InstrumentProfile } from '../audio/instrument/types';
+import {normalizeLoop,type LoopRegion} from '../audio/loopPoints';
 
 export const DB_NAME = 'sa3daw';
 export const PROJECT_STORE = 'project';
@@ -12,7 +13,8 @@ export const PROJECT_KEY = 'current';
 export const SAVE_DEBOUNCE_MS = 500;
 
 export interface SampleMeta {
-  mode?: 'sample'|'instrument';
+  /** The generation path; 'loop' also marks a sound that was asked for as looped but plays as a one-shot when `StoredSample.loop` is missing. */
+  mode?: 'sample'|'instrument'|'loop';
   fullPrompt?:string;
   prompt?: string;
   model?: string;
@@ -27,6 +29,8 @@ export interface SampleMeta {
 }
 export interface StoredSample {
   instrument?:InstrumentProfile;
+  /** Loop region in seconds of `pcm`, which already carries the baked crossfade; missing = one-shot. */
+  loop?:LoopRegion;
   pcm: Float32Array;
   sampleRate: number;
   meta: SampleMeta;
@@ -186,7 +190,10 @@ export function createProjectStore(options: ProjectStoreOptions = {}) {
       scope.debug('sample saved', { id, samples: sample.pcm.length });
     },
     async getSample(id: string): Promise<StoredSample | null> {
-      return ((await run(SAMPLE_STORE, 'readonly', (s) => s.get(id))) as StoredSample | undefined) ?? null;
+      const saved = (await run(SAMPLE_STORE, 'readonly', (s) => s.get(id))) as StoredSample | undefined;
+      if (!saved) return null;
+      const {loop,...rest}=saved,valid=loop===undefined?undefined:normalizeLoop(loop,saved.pcm.length/saved.sampleRate);
+      return valid?{...rest,loop:valid}:rest;
     },
     async deleteSample(id: string): Promise<void> {
       await run(SAMPLE_STORE, 'readwrite', (s) => s.delete(id));

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ui, updateProject, stop } from '../appState.svelte';
   import { canGenerateAnywhere } from '../../gen/source';
-  import { removeTrack, renameTrack, toggleMute, toggleSolo, trackBars, timelineBars, loopRange } from '../../store/projectModel';
+  import { removeTrack, renameTrack, toggleMute, toggleSolo, trackBars, timelineBars, loopRange, soundTypeLabel } from '../../store/projectModel';
   import { midiToName } from '../../audio/pitch';
   import { resolveSelected } from '../trackSelection';
   import PatternPreview from '../PatternPreview.svelte';
@@ -53,7 +53,7 @@
     {#each project?.tracks ?? [] as t, i (t.id)}
       <div class="track" class:sel={sel?.id === t.id} style="--c:{COLORS[i % COLORS.length]}">
         <div class="thead">
-          <button class="tname" onclick={() => (selected = t.id)}>{t.name} <em>{t.sampleId ? t.soundType==='instrument'?'Instrument':`Sample · ${midiToName(t.rootMidi)}` : 'no sound'}</em></button>
+          <button class="tname" onclick={() => (selected = t.id)}>{t.name} <em>{t.sampleId ? t.soundType==='instrument'?'Instrument':`${soundTypeLabel(t)} · ${midiToName(t.rootMidi)}` : 'no sound'}</em></button>
           <div class="tbtns">
             <button class="tb" class:on-m={t.muted} aria-pressed={t.muted} aria-label={t.muted ? `Unmute ${t.name}` : `Mute ${t.name}`} onclick={() => updateProject((p) => toggleMute(p, t.id))}>M</button>
             <button class="tb" class:on-s={t.solo} aria-pressed={!!t.solo} aria-label="Solo {t.name}" onclick={()=>updateProject(p=>toggleSolo(p,t.id))}>S</button>
@@ -84,7 +84,7 @@
 </div>
 
 {#if menuTrack}
-  <Sheet title={menuTrack.name} sub={menuTrack.sampleId ? `${menuTrack.soundType==='instrument'?'Instrument':`Sample · Root ${midiToName(menuTrack.rootMidi)}`} · ${menuTrack.notes.length} notes` : 'No sound yet'} onclose={() => (menuId = null)}>
+  <Sheet title={menuTrack.name} sub={menuTrack.sampleId ? `${menuTrack.soundType==='instrument'?'Instrument':`${soundTypeLabel(menuTrack)} · Root ${midiToName(menuTrack.rootMidi)}`} · ${menuTrack.notes.length} notes` : 'No sound yet'} onclose={() => (menuId = null)}>
     {#if confirmDelete}
       <div class="note">Delete "{menuTrack.name}" with its notes and sound?</div>
       <div class="btnrow">

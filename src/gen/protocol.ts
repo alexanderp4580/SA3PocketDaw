@@ -23,7 +23,7 @@ export interface StageTiming {
 }
 
 export interface GenerateParams {
-  mode?: 'sample'|'instrument';
+  mode?: 'sample'|'instrument'|'loop';
   model: ModelId;
   /** Final prompt text; use `buildPrompt` to add the sample-style suffix. */
   prompt: string;
@@ -74,7 +74,7 @@ export function isModelId(v: unknown): v is ModelId {
 export function isGenerateParams(v: unknown): v is GenerateParams {
   if (!isObj(v)) return false;
   return (
-    (v.mode === undefined || v.mode === 'sample' || v.mode === 'instrument') &&
+    (v.mode === undefined || v.mode === 'sample' || v.mode === 'instrument' || v.mode === 'loop') &&
     (v.device === undefined || v.device === 'webgpu' || v.device === 'cpu') &&
     isModelId(v.model) &&
     typeof v.prompt === 'string' &&

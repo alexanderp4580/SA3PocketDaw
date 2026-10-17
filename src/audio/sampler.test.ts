@@ -3,13 +3,13 @@ import { playbackRate, playNote, audition, ATTACK_SEC, RELEASE_SEC, type AudioCo
 
 type Call = [string, ...unknown[]];
 function fakeCtx(currentTime = 0) {
-  const sources: Array<{ buffer: unknown; rate: number; calls: Call[]; onended: (() => void) | null }> = [];
+  const sources: Array<{ buffer: unknown; rate: number; calls: Call[]; onended: (() => void) | null; loop?: boolean; loopStart?: number; loopEnd?: number }> = [];
   const gains: Array<{ calls: Call[] }> = [];
   const ctx: AudioContextLike = {
     currentTime,
     destination: 'dest',
     createBufferSource() {
-      const rec = { buffer: null as unknown, rate: 1, calls: [] as Call[], onended: null as null | (() => void) };
+      const rec = { buffer: null as unknown, rate: 1, calls: [] as Call[], onended: null as null | (() => void), loop: undefined as boolean | undefined, loopStart: undefined as number | undefined, loopEnd: undefined as number | undefined };
       sources.push(rec);
       return {
         get buffer() { return rec.buffer as never; },
@@ -17,6 +17,9 @@ function fakeCtx(currentTime = 0) {
         playbackRate: { get value() { return rec.rate; }, set value(v: number) { rec.rate = v; }, setValueAtTime() {}, linearRampToValueAtTime() {} },
         get onended() { return rec.onended; },
         set onended(f) { rec.onended = f; },
+        get loop() { return rec.loop as boolean; }, set loop(v: boolean) { rec.loop = v; },
+        get loopStart() { return rec.loopStart as number; }, set loopStart(v: number) { rec.loopStart = v; },
+        get loopEnd() { return rec.loopEnd as number; }, set loopEnd(v: number) { rec.loopEnd = v; },
         connect(d: unknown) { rec.calls.push(['connect', d]); },
         start(w?: number) { rec.calls.push(['start', w]); },
         stop(w?: number) { rec.calls.push(['stop', w]); },
@@ -101,4 +104,40 @@ it('uses each sample voice attack and release, including an early stop during at
 it('releases a short note at its requested end while a longer attack is still rising',()=>{
  const {ctx,gains}=fakeCtx();const v=playNote(ctx,{buffer:{duration:3},root:60,note:60,when:0,duration:.1,controls:{attack:1,release:.2}});
  expect(gains[0]!.calls).toContainEqual(['ramp',.1,.1]);expect(v.endTime).toBeCloseTo(.3);
+});
+
+describe('looped playback', () => {
+  const loop = { start: 0.5, end: 1.25 };
+  it('loops the region in buffer time whatever the playback rate', () => {
+    const { ctx, sources } = fakeCtx(0);
+    playNote(ctx, { buffer: { duration: 2 }, root: 60, note: 72, when: 0, duration: 1, loop });
+    expect(sources[0]!.rate).toBeCloseTo(2);
+    expect(sources[0]!.loop).toBe(true);
+    expect(sources[0]!.loopStart).toBe(0.5);
+    expect(sources[0]!.loopEnd).toBe(1.25);
+  });
+  it('sustains past the end of the recording until the note ends, then releases', () => {
+    const { ctx, sources, gains } = fakeCtx(0);
+    playNote(ctx, { buffer: { duration: 2 }, root: 60, note: 60, when: 1, duration: 6, loop });
+    expect(sources[0]!.calls.find((c) => c[0] === 'stop')![1]).toBeCloseTo(7 + RELEASE_SEC);
+    expect(gains[0]!.calls).toContainEqual(['set', 1, 7]);
+    expect(gains[0]!.calls).toContainEqual(['ramp', 0, 7 + RELEASE_SEC]);
+  });
+  it('lets a note shorter than the attack part end normally', () => {
+    const { ctx, sources } = fakeCtx(0);
+    playNote(ctx, { buffer: { duration: 2 }, root: 60, note: 60, when: 0, duration: 0.2, loop });
+    expect(sources[0]!.calls.find((c) => c[0] === 'stop')![1]).toBeCloseTo(0.2 + RELEASE_SEC);
+  });
+  it('keeps one-shot behaviour without a loop', () => {
+    const { ctx, sources } = fakeCtx(0);
+    playNote(ctx, { buffer: { duration: 2 }, root: 60, note: 60, when: 0, duration: 6 });
+    expect(sources[0]!.loop).toBeUndefined();
+    expect(sources[0]!.calls.find((c) => c[0] === 'stop')![1]).toBeCloseTo(2 + RELEASE_SEC);
+  });
+  it('stops a held looped voice with a fade at the requested time', () => {
+    const { ctx, sources } = fakeCtx(0);
+    const v = playNote(ctx, { buffer: { duration: 2 }, root: 60, note: 60, when: 0, duration: 6, loop });
+    v.stop(3, 0.01);
+    expect(sources[0]!.calls.filter((c) => c[0] === 'stop').at(-1)![1]).toBeCloseTo(3.01);
+  });
 });

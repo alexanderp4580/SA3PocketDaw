@@ -67,6 +67,17 @@ describe('generation client', () => {
     expect(records).toEqual([expect.objectContaining({ id: 1, model: 'small-music', totalMs: 1234, at: 'T', seed: 1 })]);
   });
 
+  it('records the generation mode, sample when none is given', async () => {
+    const { client, workers, records } = setup();
+    const a = client.generate({ ...params(), mode: 'loop' });
+    workers[0]!.complete(1);
+    await a;
+    const b = client.generate(params());
+    workers[0]!.complete(2);
+    await b;
+    expect(records).toEqual([expect.objectContaining({ id: 1, mode: 'loop' }), expect.objectContaining({ id: 2, mode: 'sample' })]);
+  });
+
   it('runs one job at a time in order', async () => {
     const { client, workers } = setup();
     const a = client.generate(params({ seed: 1 }));

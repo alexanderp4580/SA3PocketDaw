@@ -68,7 +68,7 @@ export async function cachePeaks(project: Project) {
     const s = await projectStore.getSample(t.sampleId);
     if (!s) continue;
     ui.peaks[t.sampleId] = peaksOf(s.pcm, WAVE_BINS);
-    if(s.instrument)engine.setInstrument(t.sampleId,s.instrument);else engine.setSample(t.sampleId, s.pcm, s.sampleRate);
+    if(s.instrument)engine.setInstrument(t.sampleId,s.instrument);else engine.setSample(t.sampleId, s.pcm, s.sampleRate, s.loop);
   }
 }
 

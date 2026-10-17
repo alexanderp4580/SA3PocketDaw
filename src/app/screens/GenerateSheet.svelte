@@ -16,8 +16,9 @@
   import { CLOUD_MAX_SECONDS, CLOUD_MIN_SECONDS, MAX_SECONDS, MIN_SECONDS, clampSeconds, parseSeconds, stepSeconds, type LengthLimit } from '../../gen/length';
   import { midiToName } from '../../audio/pitch';
   import { formatBytes, formatElapsed, modelHint, peaksOf } from '../format';
-  import { prepareGeneration, useGeneration, tweakDraft, tweakSampleDraft, trimDraft, mergeTrimmed, InstrumentAnalysisError, type GeneratedDraft } from '../generate';
+  import { prepareGeneration, useGeneration, loopNotice, tweakDraft, tweakSampleDraft, trimDraft, mergeTrimmed, InstrumentAnalysisError, type GeneratedDraft } from '../generate';
   import {applyTrim,fullTrim,resolveTrim,type Trim} from '../../audio/trim';
+  import {trimmedLoop} from '../../audio/loopPoints';
   import {createLatestRunner} from '../latestRunner';
   import type {ChopView} from '../TrimControl.svelte';
   import { copyReport } from '../report';
@@ -80,7 +81,8 @@
   const selected = $derived(cards.find((c) => c.id === model)!);
   const usable = $derived(selected.available && selected.status === 'installed');
   const canGenerate = $derived(sourceReady && (cloud || usable) && (mode==='instrument'?instrumentField.text.trim().length>0:prompt.trim().length>0));
-  const samplePromptSent = $derived(prompt.trim()?buildPrompt(prompt,model,'sample'):'');
+  const samplePromptSent = $derived(prompt.trim()&&mode!=='instrument'?buildPrompt(prompt,model,mode):'');
+  const draftNotice = $derived(result?loopNotice(result):'');
   const draftControls=$derived(resolveControls(result?.instrumentControls,result?.record.instrument?.dynamics??'sustain'));
   const draftSampleControls=$derived(resolveSampleControls(result?.sampleControls));
   const peaks = $derived(result ? peaksOf(result.pcm, 96) : undefined);
@@ -101,7 +103,7 @@
     if(!track?.sampleId)return;
     const source=await projectStore.getSample(track.sampleId);
     if(!source)return;
-    mode=source.instrument?'instrument':'sample';
+    mode=source.instrument?'instrument':source.meta.mode==='loop'?'loop':'sample';
     if(source.instrument)instrument={...instrument,behavior:source.instrument.dynamics};
     if(source.meta.model&&cards.some(c=>c.id===source.meta.model&&c.available&&c.status==='installed'))model=source.meta.model as ModelId;
     if(source.meta.seconds!==undefined)setSeconds(source.meta.seconds);
@@ -165,7 +167,7 @@
         message = 'Sending the request to Stability AI';
         out = await generateCloud({ prompt: params.prompt, seconds, steps: params.steps, seed }, key, { signal, onProgress: (e) => { stage = e.stage; message = e.message; } });
         const total = out.timings.find((t) => t.name === 'total');
-        recordGeneration({ id: Date.now(), at: new Date().toISOString(), model: 'stable-audio-3', prompt: params.prompt, seconds, steps: params.steps, seed, device: 'cloud', totalMs: total ? total.endMs - total.startMs : null, stages: out.timings, stats: out.stats });
+        recordGeneration({ id: Date.now(), at: new Date().toISOString(), model: 'stable-audio-3', mode: params.mode ?? 'sample', prompt: params.prompt, seconds, steps: params.steps, seed, device: 'cloud', totalMs: total ? total.endMs - total.startMs : null, stages: out.timings, stats: out.stats });
       } else {
       ({ output: out, device: ran } = await generateWithFallback(
         (p) =>
@@ -229,7 +231,7 @@
   function tweak(patch:Partial<InstrumentControls>){if(!result||saving)return;result=tweakDraft(result,patch);engine.setPreviewControls(draftControls);}
   function tweakSample(patch:Partial<SampleControls>){if(result&&!saving)result=tweakSampleDraft(result,patch);}
   function resetTweaks(){if(result?.record.instrument)tweak(resolveControls(undefined,result.record.instrument.dynamics));}
-  async function preview(){if(!result)return;try{if(result.record.instrument)await engine.previewInstrument(result.record.instrument,57,result.instrumentControls);else await engine.previewSource(applyTrim(result.pcm,result.sampleRate,result.trim),result.sampleRate,draftSampleControls);}catch(e){notify(String(e));}}
+  async function preview(){if(!result)return;try{if(result.record.instrument)await engine.previewInstrument(result.record.instrument,57,result.instrumentControls);else await engine.previewSource(applyTrim(result.pcm,result.sampleRate,result.trim),result.sampleRate,draftSampleControls,trimmedLoop(result.record.loop,result.trim,result.pcm.length,result.sampleRate));}catch(e){notify(String(e));}}
   async function use(){if(!result||saving)return;saving=true;try{engine.stopPreview();const used=await useGeneration({store:projectStore,engine},trackId,result);setPeaks(used.sampleId,used.pcm);onclose();onuse?.(used.trackId);}catch(e){notify(String(e));}finally{saving=false;}}
   async function copy() {
     notify((await copyReport()) ? 'Report copied' : 'Copy failed');
@@ -257,18 +259,18 @@
     <div class="note">{!hasKey?cloudBlockedReason(false):cloud?'Cloud generation sends your prompt to Stability AI, needs a network connection and costs '+CLOUD_CREDITS+' credits per clip.':'On device runs the downloaded SA3 models on this phone.'}</div>
     {#if !cloud&&!anyInstalled}<div class="btnrow"><button class="btn sa3" aria-label="Open models" onclick={onmodels}>Download models</button></div>{/if}
     <div class="st">Sound type</div>
-    <div class="seg"><button class="sg" class:sa3on={mode==='sample'} aria-pressed={mode==='sample'} onclick={()=>pickMode('sample')}>Sample</button><button class="sg" class:sa3on={mode==='instrument'} aria-pressed={mode==='instrument'} onclick={()=>pickMode('instrument')}>Instrument</button></div>
-    <div class="note">{mode==='sample'?'One-shot sounds such as kicks, snares and effects.':'A tuned, playable instrument made from one SA3 note.'}</div>
-    {#if mode==='sample'}
+    <div class="seg"><button class="sg" class:sa3on={mode==='sample'} aria-pressed={mode==='sample'} onclick={()=>pickMode('sample')}>Sample</button><button class="sg" class:sa3on={mode==='instrument'} aria-pressed={mode==='instrument'} onclick={()=>pickMode('instrument')}>Instrument</button><button class="sg" class:sa3on={mode==='loop'} aria-pressed={mode==='loop'} onclick={()=>pickMode('loop')}>Looped</button></div>
+    <div class="note">{mode==='sample'?'One-shot sounds such as kicks, snares and effects.':mode==='loop'?'One SA3 note kept as audio; its sustained part loops while a note is held.':'A tuned, playable instrument made from one SA3 note.'}</div>
+    {#if mode!=='instrument'}
       <div class="st">Prompt</div>
-      <textarea class="field promptbox" aria-label="Prompt" rows="2" placeholder="e.g. deep punchy kick drum" bind:value={prompt}></textarea>
+      <textarea class="field promptbox" aria-label="Prompt" rows="2" placeholder={mode==='loop'?'e.g. warm analog pad':'e.g. deep punchy kick drum'} bind:value={prompt}></textarea>
       <div class="chips" style="margin-top:6px">
-        {#each generationPresets('sample') as q (q.id)}
+        {#each generationPresets(mode) as q (q.id)}
           <button class="chip" class:on={prompt===q.prompt} onclick={()=>{prompt=q.prompt;setSeconds(q.seconds);}}>{q.label}</button>
         {/each}
       </div>
       {#if samplePromptSent}<div class="note sent">Sent to the model: {samplePromptSent}</div>{/if}
-      <div class="note" style="margin-top:6px">{generationHint('sample')}</div>
+      <div class="note" style="margin-top:6px">{generationHint(mode)}</div>
     {:else}
       <div class="note" style="margin-top:8px">Choose the source sound SA3 will create. After generation, tweak playback and preview it before choosing Use.</div>
       <fieldset class="choices"><legend>Source instrument</legend><div class="options">
@@ -305,7 +307,7 @@
     {#if model === 'medium'}
       <div class="note warn" style="margin-top:6px">Medium may be slow or fail on phones.</div>
     {/if}
-    {#if mode==='instrument'&&model==='small-sfx'}<div class="note warn">Small Music or Medium is better suited to single instrument notes.</div>{/if}
+    {#if mode!=='sample'&&model==='small-sfx'}<div class="note warn">Small Music or Medium is better suited to single instrument notes.</div>{/if}
 
     <div class="st">Processor</div>
     <div class="seg">
@@ -378,6 +380,7 @@
         <button class="btn fit rootbtn" aria-label="Root up one semitone" onclick={() => shift(1)}>+1</button>
         {/if}
       </div>
+      {#if draftNotice}<div class="note" style="margin-top:6px" class:warn={!draftNotice.startsWith('Loop ')} role="status">{draftNotice}</div>{/if}
       {#if result.lowConfidence}
         <div class="note warn" style="margin-top:6px">Low confidence. Defaulted to C4. Adjust the root with the buttons.</div>
       {/if}

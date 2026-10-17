@@ -167,6 +167,7 @@ export function createGenerationClient(options: GenerationClientOptions) {
             id: job.id,
             at: nowIso(),
             model: job.params.model,
+            mode: job.params.mode ?? 'sample',
             prompt: job.params.prompt,
             seconds: job.params.seconds,
             steps: job.params.steps,

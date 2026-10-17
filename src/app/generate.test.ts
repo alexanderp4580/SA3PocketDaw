@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { describe, expect, it } from 'vitest';
-import { applyGeneration, shiftRoot,prepareGeneration,useGeneration,tweakDraft,tweakSampleDraft,trimDraft,mergeTrimmed,InstrumentAnalysisError } from './generate';
+import { applyGeneration, loopNotice, shiftRoot,prepareGeneration,useGeneration,tweakDraft,tweakSampleDraft,trimDraft,mergeTrimmed,InstrumentAnalysisError } from './generate';
 import { createProjectStore } from '../store/projectStore';
 import { addTrack, createProject } from '../store/projectModel';
 import { createEngine } from '../audio/engine';
@@ -199,4 +199,110 @@ it('merges a finished chop into the current draft and keeps edits made meanwhile
  expect(mergeTrimmed(null,base,finished)).toBeNull();
  const full=await trimDraft(finished,{start:0,end:2},{analyseInstrument:async(pcm,sr,dyn)=>analyse(pcm,sr,dyn)});
  expect(mergeTrimmed(finished,finished,full)!.trim).toBeUndefined();
+});
+
+describe('looped generation', () => {
+  const SR = 44100;
+  const harmonic = (hz: number, sec: number) => {
+    const n = Math.round(sec * SR), o = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const t = i / SR;
+      let v = 0;
+      for (let h = 1; h <= 5; h++) v += Math.sin(2 * Math.PI * hz * h * t) / h;
+      o[i] = 0.4 * (1 + 2 * Math.exp(-t / 0.05)) * v;
+    }
+    return o;
+  };
+  const noise = (sec: number) => { let s = 5; return Float32Array.from({ length: Math.round(sec * SR) }, () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 0xffffffff) * 2 - 1); };
+  const outOf = (pcm: Float32Array) => ({ channels: [pcm], sampleRate: SR, stats: { peak: 0.5, rms: 0.3, nonFinite: 0, dims: [] }, timings: [] });
+  const loopParams = { ...params, mode: 'loop' as const, seconds: 4, steps: 16 };
+
+  it('finds, bakes and stores a loop, keeping the tail until after the loop', async () => {
+    const draft = await prepareGeneration(loopParams, 'warm pad', outOf(harmonic(220, 4)));
+    expect(draft.mode).toBe('loop');
+    expect(draft.noLoop).toBeFalsy();
+    expect(draft.record.meta.mode).toBe('loop');
+    const loop = draft.record.loop!;
+    expect(loop.start).toBeGreaterThanOrEqual(0.15);
+    expect(loop.end).toBeGreaterThan(loop.start);
+    expect(draft.rootMidi).toBe(57);
+    const pcm = draft.pcm;
+    const e = Math.round(loop.end * SR);
+    // Audio up to the end of the loop is not faded; the closing fade-out is applied after baking.
+    expect(Math.abs(pcm[e - 1]!)).toBeGreaterThan(0.01);
+    expect(Math.abs(pcm[pcm.length - 1]!)).toBeLessThan(0.01);
+    const s = Math.round(loop.start * SR);
+    expect(Math.abs(pcm[e - 1]! - pcm[s]!)).toBeLessThan(0.1);
+  });
+
+  it('falls back to a one-shot sample, with the closing fade, when no clean loop exists', async () => {
+    const draft = await prepareGeneration(loopParams, 'noisy', outOf(noise(3)));
+    expect(draft.mode).toBe('sample');
+    expect(draft.noLoop).toBe(true);
+    expect(draft.record.loop).toBeUndefined();
+    expect(draft.record.meta.mode).toBe('loop');
+    expect(Math.abs(draft.pcm[draft.pcm.length - 1]!)).toBeLessThan(0.01);
+  });
+
+  it('does not search for loops in the other modes', async () => {
+    const draft = await prepareGeneration({ ...params, mode: 'sample' }, 'x', outOf(harmonic(220, 3)));
+    expect(draft.record.loop).toBeUndefined();
+    expect(draft.noLoop).toBeFalsy();
+    expect(draft.mode).toBe('sample');
+  });
+
+  it('stores the loop with the sample and tags the track as Looped; a one-shot fallback stays a sample', async () => {
+    const deps = await setup();
+    const draft = await prepareGeneration(loopParams, 'warm pad', outOf(harmonic(220, 4)));
+    await useGeneration(deps, 't1', draft, () => 'l1');
+    expect(deps.store.get()!.tracks[0]!.soundType).toBe('loop');
+    await deps.store.flush();
+    const saved = (await deps.store.getSample('l1'))!;
+    expect(saved.loop).toEqual(draft.record.loop);
+    expect(saved.meta.mode).toBe('loop');
+    const fallback = await prepareGeneration(loopParams, 'noisy', outOf(noise(3)));
+    await useGeneration(deps, 't1', fallback, () => 'l2');
+    expect(deps.store.get()!.tracks[0]!.soundType).toBe('sample');
+    expect((await deps.store.getSample('l2'))!.loop).toBeUndefined();
+  });
+
+  it('hands the loop to the engine', async () => {
+    const deps = await setup();
+    const calls: unknown[] = [];
+    const engine = { ...deps.engine, setSample: (...a: unknown[]) => { calls.push(a); }, setProject: () => {}, setInstrument: () => {} } as never;
+    const draft = await prepareGeneration(loopParams, 'warm pad', outOf(harmonic(220, 4)));
+    await useGeneration({ store: deps.store, engine }, 't1', draft, () => 'l3');
+    expect((calls[0] as unknown[])[3]).toEqual(draft.record.loop);
+  });
+
+  it('creates a track named Looped when accepted without a target track', async () => {
+    const deps = await setup();
+    const draft = await prepareGeneration(loopParams, 'warm pad', outOf(harmonic(220, 4)));
+    await useGeneration(deps, null, draft, () => 'l4');
+    expect(deps.store.get()!.tracks.at(-1)!.name).toMatch(/^Looped /);
+  });
+});
+
+describe('loop notice', () => {
+  const SR2 = 44100;
+  const base = { sampleRate: SR2, rootMidi: 60, lowConfidence: false };
+  const draft = (over: Record<string, unknown>) => ({ ...base, pcm: new Float32Array(SR2 * 3), mode: 'sample', record: { pcm: new Float32Array(SR2 * 3), sampleRate: SR2, meta: {} }, ...over }) as never;
+  it('is empty for samples and instruments', () => {
+    expect(loopNotice(draft({}))).toBe('');
+  });
+  it('shows the loop region', () => {
+    const d = draft({ mode: 'loop', record: { pcm: new Float32Array(SR2 * 3), sampleRate: SR2, loop: { start: 1.2, end: 2.85 }, meta: { mode: 'loop' } } });
+    expect(loopNotice(d)).toBe('Loop 1.20–2.85 s');
+  });
+  it('says so when no clean loop was found', () => {
+    expect(loopNotice(draft({ noLoop: true }))).toMatch(/No clean loop was found.*one-shot.*Regenerate/);
+  });
+  it('says so when the chop reaches into the loop', () => {
+    const d = draft({ mode: 'loop', trim: { start: 1.5, end: 3 }, record: { pcm: new Float32Array(SR2 * 3), sampleRate: SR2, loop: { start: 1.2, end: 2.85 }, meta: { mode: 'loop' } } });
+    expect(loopNotice(d)).toMatch(/chop.*loop.*one-shot/i);
+  });
+  it('shifts the displayed loop by the chop', () => {
+    const d = draft({ mode: 'loop', trim: { start: 0.5, end: 3 }, record: { pcm: new Float32Array(SR2 * 3), sampleRate: SR2, loop: { start: 1.2, end: 2.85 }, meta: { mode: 'loop' } } });
+    expect(loopNotice(d)).toBe('Loop 0.70–2.35 s');
+  });
 });

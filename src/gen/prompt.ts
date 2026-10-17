@@ -42,6 +42,7 @@ export function buildPrompt(userPrompt: string, model: ModelId, mode?: Generatio
     return `${tag}, ${text}, single isolated sound, dry recording, no accompaniment, no repeating sequence`;
   }
   const tag=model==='small-sfx'?'': 'TrackType: Instrument, ';
+  if (mode === 'loop') return `${tag}${text}, one isolated sustained note, steady pitch and volume, dry recording, no chords, no melody, no accompaniment, no drums, no reverb`;
   return `${tag}${text}, one isolated single note, steady pitch, dry recording, no chords, no melody, no accompaniment, no drums, no reverb`;
 }
 

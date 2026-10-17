@@ -1,6 +1,7 @@
 import {resolveSampleControls,type SampleControls} from '../audio/sampleControls';
 import { detectPitch, rootFromDetection } from '../audio/pitch';
-import { prepareSample,mixToMono,resample } from '../audio/samplePrep';
+import { prepareSample,mixToMono,resample,applyFadeOut } from '../audio/samplePrep';
+import { findLoop,bakeLoop,formatLoop,trimmedLoop } from '../audio/loopPoints';
 import { analyseInstrument } from '../audio/instrument/client';
 import type { InstrumentProfile } from '../audio/instrument/types';
 import {resolveControls,type InstrumentControls} from '../audio/instrument/controls';
@@ -9,12 +10,13 @@ import type { GenerationOutput } from '../gen/client';
 import type { GenerateParams } from '../gen/protocol';
 import { CLOUD_MODEL } from '../gen/cloud';
 import type { ProjectStore } from '../store/projectStore';
-import { newId, addTrack, setTrackSample, setRoot, setTrackTrim } from '../store/projectModel';
+import { newId, addTrack, setTrackSample, setRoot, setTrackTrim, soundTypeLabel, type SoundType } from '../store/projectModel';
 import {applyTrim,resolveTrim,storedTrim,type Trim} from '../audio/trim';
+import type {LoopRegion} from '../audio/loopPoints';
 
 export interface GeneratedResult {
   trackId:string;
-  mode:'sample'|'instrument';
+  mode:SoundType;
   sampleId: string;
   pcm: Float32Array;
   sampleRate: number;
@@ -23,21 +25,31 @@ export interface GeneratedResult {
 }
 
 export interface PreparationOptions {cloud?:boolean;analyseInstrument?:typeof analyseInstrument;signal?:AbortSignal;onAnalysis?:(f:number)=>void;dynamics?:'sustain'|'decay'}
-export interface GeneratedDraft {trim?:Trim;sampleControls?:SampleControls;instrumentControls?:InstrumentControls;mode:'sample'|'instrument';pcm:Float32Array;sampleRate:number;rootMidi:number;lowConfidence:boolean;record:import('../store/projectStore').StoredSample}
+/** `mode` is 'loop' only when a loop was found; `noLoop` marks a looped request that plays as a one-shot sample. */
+export interface GeneratedDraft {trim?:Trim;sampleControls?:SampleControls;instrumentControls?:InstrumentControls;mode:SoundType;noLoop?:boolean;pcm:Float32Array;sampleRate:number;rootMidi:number;lowConfidence:boolean;record:import('../store/projectStore').StoredSample}
 /** The model finished, but its audio could not be turned into an instrument; the audio is still usable as a sample. */
 export class InstrumentAnalysisError extends Error{readonly code='instrument-rejected' as const;constructor(message:string){super(message);this.name='InstrumentAnalysisError';}}
 /** Prepare an auditionable draft; no project or sample store changes happen here. */
 export async function prepareGeneration(params:GenerateParams,userPrompt:string,output:GenerationOutput,deps:PreparationOptions={}):Promise<GeneratedDraft>{
-  const mode=params.mode??'sample';
+  const requested=params.mode??'sample';
+  let mode:SoundType=requested;
   let instrument:InstrumentProfile|undefined;
   if(mode==='instrument'){try{instrument=await (deps.analyseInstrument??analyseInstrument)(resample(mixToMono(output.channels),output.sampleRate,44100),44100,deps.dynamics??(/piano|guitar|pluck|bell|mallet/i.test(userPrompt)?'decay':'sustain'),deps.signal,deps.onAnalysis);}catch(e){if((e as {code?:string}).code==='cancelled')throw e;throw new InstrumentAnalysisError(e instanceof Error?e.message:String(e));}}
   if(deps.signal?.aborted)throw Object.assign(new Error('Cancelled'),{code:'cancelled'});
-  const prep = instrument?{pcm:instrument.pcm,sampleRate:instrument.sampleRate}:prepareSample(output.channels, output.sampleRate);
+  const prep = instrument?{pcm:instrument.pcm,sampleRate:instrument.sampleRate}:prepareSample(output.channels, output.sampleRate,requested==='loop'?{fadeOutSec:0}:{});
   if (prep.pcm.length === 0) throw new Error('The model produced silence. Try another prompt or seed.');
   const pitch = instrument?{midi:69+12*Math.log2(instrument.hz/440),hz:instrument.hz,confidence:1,cents:0,candidates:[]}:detectPitch(prep.pcm, prep.sampleRate);
   const root = rootFromDetection(pitch);
-  return {mode,pcm:prep.pcm,sampleRate:prep.sampleRate,rootMidi:root.midi,lowConfidence:root.lowConfidence,record:{instrument,pcm:prep.pcm,sampleRate:prep.sampleRate,meta: {
-      mode,fullPrompt:params.prompt,
+  let pcm=prep.pcm,loop:LoopRegion|undefined;
+  if(requested==='loop'){
+    // The tail is kept for the search; the closing fade-out follows the baked loop and never reaches into it.
+    const found=findLoop(pcm,prep.sampleRate);
+    if(found){loop=found;pcm=bakeLoop(pcm,prep.sampleRate,found);}
+    applyFadeOut(pcm,prep.sampleRate,undefined,found?Math.round(found.end*prep.sampleRate):0);
+    mode=found?'loop':'sample';
+  }
+  return {mode,...(requested==='loop'&&!loop?{noLoop:true}:{}),pcm,sampleRate:prep.sampleRate,rootMidi:root.midi,lowConfidence:root.lowConfidence,record:{instrument,...(loop?{loop}:{}),pcm,sampleRate:prep.sampleRate,meta: {
+      mode:requested,fullPrompt:params.prompt,
       prompt: userPrompt,
       model: deps.cloud?CLOUD_MODEL:params.model,
       ...(deps.cloud?{source:'cloud' as const}:{}),
@@ -48,6 +60,13 @@ export async function prepareGeneration(params:GenerateParams,userPrompt:string,
       detectedMidi: pitch.midi,
       confidence: pitch.confidence,
     }}};
+}
+/** One result-panel line about a draft's loop; empty when the sound was not requested as looped. */
+export function loopNotice(draft:GeneratedDraft):string {
+ if(draft.noLoop)return 'No clean loop was found, so this plays as a one-shot sample. Regenerate to try another note.';
+ const loop=draft.record.loop;if(!loop)return '';
+ const kept=trimmedLoop(loop,draft.trim,draft.pcm.length,draft.sampleRate);
+ return kept?formatLoop(kept):'The chop cuts into the loop, so this plays as a one-shot sample. Widen the chop to loop again.';
 }
 /** Draft edits stay local until accepted, leaving the source analysis untouched. */
 export function tweakDraft(draft:GeneratedDraft,patch:Partial<InstrumentControls>):GeneratedDraft {
@@ -87,9 +106,9 @@ export async function useGeneration(deps:{store:ProjectStore;engine:Engine;signa
  if(!deps.store.get()||(trackId!==null&&!deps.store.get()?.tracks.some(t=>t.id===trackId)))throw new Error('This track no longer exists.');
  const sampleId=idFactory();await deps.store.putSample(sampleId,draft.record);
  if(deps.signal?.aborted||!deps.store.get()||(trackId!==null&&!deps.store.get()?.tracks.some(t=>t.id===trackId))){await deps.store.deleteSample(sampleId);throw Object.assign(new Error('Cancelled'),{code:'cancelled'});}
- if(draft.record.instrument)deps.engine.setInstrument(sampleId,draft.record.instrument);else deps.engine.setSample(sampleId,draft.pcm,draft.sampleRate);
+ if(draft.record.instrument)deps.engine.setInstrument(sampleId,draft.record.instrument);else deps.engine.setSample(sampleId,draft.pcm,draft.sampleRate,draft.record.loop);
  const targetId=trackId??newId('t');
- deps.store.update(p=>{let next=setTrackSample(trackId===null?addTrack(p,`${draft.mode==='instrument'?'Instrument':'Sample'} ${p.tracks.length+1}`,targetId):p,targetId,sampleId,draft.rootMidi,draft.mode);if(draft.sampleControls&&!draft.record.instrument)next={...next,tracks:next.tracks.map(t=>t.id===targetId?{...t,sampleControls:resolveSampleControls(draft.sampleControls)}:t)};if(draft.trim)next=setTrackTrim(next,targetId,draft.trim);return draft.record.instrument&&draft.instrumentControls?{...next,tracks:next.tracks.map(t=>t.id===targetId?{...t,instrumentControls:resolveControls(draft.instrumentControls,draft.record.instrument!.dynamics)}:t)}:next;});const next=deps.store.get();if(next)deps.engine.setProject(next);
+ deps.store.update(p=>{let next=setTrackSample(trackId===null?addTrack(p,`${soundTypeLabel({soundType:draft.mode})} ${p.tracks.length+1}`,targetId):p,targetId,sampleId,draft.rootMidi,draft.mode);if(draft.sampleControls&&!draft.record.instrument)next={...next,tracks:next.tracks.map(t=>t.id===targetId?{...t,sampleControls:resolveSampleControls(draft.sampleControls)}:t)};if(draft.trim)next=setTrackTrim(next,targetId,draft.trim);return draft.record.instrument&&draft.instrumentControls?{...next,tracks:next.tracks.map(t=>t.id===targetId?{...t,instrumentControls:resolveControls(draft.instrumentControls,draft.record.instrument!.dynamics)}:t)}:next;});const next=deps.store.get();if(next)deps.engine.setProject(next);
  return {trackId:targetId,sampleId,mode:draft.mode,pcm:draft.pcm,sampleRate:draft.sampleRate,rootMidi:draft.rootMidi,lowConfidence:draft.lowConfidence};
 }
 export async function applyGeneration(deps:{store:ProjectStore;engine:Engine}&PreparationOptions,trackId:string,params:GenerateParams,userPrompt:string,output:GenerationOutput,idFactory:()=>string=()=>newId('s')):Promise<GeneratedResult>{

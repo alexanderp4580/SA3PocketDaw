@@ -59,7 +59,18 @@ function peakOf(a: Float32Array): number {
   return p;
 }
 
-export function prepareSample(channels: Float32Array[], sampleRate: number): PreparedSample {
+/** Linear fade to silence over the last `sec` seconds, in place; frames before `notBefore` stay untouched. */
+export function applyFadeOut(pcm: Float32Array, sampleRate: number, sec = FADE_OUT_SEC, notBefore = 0): void {
+  const n = Math.min(pcm.length, Math.round(sec * sampleRate));
+  for (let i = 0; i < n; i++) if (pcm.length - 1 - i >= notBefore) pcm[pcm.length - 1 - i]! *= i / n;
+}
+
+export interface PrepareOptions {
+  /** Length of the closing fade-out; 0 keeps the tail as generated. */
+  fadeOutSec?: number;
+}
+
+export function prepareSample(channels: Float32Array[], sampleRate: number, options: PrepareOptions = {}): PreparedSample {
   let pcm = resample(mixToMono(channels), sampleRate, TARGET_RATE);
   const rawPeak = peakOf(pcm);
   if (rawPeak === 0) {
@@ -78,8 +89,7 @@ export function prepareSample(channels: Float32Array[], sampleRate: number): Pre
 
   const fin = Math.min(pcm.length, Math.round(FADE_IN_SEC * TARGET_RATE));
   for (let i = 0; i < fin; i++) pcm[i]! *= i / fin;
-  const fout = Math.min(pcm.length, Math.round(FADE_OUT_SEC * TARGET_RATE));
-  for (let i = 0; i < fout; i++) pcm[pcm.length - 1 - i]! *= i / fout;
+  applyFadeOut(pcm, TARGET_RATE, options.fadeOutSec ?? FADE_OUT_SEC);
 
   const gain = Math.pow(10, TARGET_PEAK_DB / 20) / peakOf(pcm);
   for (let i = 0; i < pcm.length; i++) pcm[i]! *= gain;

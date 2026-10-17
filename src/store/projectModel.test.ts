@@ -134,3 +134,16 @@ describe('master insert chain',()=>{
  });
  it('limits the master chain to the plugin maximum',()=>{let p=createProject();for(let i=0;i<9;i++)p=addPlugin(p,MASTER_ID_TEST,'chorus',()=>`c${i}`);expect(masterChain(p)).toHaveLength(6);});
 });
+
+describe('sound types', () => {
+  it('stores the looped type on the track and labels every type', async () => {
+    const { setTrackSample, soundTypeLabel, addTrack, createProject } = await import('./projectModel');
+    let p = addTrack(createProject(), 'A', 't1');
+    p = setTrackSample(p, 't1', 's1', 60, 'loop');
+    expect(p.tracks[0]!.soundType).toBe('loop');
+    expect(soundTypeLabel(p.tracks[0]!)).toBe('Looped');
+    expect(soundTypeLabel({ ...p.tracks[0]!, soundType: 'instrument' })).toBe('Instrument');
+    expect(soundTypeLabel({ ...p.tracks[0]!, soundType: 'sample' })).toBe('Sample');
+    expect(soundTypeLabel({ ...p.tracks[0]!, soundType: undefined })).toBe('Sample');
+  });
+});

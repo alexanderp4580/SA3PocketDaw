@@ -4,7 +4,7 @@ import { log } from '../log';
 import { createProject, addTrack, addNote, setTrackSample, setRoot } from '../store/projectModel';
 
 function fakeCtx() {
-  const started: Array<{ rate: number; when: number; until:number; buffer: unknown }> = [];
+  const started: Array<{ rate: number; when: number; until:number; buffer: unknown; loop?: boolean; loopStart?: number; loopEnd?: number }> = [];
   const buffers: Array<{ ch: number; len: number; sr: number; data: Float32Array | null }> = [];
   const state = { time: 0, resumed: 0, current: 'suspended', created: 0 };
   const mk = (): EngineContextLike => ({
@@ -21,11 +21,14 @@ function fakeCtx() {
       return { gain: { value: 1, setValueAtTime() {}, linearRampToValueAtTime() {} }, connect() {} };
     },
     createBufferSource() {
-      const rec = { rate: 1, when: -1, buffer: null as unknown,until:-1 };
+      const rec = { rate: 1, when: -1, buffer: null as unknown,until:-1,loop:undefined as boolean|undefined,loopStart:undefined as number|undefined,loopEnd:undefined as number|undefined };
       started.push(rec);
       return {
         get buffer() { return rec.buffer as never; }, set buffer(b) { rec.buffer = b; },
         playbackRate: { get value() { return rec.rate; }, set value(v: number) { rec.rate = v; }, setValueAtTime() {}, linearRampToValueAtTime() {} },
+        get loop() { return rec.loop as boolean; }, set loop(v: boolean) { rec.loop = v; },
+        get loopStart() { return rec.loopStart as number; }, set loopStart(v: number) { rec.loopStart = v; },
+        get loopEnd() { return rec.loopEnd as number; }, set loopEnd(v: number) { rec.loopEnd = v; },
         onended: null, connect() {}, start(w?: number) { rec.when = w ?? 0; }, stop(t?:number) {rec.until=t??0;},
       };
     },
@@ -224,5 +227,32 @@ describe('engine trim',()=>{
   const f=fakeCtx(),e=createEngine({createContext:f.mk});const p=proj();p.tracks[0]!.trim={start:.5,end:1.5};
   e.setProject(p);e.setSample('s1',new Float32Array(44100*3).fill(1),44100);await e.audition('t1',60,100,.3);
   const d=f.buffers[0]!.data!;expect(d[0]).toBe(0);expect(d[d.length-1]).toBe(0);expect(d[22050]).toBe(1);
+ });
+});
+
+describe('engine loop',()=>{
+ const loop={start:1,end:2};
+ it('loops a looped sample while the note is held',async()=>{
+  const f=fakeCtx(),e=createEngine({createContext:f.mk});e.setProject(proj());e.setSample('s1',new Float32Array(44100*3),44100,loop);
+  await e.audition('t1',72,100,5);
+  expect(f.started[0]!.loop).toBe(true);expect(f.started[0]!.loopStart).toBe(1);expect(f.started[0]!.loopEnd).toBe(2);
+  expect(f.started[0]!.until).toBeGreaterThan(5);
+ });
+ it('plays a sample without a loop as before',async()=>{
+  const f=fakeCtx(),e=createEngine({createContext:f.mk});e.setProject(proj());e.setSample('s1',new Float32Array(44100*3),44100);
+  await e.audition('t1',60,100,5);expect(f.started[0]!.loop).toBeUndefined();expect(f.started[0]!.until).toBeLessThan(3.1);
+ });
+ it('moves the loop with a chop that leaves it whole and drops it when the chop reaches into it',async()=>{
+  const f=fakeCtx(),e=createEngine({createContext:f.mk});const p=proj();p.tracks[0]!.trim={start:.5,end:2.5};
+  e.setProject(p);e.setSample('s1',new Float32Array(44100*3),44100,loop);
+  await e.audition('t1',60,100,.3);
+  expect(f.started[0]!.loopStart).toBeCloseTo(.5,5);expect(f.started[0]!.loopEnd).toBeCloseTo(1.5,5);
+  const q=structuredClone(p);q.tracks[0]!.trim={start:1.5,end:2.5};e.setProject(q);
+  await e.audition('t1',60,100,.3);expect(f.started[1]!.loop).toBeUndefined();
+ });
+ it('previews a looped source as a held note',async()=>{
+  const f=fakeCtx(),e=createEngine({createContext:f.mk});
+  await e.previewSource(new Float32Array(44100*3),44100,undefined,loop);
+  expect(f.started[0]!.loop).toBe(true);expect(f.started[0]!.until).toBeGreaterThan(2.5);
  });
 });

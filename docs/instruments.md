@@ -1,6 +1,6 @@
 # SA3 samples and instruments
 
-Generate has two paths. Sample produces one-shot sounds with conventional sample playback. Instrument produces a single source note, automatically measures it, and extracts a playable evolving tone. No manual root matching is needed for Instrument.
+Generate has three paths. Sample produces one-shot sounds with conventional sample playback. Instrument produces a single source note, automatically measures it, and extracts a playable evolving tone. No manual root matching is needed for Instrument. Looped keeps the source audio, finds a seamless loop in its sustained part and repeats it while a note is held (see Looped sample).
 
 Instrument analysis and per-pitch preparation run in a separate browser worker. An AudioWorklet plays additive partials with their measured amplitude envelopes and inharmonic intervals, plus a notched noise residual. A 35–90 ms crossfade preserves the short source attack through sinc interpolation. Played pitches use equal temperament (A4 = 440 Hz, A3 = 220 Hz), with a Nyquist guard and 150 ms release. Hold tone uses a measured body spectrum; Natural decay follows the source and extrapolates its decay beyond the recording.
 
@@ -8,9 +8,24 @@ Piano and guitar are source-dependent approximations. They preserve a recognizab
 
 Profiles and source PCM are saved alongside the existing sample records in IndexedDB. Records without profiles remain samples. The generated service worker includes the instrument worker and processor for offline playback. Heavy transforms never run inside the audio callback. Prepared attacks/residuals have a 16-pitch cache per loaded instrument; live voices are bounded.
 
+## Looped sample
+
+Looped asks for one isolated, sustained note (the Instrument prompt guidance plus steady pitch and volume), keeps the audio as generated and plays it like a sample: `playbackRate` sets the pitch from the detected root, `AudioBufferSourceNode.loop` repeats the region while the note is held, and the usual release follows. The track keeps `soundType: 'loop'`; the stored sample carries `loop: {start, end}` (seconds of the stored audio) and `meta.mode: 'loop'`. Records without `loop` play as one-shots. Cloud and on-device sources use the same path.
+
+Preparation (`prepareGeneration` in `src/app/generate.ts`, pure parts in `src/audio/loopPoints.ts`):
+
+1. Trim and normalize as for a sample, but without the closing fade-out. Detect the root with `detectPitch`.
+2. `findLoop`: the sustained part is the longest run of the RMS envelope (40 ms window, 10 ms hop) whose max/min ratio stays within 1.5 and above 10 % of the peak, starting no earlier than 0.15 s, with 20 ms margins. The period comes from `detectPitch` refined by autocorrelation (correlation of at least 0.8, pitch confidence of at least 0.5). Loop lengths are whole numbers of periods between 0.12 s and 1.2 s (at most 85 % of the sustained part); starts are upward zero crossings. The pair whose material before the start and before the end differs least wins (normalised difference, 0 identical to 2 opposite; longer loops are slightly preferred), and a difference above 0.2 gives no loop.
+3. `bakeLoop` blends the last min(30 ms, a third of the loop) of the region into the material just before the start with an equal-power crossfade (compensated for the correlation of the two parts, so coherent material keeps its level). The region then ends on the sample before its start, so the wrap has the size of an ordinary sample step. The closing fade-out is applied afterwards and never reaches into the loop.
+4. No loop found (unpitched or noisy sound, a steadily decaying tone, too short, silent, or too different at the seam): the sound is saved as a normal one-shot sample, the result panel says so, and Regenerate tries another seed.
+
+Chop edits only the kept region. The loop moves with it; a chop edge (with its 3 ms fade) that reaches into the loop makes the sound play as a one-shot until the chop is widened. Preview and Edit sound play a held note. Song export renders looped samples with the same `playNote` call as live playback.
+
+Limits: mono only (stereo looping is not implemented); the tail after the loop end is never played, so the release happens inside the loop; unpitched textures are not looped; loop quality on real SA3 notes and the sound on a phone are to check (only synthetic signals were tested).
+
 ## Prompts and lengths
 
-Sample presets describe the hit, decay and texture. Instrument source generation uses native radio selections for instrument, character, attack and note behavior; a read-only final prompt preview shows their combined description. Source behavior supplies both the prompt and the initial resynthesis behavior. Sample requests one isolated hit; Instrument requests one note without chords, melody, accompaniment, drums or reverb. Piano/guitar/bell selections default to Natural decay; synth/pad/bass to Hold tone. Sample presets start at 0.5–2 s, Instrument at 4 s. Each path remembers its own source length and steps. These durations are practical starting points from the listening experiment; they are not official model recommendations.
+Sample presets describe the hit, decay and texture. Instrument source generation uses native radio selections for instrument, character, attack and note behavior; a read-only final prompt preview shows their combined description. Source behavior supplies both the prompt and the initial resynthesis behavior. Sample requests one isolated hit; Instrument requests one note without chords, melody, accompaniment, drums or reverb; Looped requests the same plus a sustained note with steady pitch and volume, from presets (Synth, Pad, Organ, Strings, Flute) that start at 4 s, 16 steps on device (cloud at most 8). Piano/guitar/bell selections default to Natural decay; synth/pad/bass to Hold tone. Sample presets start at 0.5–2 s, Instrument at 4 s. Each path remembers its own source length and steps. These durations are practical starting points from the listening experiment; they are not official model recommendations.
 
 The [official prompting guide](https://github.com/Stability-AI/stable-audio-3/blob/main/docs/guides/prompting.md) and [SA3 prompt guide](https://stability.ai/guides/stable-audio-3-prompt-guide) support descriptive sound/instrument prompts and track-type tags. Instrument uses `TrackType: Instrument` on Music/Medium; Sample uses `TrackType: SFX` on SFX/Medium and Instrument on Music. Length is passed separately as the model duration. Small Music or Medium is suggested for instrument sources; model choice remains explicit.
 

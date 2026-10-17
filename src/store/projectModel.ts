@@ -49,7 +49,7 @@ export interface Track {
   sampleControls?:Partial<SampleControls>;
   /** Kept region of the original source in seconds; missing means the full clip. */
   trim?:Trim;
-  soundType?:'sample'|'instrument';
+  soundType?:SoundType;
   id: string;
   name: string;
   muted: boolean;
@@ -158,7 +158,10 @@ export function toggleMute(p: Project, trackId: string): Project {
 export function setRoot(p: Project, trackId: string, rootMidi: number): Project {
   return mapTrack(p, trackId, (t) => ({ ...t, rootMidi: clamp(Math.round(rootMidi), MIDI_MIN, MIDI_MAX) }));
 }
-export function setTrackSample(p: Project, trackId: string, sampleId: string | null, rootMidi?: number,soundType?:'sample'|'instrument'): Project {
+/** 'loop' = a looped sample: its stored sound carries a loop region. */
+export type SoundType='sample'|'instrument'|'loop';
+export const soundTypeLabel=(t:Pick<Track,'soundType'>):'Sample'|'Instrument'|'Looped'=>t.soundType==='instrument'?'Instrument':t.soundType==='loop'?'Looped':'Sample';
+export function setTrackSample(p: Project, trackId: string, sampleId: string | null, rootMidi?: number,soundType?:SoundType): Project {
   return mapTrack(p, trackId, (t) => ({
     ...t,
     sampleId,

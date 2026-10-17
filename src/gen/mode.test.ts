@@ -1,5 +1,5 @@
 import { describe,expect,it } from 'vitest';
-import { generationPresets, generationHint, loadModeSettings, saveModeSettings } from './mode';
+import { generationPresets, generationHint, lengthHint, modeLabel, loadModeSettings, saveModeSettings } from './mode';
 import { buildPrompt } from './prompt';
 import { MAX_STEPS } from './protocol';
 
@@ -45,4 +45,32 @@ describe('step range in stored settings',()=>{
   storage.values.set('sa3daw.gen.sample','{"seconds":3,"steps":3}');
   expect(loadModeSettings(storage,'sample')).toEqual({seconds:2,steps:8});
  });
+});
+
+describe('looped path',()=>{
+ it('asks for one isolated sustained note with the instrument guidance',()=>{
+  const p=buildPrompt('warm analog pad','medium','loop');
+  expect(p).toContain('TrackType: Instrument');expect(p).toContain('sustained note');expect(p).toContain('no chords');expect(p).toContain('no reverb');
+  expect(buildPrompt('warm analog pad','small-sfx','loop')).not.toContain('TrackType');
+ });
+ it('has presets with 4 s sources and its own hints',()=>{
+  expect(generationPresets('loop').length).toBeGreaterThan(2);
+  for(const p of generationPresets('loop'))expect(p.seconds).toBe(4);
+  expect(generationHint('loop')).toContain('sustain');
+  expect(lengthHint('loop')).toContain('loop');
+ });
+ it('defaults to 4 s and 16 steps and stores its own settings under sa3daw.gen.loop',()=>{
+  const values=new Map<string,string>();const storage={getItem:(k:string)=>values.get(k)??null,setItem:(k:string,v:string)=>void values.set(k,v)};
+  expect(loadModeSettings(storage,'loop')).toEqual({seconds:4,steps:16});
+  saveModeSettings(storage,'loop',{seconds:5,steps:12});
+  expect(values.has('sa3daw.gen.loop')).toBe(true);
+  expect(loadModeSettings(storage,'loop')).toEqual({seconds:5,steps:12});
+  expect(loadModeSettings(storage,'instrument')).toEqual({seconds:4,steps:16});
+  storage.setItem('sa3daw.gen.loop','garbage');
+  expect(loadModeSettings(storage,'loop')).toEqual({seconds:4,steps:16});
+ });
+});
+
+it('labels every mode, treating a missing one as a sample',()=>{
+ expect(modeLabel('loop')).toBe('Looped');expect(modeLabel('instrument')).toBe('Instrument');expect(modeLabel('sample')).toBe('Sample');expect(modeLabel(undefined)).toBe('Sample');
 });

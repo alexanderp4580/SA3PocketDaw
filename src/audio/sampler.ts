@@ -24,6 +24,9 @@ export interface BufferLike {
 export interface BufferSourceLike extends AudioNodeLike {
   buffer: BufferLike | null;
   playbackRate: AudioParamLike;
+  loop?: boolean;
+  loopStart?: number;
+  loopEnd?: number;
   onended: (() => void) | null;
   start(when?: number): void;
   stop(when?: number): void;
@@ -45,6 +48,8 @@ export function playbackRate(note: number, root: number): number {
 }
 
 export interface PlayNoteArgs {
+  /** Region of the buffer (seconds of the buffer, not scaled by the rate) that repeats while the note is held. */
+  loop?: { start: number; end: number } | null;
   controls?:Partial<SampleControls>;
   buffer: BufferLike;
   root: number;
@@ -70,7 +75,7 @@ export function playNote(ctx: AudioContextLike, a: PlayNoteArgs): Voice {
   const rate = playbackRate(a.note, a.root);
   const vel = Math.min(1, Math.max(0, a.velocity ?? 1));
   const when = Math.max(a.when, ctx.currentTime);
-  const sampleEnd = when + a.buffer.duration / rate;
+  const sampleEnd = a.loop ? Infinity : when + a.buffer.duration / rate;
   const noteEnd = Math.max(when + Math.min(ATTACK_SEC,sampleEnd-when), Math.min(when + a.duration, sampleEnd));
   const attackEnd=Math.min(when+controls.attack,noteEnd);
   const peak=vel*Math.min(1,(attackEnd-when)/controls.attack);
@@ -79,6 +84,11 @@ export function playNote(ctx: AudioContextLike, a: PlayNoteArgs): Voice {
   const src = ctx.createBufferSource();
   src.buffer = a.buffer;
   src.playbackRate.value = rate;
+  if (a.loop) {
+    src.loop = true;
+    src.loopStart = a.loop.start;
+    src.loopEnd = a.loop.end;
+  }
   const g = ctx.createGain();
   g.gain.setValueAtTime(0, when);
   g.gain.linearRampToValueAtTime(peak, attackEnd);
