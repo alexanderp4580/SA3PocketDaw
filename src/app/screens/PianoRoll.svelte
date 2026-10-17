@@ -18,6 +18,7 @@
     type KeyFilter,
     type Scale,
   } from '../pianoroll/cursor';
+  import { chordAriaLabel, chordPlacedLabel, chordStrip, placeChord, type Chord } from '../pianoroll/chords';
   import { changeLength, changeVelocity, deleteTarget, place, clearTrackNotes } from '../pianoroll/edit';
   import {
     CELL_W,
@@ -77,6 +78,8 @@
   let newLength = $state(2);
   let defaultVelocity = $state(DEFAULT_VELOCITY);
   let inKeyOn = $state(true);
+  let chordsOn = $state(false);
+  let chordNotice = $state<{ text: string; step: number; midi: number } | null>(null);
   let mode = $state<'dpad' | 'keys'>('dpad');
   let gridOpen = $state(false);
   let lengthOpen=$state(false);
@@ -98,7 +101,12 @@
   const ctx = $derived({ track, bars: barCount, cell: { step: cursor.step, midi: cursor.midi }, grid });
   const target = $derived(findTarget(track.notes, ctx.cell, grid));
   const shownVelocity = $derived(target ? noteVelocity(target) : defaultVelocity);
-  const info = $derived(infoLine(ctx.cell, target, newLength, defaultVelocity));
+  const strip = $derived(chordStrip(keyRoot, scale));
+  const info = $derived(
+    chordNotice && chordNotice.step === cursor.step && chordNotice.midi === cursor.midi
+      ? chordNotice.text
+      : infoLine(ctx.cell, target, newLength, defaultVelocity),
+  );
   const labels = $derived(rulerLabels(bars));
   const kb = $derived(keyboardLayout(kbBase));
   const lines = $derived(
@@ -185,6 +193,13 @@
     const res = place(ctx, newLength, defaultVelocity);
     commit(res.track);
     onAudition(res.audition.midi, res.audition.velocity);
+  }
+
+  function doChord(chord: Chord) {
+    const res = placeChord(ctx, chord, newLength, defaultVelocity);
+    commit(res.track);
+    for (const m of res.midis) onAudition(m, defaultVelocity);
+    chordNotice = { text: chordPlacedLabel(chord, res.placed), step: cursor.step, midi: cursor.midi };
   }
 
   function doClear() {
@@ -302,6 +317,7 @@
       <button class="ib sq" aria-label="Repeat bars, all tracks" title="Repeat bars {range.startBar}–{range.endBar}" onclick={()=>ui.loopOpen=true}>⟲</button>
       <button class="ib sq" aria-label="Grid {stepsLabel(grid)}" title="Snap: {stepsLabel(grid)}" onclick={() => (gridOpen = true)}>▦</button>
       <button class="ib sq" class:on={inKeyOn} aria-pressed={inKeyOn} aria-label="In-key" title="In-key" onclick={() => (inKeyOn = !inKeyOn)}>♯</button>
+      <button class="ib sq" class:on={chordsOn} aria-pressed={chordsOn} aria-label="Chords" title="Chord strip" onclick={() => (chordsOn = !chordsOn)}>♬</button>
       <button class="ib sq clear" aria-label="Clear all notes" title="Clear all notes" disabled={track.notes.length===0} onclick={doClear}>⌫</button>
     </div>
     <div class="infoline" aria-live="polite">{info}</div>
@@ -353,6 +369,13 @@
   </div>
 
   <div class="ctrl">
+    {#if chordsOn}
+      <div class="chords" role="group" aria-label="Chords in key">
+        {#each strip as chord (chord.degree)}
+          <button class="chord" aria-label={chordAriaLabel(chord)} onclick={() => doChord(chord)}><i>{chord.roman}</i><b>{chord.name}</b></button>
+        {/each}
+      </div>
+    {/if}
     <div class="seg" role="group" aria-label="Play surface">
       <button class="sg" class:on={mode === 'dpad'} aria-pressed={mode === 'dpad'} onclick={() => (mode = 'dpad')}>D-pad</button>
       <button class="sg" class:on={mode === 'keys'} aria-pressed={mode === 'keys'} onclick={() => (mode = 'keys')}>Keys</button>
@@ -428,6 +451,11 @@
 
 <style>
   .tools{gap:4px}
+  .tools .ib.sq{flex:0 1 44px;min-width:0}
+  .chords{margin-bottom:8px;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+  .chord{height:44px;min-width:0;padding:0;border-radius:10px;background:var(--ui-panel-2);display:grid;place-items:center;align-content:center;line-height:1.1}
+  .chord i{font-style:normal;font-size:10px;color:var(--dim)}
+  .chord b{font-size:13px}
 
   .screen {
     position: relative;
