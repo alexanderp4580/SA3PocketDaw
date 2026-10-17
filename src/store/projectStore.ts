@@ -16,6 +16,8 @@ export interface SampleMeta {
   fullPrompt?:string;
   prompt?: string;
   model?: string;
+  /** Set to 'cloud' when Stability AI's API generated the sample; missing = on this device. */
+  source?: 'cloud';
   seed?: number;
   steps?: number;
   seconds?: number;

@@ -3,6 +3,7 @@
   import { lastCompat } from '../../compat';
   import { reporter, type LogEntry, type LogLevel } from '../../log';
   import { notify } from '../appState.svelte';
+  import { CLOUD_MODEL_LABEL } from '../../gen/prompt';
   import { log, models } from '../services';
   import { copyReport, downloadReport } from '../report';
   import { filterLog, formatBytes, formatLogTime, formatElapsed, logScopes, timingRows } from '../format';
@@ -131,9 +132,9 @@
 
     <div class="sec">Generations</div>
     {#each generations as g, gi (gi)}
-      {@const rec = g as { model?: string; at?: string; seconds?: number; steps?: number }}
+      {@const rec = g as { model?: string; device?: string; at?: string; seconds?: number; steps?: number }}
       <div class="card">
-        <div class="note">{rec.model} · {rec.seconds} s · {rec.steps} steps · {rec.at ?? ''}</div>
+        <div class="note">{rec.device === 'cloud' ? CLOUD_MODEL_LABEL : rec.model} · {rec.seconds} s · {rec.steps} steps · {rec.at ?? ''}</div>
         {#each timingRows(g) as r (r.stage)}
           <div class="kv">{r.stage}<span>{formatElapsed(r.ms)}</span></div>
         {/each}

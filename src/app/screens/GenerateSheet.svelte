@@ -2,14 +2,18 @@
   import { onDestroy, onMount, untrack } from 'svelte';
   import { ui, notify, setPeaks, refreshModelCards } from '../appState.svelte';
   import { engine, generation, projectStore } from '../services';
-  import { MODEL_LABELS, buildPrompt, randomSeed } from '../../gen/prompt';
+  import { CLOUD_MODEL_LABEL, MODEL_LABELS, buildPrompt, randomSeed } from '../../gen/prompt';
   import { editField, resetField, startField, syncField } from '../../gen/promptField';
   import { MODEL_IDS, type GenerateParams, type ModelId } from '../../gen/protocol';
-  import { MAX_STEPS } from '../../gen/protocol';
+  import { CLOUD_CREDITS, CLOUD_STAGE, generateCloud } from '../../gen/cloud';
+  import { CLOUD_MAX_STEPS, clampSteps, stepLimits } from '../../gen/steps';
+  import { SOURCE_LABELS, cloudBlockedReason, effectiveSource, loadSource, saveSource, type GenSource } from '../../gen/source';
+  import { loadApiKey } from '../../store/apiKey';
+  import { recordGeneration } from '../../log';
   import { INSTRUMENTS,CHARACTERS,ATTACKS,BEHAVIORS,instrumentDefaults,instrumentPrompt,type InstrumentId } from '../../gen/instrumentSelections';
   import { generationPresets,generationHint,lengthHint,loadModeSettings,saveModeSettings,type GenerationMode } from '../../gen/mode';
   import { DEVICE_LABELS, effectiveDevice, generateWithFallback, gpuAllowed, loadDevice, saveDevice, type GenDevice } from '../../gen/device';
-  import { MAX_SECONDS, MIN_SECONDS, clampSeconds, parseSeconds, stepSeconds } from '../../gen/length';
+  import { CLOUD_MAX_SECONDS, CLOUD_MIN_SECONDS, MAX_SECONDS, MIN_SECONDS, clampSeconds, parseSeconds, stepSeconds, type LengthLimit } from '../../gen/length';
   import { midiToName } from '../../audio/pitch';
   import { formatBytes, formatElapsed, modelHint, peaksOf } from '../format';
   import { prepareGeneration, useGeneration, tweakDraft, tweakSampleDraft, trimDraft, mergeTrimmed, InstrumentAnalysisError, type GeneratedDraft } from '../generate';
@@ -41,6 +45,16 @@
   let secondsText = $state(String(loadModeSettings(store,'sample').seconds));
   const LONG_SECONDS = 5;
   let steps = $state(loadModeSettings(store,'sample').steps);
+  let cloudSteps = $state(CLOUD_MAX_STEPS);
+  let storedSource = $state<GenSource>(loadSource(store));
+  let hasKey = $state(loadApiKey(store)!==null);
+  const source = $derived(effectiveSource(storedSource,hasKey));
+  const cloud = $derived(source==='cloud');
+  const limit = $derived<LengthLimit>(cloud?'cloud':model);
+  const shownSteps = $derived(cloud?cloudSteps:steps);
+  const stepRange = $derived(stepLimits(cloud));
+  let runCloud = $state(false);
+  let usedCloud = $state(false);
   let instrumentWarning=$state('');
   let seed = $state(randomSeed());
   const DEVICES: GenDevice[] = ['webgpu', 'cpu'];
@@ -65,7 +79,7 @@
   const track = $derived(ui.project?.tracks.find((t) => t.id === trackId) ?? null);
   const selected = $derived(cards.find((c) => c.id === model)!);
   const usable = $derived(selected.available && selected.status === 'installed');
-  const canGenerate = $derived(sourceReady && usable && (mode==='instrument'?instrumentField.text.trim().length>0:prompt.trim().length>0));
+  const canGenerate = $derived(sourceReady && (cloud || usable) && (mode==='instrument'?instrumentField.text.trim().length>0:prompt.trim().length>0));
   const samplePromptSent = $derived(prompt.trim()?buildPrompt(prompt,model,'sample'):'');
   const draftControls=$derived(resolveControls(result?.instrumentControls,result?.record.instrument?.dynamics??'sustain'));
   const draftSampleControls=$derived(resolveSampleControls(result?.sampleControls));
@@ -91,10 +105,10 @@
     if(source.instrument)instrument={...instrument,behavior:source.instrument.dynamics};
     if(source.meta.model&&cards.some(c=>c.id===source.meta.model&&c.available&&c.status==='installed'))model=source.meta.model as ModelId;
     if(source.meta.seconds!==undefined)setSeconds(source.meta.seconds);
-    if(source.meta.steps!==undefined)steps=Math.max(4,Math.min(16,source.meta.steps));
+    if(source.meta.steps!==undefined)steps=clampSteps(source.meta.steps,false);
     if(source.meta.prompt){if(mode==='instrument')instrumentField=editField(instrumentField,source.meta.prompt,suggestedInstrumentPrompt);else prompt=source.meta.prompt;}
   }
-  onMount(()=>{void refreshModelCards();void restoreSource().catch(e=>notify(String(e))).finally(()=>sourceReady=true);});
+  onMount(()=>{hasKey=loadApiKey(store)!==null;void refreshModelCards();void restoreSource().catch(e=>notify(String(e))).finally(()=>sourceReady=true);});
   onDestroy(() => {clearInterval(timer);engine.stopPreview();});
 
   function pickModel(id: ModelId) {
@@ -104,11 +118,14 @@
   }
 
   function setSeconds(v: number) {
-    seconds = clampSeconds(v, model);
+    seconds = clampSeconds(v, limit);
     secondsText = String(seconds);
-    saveModeSettings(store,mode,{seconds,steps});
+    persistSettings();
   }
-  function pickMode(next:GenerationMode){saveModeSettings(store,mode,{seconds,steps});mode=next;const saved=loadModeSettings(store,next);steps=saved.steps;setSeconds(saved.seconds);}
+  function persistSettings(){if(!cloud)saveModeSettings(store,mode,{seconds,steps});}
+  function bumpSteps(d:number){if(cloud)cloudSteps=clampSteps(cloudSteps+d,true);else steps=clampSteps(steps+d,false);}
+  function pickSource(next:GenSource){if(next==='cloud'&&!hasKey)return;storedSource=next;saveSource(store,next);setSeconds(seconds);}
+  function pickMode(next:GenerationMode){persistSettings();mode=next;const saved=loadModeSettings(store,next);steps=saved.steps;setSeconds(saved.seconds);}
   function pickInstrument(id:InstrumentId){instrument=instrumentDefaults(id);}
   function commitSecondsText() {
     const v = parseSeconds(secondsText);
@@ -118,10 +135,12 @@
   async function run() {
     if (!canGenerate || (trackId!==null&&!track)) return;
     commitSecondsText();
-    saveModeSettings(store,mode,{seconds,steps});
+    persistSettings();
     const raw=mode==='instrument'?instrumentField.text.trim():prompt.trim();
     const dynamics=instrument.behavior;
-    const params: GenerateParams = { mode,model,device, prompt: mode==='instrument'?raw:buildPrompt(raw,model,mode), seconds, steps, seed };
+    const promptModel: ModelId = cloud ? 'medium' : model;
+    runCloud = cloud;
+    const params: GenerateParams = { mode,model:promptModel,device, prompt: mode==='instrument'?raw:buildPrompt(raw,promptModel,mode), seconds, steps: cloud?cloudSteps:steps, seed };
     instrumentWarning='';
     engine.stopPreview();result=null;liveTrim=null;chopError='';
     phase = 'running';
@@ -137,7 +156,18 @@
     try {
       await engine.unlock();
       const signal = controller.signal;
-      const { output: out, device: ran } = await generateWithFallback(
+      let out;
+      let ran: GenDevice = device;
+      if (runCloud) {
+        const key = loadApiKey(store);
+        if (!key) throw new Error('No Stability AI key is saved. Add one on the Models screen.');
+        stage = CLOUD_STAGE;
+        message = 'Sending the request to Stability AI';
+        out = await generateCloud({ prompt: params.prompt, seconds, steps: params.steps, seed }, key, { signal, onProgress: (e) => { stage = e.stage; message = e.message; } });
+        const total = out.timings.find((t) => t.name === 'total');
+        recordGeneration({ id: Date.now(), at: new Date().toISOString(), model: 'stable-audio-3', prompt: params.prompt, seconds, steps: params.steps, seed, device: 'cloud', totalMs: total ? total.endMs - total.startMs : null, stages: out.timings, stats: out.stats });
+      } else {
+      ({ output: out, device: ran } = await generateWithFallback(
         (p) =>
           generation.generate(p, {
             signal,
@@ -157,13 +187,15 @@
             message = '';
           },
         },
-      );
+      ));
+      }
       usedDevice = ran;
+      usedCloud = runCloud;
       try {
-        result = await prepareGeneration(params,raw,out,{signal:controller.signal,dynamics,onAnalysis:f=>{stage='Creating instrument';fraction=f;message='Measuring the note and extracting its evolving tone.';}});
+        result = await prepareGeneration(params,raw,out,{signal:controller.signal,dynamics,cloud:runCloud,onAnalysis:f=>{stage='Creating instrument';fraction=f;message='Measuring the note and extracting its evolving tone.';}});
       } catch (e) {
         if (!(e instanceof InstrumentAnalysisError)) throw e;
-        result = await prepareGeneration({...params,mode:'sample'},raw,out,{signal:controller.signal});
+        result = await prepareGeneration({...params,mode:'sample'},raw,out,{signal:controller.signal,cloud:runCloud});
         instrumentWarning=e.message;
       }
       phase = 'done';
@@ -207,7 +239,7 @@
 <Sheet title="✦ Generate" sub={track ? `For ${track.name}` : 'New track · created when you choose Use'} tall onclose={onclose} closable={phase !== 'running'&&!saving}>
   {#if phase === 'form' || phase === 'error'}
     {#if !ui.modelsReady||!sourceReady}<p class="note">{!ui.modelsReady?'Checking downloaded models…':'Loading sound…'}</p>
-    {:else if !anyInstalled}<div class="btnrow"><button class="btn sa3" aria-label="Open models" onclick={onmodels}>Download models</button></div>
+    {:else if !anyInstalled && !hasKey}<div class="btnrow"><button class="btn sa3" aria-label="Open models" onclick={onmodels}>Download models</button></div><div class="note">Or add a Stability AI key on the Models screen to generate in the cloud.</div>
     {:else}
     {#if phase === 'error'}
       <div class="card bad" role="alert">
@@ -216,6 +248,14 @@
         <div class="btnrow"><button class="btn" onclick={copy}>Copy report</button></div>
       </div>
     {/if}
+    <div class="st">Source</div>
+    <div class="seg">
+      {#each ['device','cloud'] as const as src (src)}
+        <button class="sg" class:sa3on={source===src} aria-pressed={source===src} disabled={src==='cloud'&&!hasKey} onclick={()=>pickSource(src)}>{SOURCE_LABELS[src]}</button>
+      {/each}
+    </div>
+    <div class="note">{!hasKey?cloudBlockedReason(false):cloud?'Cloud generation sends your prompt to Stability AI, needs a network connection and costs '+CLOUD_CREDITS+' credits per clip.':'On device runs the downloaded SA3 models on this phone.'}</div>
+    {#if !cloud&&!anyInstalled}<div class="btnrow"><button class="btn sa3" aria-label="Open models" onclick={onmodels}>Download models</button></div>{/if}
     <div class="st">Sound type</div>
     <div class="seg"><button class="sg" class:sa3on={mode==='sample'} aria-pressed={mode==='sample'} onclick={()=>pickMode('sample')}>Sample</button><button class="sg" class:sa3on={mode==='instrument'} aria-pressed={mode==='instrument'} onclick={()=>pickMode('instrument')}>Instrument</button></div>
     <div class="note">{mode==='sample'?'One-shot sounds such as kicks, snares and effects.':'A tuned, playable instrument made from one SA3 note.'}</div>
@@ -249,6 +289,7 @@
       <div class="note">Natural decay suits piano, guitar and bells. Hold tone suits synths and pads. The selected behavior also sets the instrument's initial playback behavior.</div>
     {/if}
 
+    {#if !cloud}
     <div class="st">Model</div>
     <div class="seg">
       {#each MODEL_IDS as id (id)}
@@ -273,28 +314,31 @@
       {/each}
     </div>
     <div class="note">{!gpuOk ? 'WebGPU is not usable on this device, so generation runs on the CPU (WASM): slower than the GPU and heavier on memory. Speed and memory on phones: to check.' : device === 'cpu' ? 'CPU runs every stage in WASM, slower than the GPU (Steam Deck, 1 s clip, one thread: about 2.5 times; phone speed to check). Uses more memory (phone memory to check).' : 'GPU is fastest. If a GPU run fails, it is retried once on the CPU automatically.'}</div>
+    {/if}
 
     <div class="st">Length</div>
     <div class="stepper">
-      <button class="btn fit" aria-label="Shorter by 0.25 seconds" disabled={seconds <= MIN_SECONDS} onclick={() => setSeconds(stepSeconds(seconds, -1, model))}>−</button>
+      <button class="btn fit" aria-label="Shorter by 0.25 seconds" disabled={seconds <= (cloud ? CLOUD_MIN_SECONDS : MIN_SECONDS)} onclick={() => setSeconds(stepSeconds(seconds, -1, limit))}>−</button>
       <span class="secfield">
         <input class="field" aria-label="Length in seconds" type="text" inputmode="decimal" bind:value={secondsText} onblur={commitSecondsText} onkeydown={(e) => e.key === 'Enter' && commitSecondsText()} />
         <em>s</em>
       </span>
-      <button class="btn fit" aria-label="Longer by 0.25 seconds" disabled={seconds >= MAX_SECONDS[model]} onclick={() => setSeconds(stepSeconds(seconds, 1, model))}>+</button>
+      <button class="btn fit" aria-label="Longer by 0.25 seconds" disabled={seconds >= (cloud ? CLOUD_MAX_SECONDS : MAX_SECONDS[model])} onclick={() => setSeconds(stepSeconds(seconds, 1, limit))}>+</button>
     </div>
-    <div class="note">{MIN_SECONDS} to {MAX_SECONDS[model]} s in 0.25 s steps; type any value such as 1.25. {MAX_SECONDS[model]} s is the longest tested here (the model conditioner itself accepts up to 384 s).</div>
+    {#if cloud}<div class="note">{CLOUD_MIN_SECONDS} to {CLOUD_MAX_SECONDS} s in 0.25 s steps; type any value such as 1.25. The cloud service accepts clips of at least 1 s.</div>
+    {:else}<div class="note">{MIN_SECONDS} to {MAX_SECONDS[model]} s in 0.25 s steps; type any value such as 1.25. {MAX_SECONDS[model]} s is the longest tested here (the model conditioner itself accepts up to 384 s).</div>{/if}
     <div class="note">{lengthHint(mode)}</div>
-    {#if seconds > LONG_SECONDS}
+    {#if seconds > LONG_SECONDS && !cloud}
       <div class="note warn" role="note">Long clips take much longer and use more memory on phones. User-reported on a Pixel: Small 2 s about 180 s, 10 s about 400 s.</div>
     {/if}
 
     <div class="st">Steps</div>
     <div class="stepper">
-      <button class="btn fit" aria-label="Fewer steps" disabled={steps <= 4} onclick={() => (steps = Math.max(4, steps - 1))}>−</button>
-      <b>{steps}</b>
-      <button class="btn fit" aria-label="More steps" disabled={steps >= Math.min(16, MAX_STEPS)} onclick={() => (steps = Math.min(16, steps + 1))}>+</button>
+      <button class="btn fit" aria-label="Fewer steps" disabled={shownSteps <= stepRange.min} onclick={() => bumpSteps(-1)}>−</button>
+      <b>{shownSteps}</b>
+      <button class="btn fit" aria-label="More steps" disabled={shownSteps >= stepRange.max} onclick={() => bumpSteps(1)}>+</button>
     </div>
+    <div class="note">{stepRange.min} to {stepRange.max} steps. {cloud ? `${CLOUD_MAX_STEPS} is the most the cloud accepts.` : 'More steps take proportionally longer.'}</div>
 
     <div class="st">Seed</div>
     <div class="row">
@@ -302,17 +346,19 @@
       <button class="btn fit" onclick={() => (seed = randomSeed())}>Randomize</button>
     </div>
 
-    <div class="btnrow"><button class="btn sa3" disabled={!canGenerate} onclick={run}>✦ Generate</button></div>
+    {#if cloud}<div class="note">{CLOUD_CREDITS} credits per generation.</div>{/if}
+    <div class="btnrow"><button class="btn sa3" disabled={!canGenerate} onclick={run}>✦ Generate{cloud ? ` · ${CLOUD_CREDITS} credits` : ''}</button></div>
     {/if}
   {:else if phase === 'running'}
     <div class="card">
       <div class="row"><b class="grow">{stage}</b><span class="note">{formatElapsed(elapsed)}</span></div>
-      <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(fraction * 100)}><i style="width:{Math.round(fraction * 100)}%"></i></div>
+      {#if runCloud}<div class="bar" role="progressbar" aria-label="Generating in the cloud"><i class="indeterminate"></i></div>
+      {:else}<div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(fraction * 100)}><i style="width:{Math.round(fraction * 100)}%"></i></div>{/if}
       <div class="note">{message}</div>
       {#if fallbackNote}<div class="note warn" role="status">{fallbackNote}</div>{/if}
-      {#if model === 'medium'}<div class="note warn">Medium may be slow or fail on phones.</div>{/if}
+      {#if model === 'medium' && !runCloud}<div class="note warn">Medium may be slow or fail on phones.</div>{/if}
       <div class="btnrow"><button class="btn danger" onclick={() => controller?.abort()}>Cancel</button></div>
-      <div class="note" style="margin-top:8px">A model call that is already running finishes its current step before generation stops.</div>
+      <div class="note" style="margin-top:8px">{runCloud ? 'Cancel stops waiting for the result.' : 'A model call that is already running finishes its current step before generation stops.'}</div>
     </div>
   {:else if result}
     {#if instrumentWarning}
@@ -335,17 +381,19 @@
       {#if result.lowConfidence}
         <div class="note warn" style="margin-top:6px">Low confidence. Defaulted to C4. Adjust the root with the buttons.</div>
       {/if}
-      <div class="note" style="margin-top:6px">Generated in {formatElapsed(elapsed)} on the {DEVICE_LABELS[usedDevice]}.{fallbackNote ? ' The GPU run failed first, so this ran on the CPU.' : ''}</div>
+      <div class="note" style="margin-top:6px">{#if usedCloud}Generated in {formatElapsed(elapsed)} with {CLOUD_MODEL_LABEL}.{:else}Generated in {formatElapsed(elapsed)} on the {DEVICE_LABELS[usedDevice]}.{fallbackNote ? ' The GPU run failed first, so this ran on the CPU.' : ''}{/if}</div>
       {#if result.record.instrument}<div class="st">Tweak instrument</div><div class="note">Press Preview to hear your settings. Use sound keeps them on the track.</div><InstrumentControlsPanel controls={draftControls} onchange={tweak} behaviorName="draft-behavior" disabled={saving} {chop} onchop={chopInput} onchopcommit={chopCommit} onchopreset={chopReset} /><div class="btnrow"><button class="btn" disabled={saving} onclick={resetTweaks}>Reset controls</button></div>{:else}<div class="st">Tweak sample</div><div class="note">Press Preview to hear your settings. Use sound keeps them on the track.</div><SampleControlsPanel controls={draftSampleControls} onchange={tweakSample} disabled={saving} {chop} onchop={chopInput} onchopcommit={chopCommit} onchopreset={chopReset} /><div class="btnrow"><button class="btn" disabled={saving} onclick={()=>tweakSample(resolveSampleControls())}>Reset controls</button></div>{/if}
       {#if result.mode==='instrument'}<div class="btnrow"><button class="btn" onclick={()=>result&&void engine.previewSource(result.pcm,result.sampleRate)}>Play source note</button></div>{/if}
       <p class="note">Preview this sound. Choose Use to replace the sound on this track.</p>
-      <div class="btnrow"><button class="btn" disabled={saving||!usable} onclick={regenerate}>Regenerate</button><button class="btn" disabled={saving} onclick={onclose}>Discard</button></div>
+      <div class="btnrow"><button class="btn" disabled={saving||(!cloud&&!usable)} onclick={regenerate}>Regenerate</button><button class="btn" disabled={saving} onclick={onclose}>Discard</button></div>
     </div>
     <div class="draft-accept"><button class="btn" disabled={saving||chopBusy} onclick={preview}>▶ Preview {result.mode==='instrument'?'A3':instrumentWarning?'sample':''}</button><button class="btn pri" disabled={saving||chopBusy} onclick={use}>{saving?'Saving…':instrumentWarning?'Use sample':'Use sound'}</button></div>
   {/if}
 </Sheet>
 
 <style>
+  .indeterminate { width: 40% !important; animation: slide 1.2s infinite ease-in-out; }
+  @keyframes slide { 0% { margin-left: -40%; } 100% { margin-left: 100%; } }
   .conversion-warning{border:1px solid #d9ad4655;background:#d9ad4610;}.conversion-warning .note{margin-top:6px;}
   .draft-accept{display:flex;gap:8px;position:sticky;bottom:0;padding:10px 0 0;background:var(--panel);z-index:1;}.draft-accept .btn{min-width:0;flex:1;}.draft-accept .btn.pri{flex:1.3;}
   .choices {border:0;margin:14px 0 0;padding:0;min-width:0;}

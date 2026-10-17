@@ -22,6 +22,24 @@ async function setup() {
 }
 const params = { model: 'small-music' as const, prompt: 'x', seconds: 2, steps: 8, seed: 1 };
 
+describe('cloud generations', () => {
+  const out = { channels: [tone(440, 2)], sampleRate: 44100, stats: { peak: 0.5, rms: 0.3, nonFinite: 0, dims: [1, 1, 88200] }, timings: [] };
+  it('records the cloud source and model in the sample meta', async () => {
+    const deps = await setup();
+    await applyGeneration({ ...deps, cloud: true }, 't1', params, 'synth lead', out, () => 'c1');
+    const meta = (await deps.store.getSample('c1'))!.meta;
+    expect(meta.source).toBe('cloud');
+    expect(meta.model).toBe('stable-audio-3');
+  });
+  it('leaves on-device samples without a source', async () => {
+    const deps = await setup();
+    await applyGeneration(deps, 't1', params, 'synth lead', out, () => 'd1');
+    const meta = (await deps.store.getSample('d1'))!.meta;
+    expect(meta.source).toBeUndefined();
+    expect(meta.model).toBe('small-music');
+  });
+});
+
 describe('applyGeneration', () => {
   it('stores an instrument profile and preserves it through reload',async()=>{
     const deps=await setup();const out={channels:[tone(219,1)],sampleRate:44100,stats:{peak:.5,rms:.3,nonFinite:0,dims:[]},timings:[]};

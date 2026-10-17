@@ -69,6 +69,16 @@ describe('projectStore', () => {
     expect(Array.from(got!.pcm)).toEqual(Array.from(sample().pcm));
   });
 
+  it('keeps the cloud source in sample meta and loads samples saved without one', async () => {
+    const { mk } = setup();
+    const a = mk();
+    await a.putSample('old', sample());
+    await a.putSample('cloud', { ...sample(), meta: { ...sample().meta, model: 'stable-audio-3', source: 'cloud' } });
+    const b = mk();
+    expect((await b.getSample('old'))!.meta.source).toBeUndefined();
+    expect((await b.getSample('cloud'))!.meta.source).toBe('cloud');
+  });
+
   it('loads notes saved without a velocity', async () => {
     const { mk } = setup();
     const a = mk();

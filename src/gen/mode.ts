@@ -1,3 +1,5 @@
+import {MAX_STEPS} from './protocol';
+import {MIN_STEPS} from './steps';
 export type GenerationMode = 'sample' | 'instrument';
 export interface ModeSettings { seconds: number; steps: number }
 export interface Preset { id: string; label: string; prompt: string; seconds: number }
@@ -25,7 +27,7 @@ interface StorageLike {getItem(k:string):string|null;setItem(k:string,v:string):
 export function loadModeSettings(storage:StorageLike|null,mode:GenerationMode):ModeSettings {
  const defaults=mode==='sample'?{seconds:2,steps:8}:{seconds:4,steps:16};
  try {const s=JSON.parse(storage?.getItem('sa3daw.gen.'+mode)??'null');
-  return s&&typeof s.seconds==='number'&&Number.isFinite(s.seconds)&&s.seconds>=.5&&s.seconds<=10&&Number.isInteger(s.steps)&&s.steps>=4&&s.steps<=16?s:defaults;
+  return s&&typeof s.seconds==='number'&&Number.isFinite(s.seconds)&&s.seconds>=.5&&s.seconds<=10&&Number.isInteger(s.steps)&&s.steps>=MIN_STEPS&&s.steps<=MAX_STEPS?s:defaults;
  }catch{return defaults;}
 }
 export function saveModeSettings(storage:StorageLike|null,mode:GenerationMode,s:ModeSettings){try{storage?.setItem('sa3daw.gen.'+mode,JSON.stringify(s));}catch{/* unavailable */}}

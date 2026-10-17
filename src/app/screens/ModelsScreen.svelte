@@ -5,6 +5,24 @@
   import { MODEL_NOTES, formatBytes, modelCards, type ModelCard } from '../format';
   import type { DownloadProgress } from '../../store/modelManager';
   import Sheet from '../Sheet.svelte';
+  import { clearApiKey, loadApiKey, maskKey, saveApiKey } from '../../store/apiKey';
+  import { CLOUD_CREDITS } from '../../gen/cloud';
+
+  const keyStore = typeof localStorage === 'undefined' ? null : localStorage;
+  let savedKey = $state(loadApiKey(keyStore));
+  let keyInput = $state('');
+  function saveKey() {
+    if (!saveApiKey(keyStore, keyInput)) return notify('The key was not saved');
+    savedKey = loadApiKey(keyStore);
+    keyInput = '';
+    notify('Key saved');
+  }
+  function clearKey() {
+    clearApiKey(keyStore);
+    savedKey = loadApiKey(keyStore);
+    keyInput = '';
+    notify('Key cleared');
+  }
 
   let cards = $state<ModelCard[]>(modelCards(null, {}));
   let loadError = $state('');
@@ -135,6 +153,14 @@
       </div>
     {/each}
 
+    <div class="sec">Cloud generation</div>
+    <div class="card">
+      <div class="note">Optional. Generate with Stable Audio 3 on Stability AI's servers using your own API key. The key stays on this device in this browser and is sent only to Stability AI. Each generation costs {CLOUD_CREDITS} Stability credits and needs a network connection.</div>
+      <div class="kv" style="margin-top:6px">Key<span class={savedKey ? 'ok' : 'warn'}>{savedKey ? maskKey(savedKey) : 'No key'}</span></div>
+      <input class="field" type="password" aria-label="Stability AI API key" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste your Stability AI key" bind:value={keyInput} />
+      <div class="btnrow"><button class="btn pri" disabled={!keyInput.trim()} onclick={saveKey}>Save key</button><button class="btn danger" disabled={!savedKey && !keyInput} onclick={clearKey}>Clear key</button></div>
+    </div>
+
     <div class="sec">Storage</div>
     <div class="card">
       {#if storage?.quota}
@@ -165,7 +191,7 @@
       {:else if confirm.kind === 'all'}
         Delete every downloaded model from this device? They can be downloaded again.
       {:else}
-        Delete all models, the project and every generated sound? This cannot be undone.
+        Delete all models, the project, every generated sound and the saved cloud key? This cannot be undone.
       {/if}
     </div>
     <div class="btnrow">

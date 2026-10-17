@@ -1,6 +1,10 @@
 import type { ModelId } from './protocol';
 
 export const MIN_SECONDS = 0.5;
+/** Cloud clips run from 1 s (the API minimum) to the protocol cap of 12 s. */
+export const CLOUD_MIN_SECONDS = 1;
+export const CLOUD_MAX_SECONDS = 12;
+export type LengthLimit = ModelId | 'cloud';
 export const SECONDS_STEP = 0.25;
 export const DEFAULT_SECONDS = 2;
 export const STORAGE_KEY = 'sa3daw.genSeconds';
@@ -25,12 +29,13 @@ export function parseSeconds(text: string): number | null {
 
 const round2 = (v: number) => Math.round(v * 100) / 100;
 
-export function clampSeconds(v: number, model: ModelId): number {
+export function clampSeconds(v: number, model: LengthLimit): number {
   if (!Number.isFinite(v)) return DEFAULT_SECONDS;
-  return round2(Math.min(MAX_SECONDS[model], Math.max(MIN_SECONDS, v)));
+  const cloud = model === 'cloud';
+  return round2(Math.min(cloud ? CLOUD_MAX_SECONDS : MAX_SECONDS[model], Math.max(cloud ? CLOUD_MIN_SECONDS : MIN_SECONDS, v)));
 }
 
-export function stepSeconds(v: number, dir: 1 | -1, model: ModelId): number {
+export function stepSeconds(v: number, dir: 1 | -1, model: LengthLimit): number {
   return clampSeconds(v + dir * SECONDS_STEP, model);
 }
 

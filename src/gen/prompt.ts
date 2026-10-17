@@ -7,6 +7,14 @@ export const MODEL_LABELS: Record<ModelId, string> = {
   medium: 'Medium',
 };
 
+export const CLOUD_MODEL_LABEL = 'Stable Audio 3 (cloud)';
+
+/** Label for the model recorded in a stored sample's meta. */
+export function sampleModelLabel(meta: { model?: string; source?: string }): string {
+  if (meta.source === 'cloud') return CLOUD_MODEL_LABEL;
+  return meta.model ? (MODEL_LABELS as Record<string, string>)[meta.model] ?? meta.model : '';
+}
+
 export interface ModelDefaults {
   steps: number;
   seconds: number;

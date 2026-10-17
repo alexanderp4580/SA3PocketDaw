@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isGenerateParams, isWorkerEvent, isWorkerRequest } from './protocol';
+import { MAX_STEPS, isGenerateParams, isWorkerEvent, isWorkerRequest } from './protocol';
 
 const ok = { model: 'small-music', prompt: 'x', seconds: 2, steps: 8, seed: 5 };
 
@@ -21,6 +21,8 @@ describe('request guards', () => {
     expect(isGenerateParams({ ...ok, seconds: NaN })).toBe(false);
     expect(isGenerateParams({ ...ok, steps: 0 })).toBe(false);
     expect(isGenerateParams({ ...ok, steps: 2.5 })).toBe(false);
+    expect(isGenerateParams({ ...ok, steps: MAX_STEPS })).toBe(true);
+    expect(isGenerateParams({ ...ok, steps: MAX_STEPS + 1 })).toBe(false);
     expect(isGenerateParams({ ...ok, seed: -1 })).toBe(false);
     expect(isGenerateParams({ ...ok, seed: 2 ** 32 })).toBe(false);
     expect(isGenerateParams({ ...ok, prompt: '  ' })).toBe(false);

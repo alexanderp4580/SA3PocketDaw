@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MIN_SECONDS, SECONDS_STEP, MAX_SECONDS, parseSeconds, clampSeconds, stepSeconds, outputFrames, loadSeconds, saveSeconds } from './length';
+import { CLOUD_MAX_SECONDS } from './length';
 import { smallLatentLength, mediumLatentLength } from './sampling';
 
 describe('parseSeconds', () => {
@@ -62,5 +63,16 @@ describe('persistence', () => {
   it('works without storage', () => {
     expect(loadSeconds(null, 'medium')).toBe(2);
     expect(() => saveSeconds(null, 3)).not.toThrow();
+  });
+});
+
+describe('cloud length', () => {
+  it('runs from 1 s to the 12 s cap', () => {
+    expect(CLOUD_MAX_SECONDS).toBe(12);
+    expect(clampSeconds(0.5, 'cloud')).toBe(1);
+    expect(clampSeconds(11.8, 'cloud')).toBe(11.8);
+    expect(clampSeconds(99, 'cloud')).toBe(12);
+    expect(stepSeconds(11.9, 1, 'cloud')).toBe(12);
+    expect(stepSeconds(1.1, -1, 'cloud')).toBe(1);
   });
 });

@@ -7,6 +7,7 @@ import {resolveControls,type InstrumentControls} from '../audio/instrument/contr
 import type { Engine } from '../audio/engine';
 import type { GenerationOutput } from '../gen/client';
 import type { GenerateParams } from '../gen/protocol';
+import { CLOUD_MODEL } from '../gen/cloud';
 import type { ProjectStore } from '../store/projectStore';
 import { newId, addTrack, setTrackSample, setRoot, setTrackTrim } from '../store/projectModel';
 import {applyTrim,resolveTrim,storedTrim,type Trim} from '../audio/trim';
@@ -21,7 +22,7 @@ export interface GeneratedResult {
   lowConfidence: boolean;
 }
 
-export interface PreparationOptions {analyseInstrument?:typeof analyseInstrument;signal?:AbortSignal;onAnalysis?:(f:number)=>void;dynamics?:'sustain'|'decay'}
+export interface PreparationOptions {cloud?:boolean;analyseInstrument?:typeof analyseInstrument;signal?:AbortSignal;onAnalysis?:(f:number)=>void;dynamics?:'sustain'|'decay'}
 export interface GeneratedDraft {trim?:Trim;sampleControls?:SampleControls;instrumentControls?:InstrumentControls;mode:'sample'|'instrument';pcm:Float32Array;sampleRate:number;rootMidi:number;lowConfidence:boolean;record:import('../store/projectStore').StoredSample}
 /** The model finished, but its audio could not be turned into an instrument; the audio is still usable as a sample. */
 export class InstrumentAnalysisError extends Error{readonly code='instrument-rejected' as const;constructor(message:string){super(message);this.name='InstrumentAnalysisError';}}
@@ -38,7 +39,8 @@ export async function prepareGeneration(params:GenerateParams,userPrompt:string,
   return {mode,pcm:prep.pcm,sampleRate:prep.sampleRate,rootMidi:root.midi,lowConfidence:root.lowConfidence,record:{instrument,pcm:prep.pcm,sampleRate:prep.sampleRate,meta: {
       mode,fullPrompt:params.prompt,
       prompt: userPrompt,
-      model: params.model,
+      model: deps.cloud?CLOUD_MODEL:params.model,
+      ...(deps.cloud?{source:'cloud' as const}:{}),
       seed: params.seed,
       steps: params.steps,
       seconds: params.seconds,

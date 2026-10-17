@@ -53,6 +53,14 @@ describe('isHandled', () => {
   });
 });
 
+describe('cloud generation requests', () => {
+  it('are never handled by the service worker', () => {
+    const base = 'https://api.stability.ai/v2beta/audio/';
+    expect(isHandled({ url: base + 'stable-audio/text-to-audio', method: 'POST', mode: 'cors' }, ORIGIN)).toBe(false);
+    expect(isHandled({ url: base + 'results/abc', method: 'GET', mode: 'cors' }, ORIGIN)).toBe(false);
+  });
+});
+
 describe('withIsolationHeaders', () => {
   it('adds COOP and COEP and keeps status and body', async () => {
     const out = withIsolationHeaders(new Response('hi', { status: 201, headers: { 'x-a': '1' } }));

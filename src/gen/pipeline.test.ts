@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CancelledError, createPipeline, type ModelSession, type Ports, type SessionKind, type TensorSpec } from './pipeline';
-import type { GenerateParams, ModelId } from './protocol';
+import { MAX_STEPS, type GenerateParams, type ModelId } from './protocol';
 import { mediumLatentLength, smallLatentLength } from './sampling';
 import { createTimingRecorder } from './timing';
 
@@ -79,6 +79,13 @@ describe('small pipeline', () => {
     expect(r.stats.nonFinite).toBe(0);
     expect(r.stats.peak).toBeGreaterThan(0);
     expect(r.stats.dims).toEqual([1, 2, 44100 * 3]);
+  });
+
+  it('runs MAX_STEPS denoise steps when asked for MAX_STEPS', async () => {
+    const f = fakePorts();
+    const r = await createPipeline(f.ports).generate(params({ steps: MAX_STEPS }), hooks().h);
+    expect(f.runs.filter((x) => x.kind === 'dit')).toHaveLength(MAX_STEPS);
+    expect(r.stages.filter((s) => s.name.startsWith('denoise-step-'))).toHaveLength(MAX_STEPS);
   });
 
   it('feeds the dit the small-model inputs with the expected latent length', async () => {

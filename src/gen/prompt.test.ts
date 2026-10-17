@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MODEL_DEFAULTS, buildPrompt, randomSeed } from './prompt';
+import { CLOUD_MODEL_LABEL, MODEL_DEFAULTS, MODEL_LABELS, buildPrompt, randomSeed, sampleModelLabel } from './prompt';
 
 describe('buildPrompt', () => {
   it('adds the sustained-note suffix for music and medium', () => {
@@ -25,5 +25,18 @@ describe('defaults and seed', () => {
     expect(randomSeed(() => 0)).toBe(0);
     expect(randomSeed(() => 0.999999999999)).toBeLessThanOrEqual(0xffffffff);
     expect(Number.isInteger(randomSeed())).toBe(true);
+  });
+});
+
+describe('model labels', () => {
+  it('names the cloud model without adding it to the on-device labels', () => {
+    expect(CLOUD_MODEL_LABEL).toBe('Stable Audio 3 (cloud)');
+    expect(Object.keys(MODEL_LABELS)).not.toContain('stable-audio-3');
+  });
+  it('labels a stored sample by its source', () => {
+    expect(sampleModelLabel({ model: 'medium' })).toBe('Medium');
+    expect(sampleModelLabel({ model: 'stable-audio-3', source: 'cloud' })).toBe('Stable Audio 3 (cloud)');
+    expect(sampleModelLabel({ model: 'old-thing' })).toBe('old-thing');
+    expect(sampleModelLabel({})).toBe('');
   });
 });

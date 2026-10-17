@@ -34,7 +34,7 @@ export interface GenerateOptions {
   signal?: AbortSignal;
 }
 
-export type GenerationErrorCode = 'not-installed' | 'not-available' | 'webgpu-unavailable' | 'webgpu-lost' | 'out-of-memory' | 'cancelled' | 'worker-crashed' | 'failed';
+export type GenerationErrorCode = 'not-installed' | 'not-available' | 'webgpu-unavailable' | 'webgpu-lost' | 'out-of-memory' | 'cancelled' | 'worker-crashed' | 'network' | 'timeout' | 'cloud-rejected' | 'failed';
 
 export class GenerationError extends Error {
   constructor(
