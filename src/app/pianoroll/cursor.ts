@@ -5,7 +5,7 @@ import type { Cell } from './geometry';
 export const GRIDS = [1, 2, 4, 8, 16] as const;
 export type Scale = 'major' | 'minor';
 
-const SCALES: Record<Scale, number[]> = {
+export const SCALES: Record<Scale, number[]> = {
   major: [0, 2, 4, 5, 7, 9, 11],
   minor: [0, 2, 3, 5, 7, 8, 10],
 };

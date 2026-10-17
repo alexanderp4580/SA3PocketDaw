@@ -231,3 +231,13 @@ Intended: hide the info card on the roll screen, fix a console 404 on load, offl
 - Other gates: the Generate sheet's own checks (model picker, on-device Generate, "Download models" with no key) are per source and unchanged; the piano roll "Generate sound" button is not gated on models.
 - Checks: `npm test` exit 0 (95 files, 830 tests), `npm run typecheck` exit 0 (0 errors, 0 warnings), `npm run build` exit 0.
 - Not verified (to check): the buttons appearing and disappearing in the real UI after Save/Clear key; behaviour with a live key; phone.
+
+## Chord strip — 2026-10-17 (branch `feature/piano-roll-chords`)
+
+- What exists: a Chords chip in the piano roll header toggles a row of seven chord buttons above the D-pad/Keys switch. `src/app/pianoroll/chords.ts` builds the triads from the same major/minor tables the In-key filter uses (`keyRoot` pitch class, `scale` major or minor; any other value is treated as major), voices them close-position with the root nearest the cursor pitch (lower root on a tie), moves the whole chord by octaves into MIDI 24..96, and `placeChord` adds the notes through `place`, so length clipping, snapping and the pattern end behave as for single notes. A pitch that already has a note under the cursor is skipped. One `commit` makes one undo step.
+- Preview: each chord note goes through `onAudition` (as the Keys do), so the chord sounds as separate audition voices.
+- Cursor: the existing Place note button does not move the cursor, so a chord does not either. The chip state is per piano roll visit, like Grid and In-key.
+- Narrow screens: the header tool buttons shrink from 44 px to about 39 px at 320 px wide so seven fit; at 375 px and wider they stay 44 px.
+- Browser check (headless Chromium, harness page, Vite on port 5197): at 320x640 and 375x812 the page has no horizontal overflow with the strip closed or open, 7 chord buttons, none outside the viewport; ii placed 2 notes (the third pitch already existed in the harness pattern), info line "Placed Dm · 2 notes", undo restored the 9 original notes.
+- Checks: `npm test` exit 0 (96 files, 844 tests), `npm run typecheck` exit 0 (0 errors, 0 warnings), `npm run build` exit 0.
+- Not verified (to check): feel on a phone (strip height, tap targets of about 39 px at 320 px, hearing several audition voices at once); chord names for minor keys (natural minor, so v is minor, e.g. Em in A minor; no harmonic-minor V); sharp spelling only (C♯, never D♭).
