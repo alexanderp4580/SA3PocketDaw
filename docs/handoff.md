@@ -251,3 +251,9 @@ Intended: hide the info card on the roll screen, fix a console 404 on load, offl
 - Browser check (headless Chromium, harness page, Vite on port 5197): at 320x640 and 375x812 the page has no horizontal overflow with the strip closed or open, 7 chord buttons, none outside the viewport; ii placed 2 notes (the third pitch already existed in the harness pattern), info line "Placed Dm · 2 notes", undo restored the 9 original notes.
 - Checks: `npm test` exit 0 (96 files, 844 tests), `npm run typecheck` exit 0 (0 errors, 0 warnings), `npm run build` exit 0.
 - Not verified (to check): feel on a phone (strip height, tap targets of about 39 px at 320 px, hearing several audition voices at once); chord names for minor keys (natural minor, so v is minor, e.g. Em in A minor; no harmonic-minor V); sharp spelling only (C♯, never D♭).
+
+## Merged check — 2026-10-17
+
+- Looped samples and the chord strip on one tree: `npm test` exit 0 (97 files, 893 tests), `npm run typecheck` exit 0 (0 errors, 0 warnings), `npm run build` exit 0.
+- Headless Chromium on the production build with the Stability API stubbed by a synthetic 4 s tone (no network, no credits): the Cloud source with no models installed generates a Looped sound (`Loop 2.11–3.30 s`), Use creates a `loop` track whose stored sample has `loop` and `meta.mode: 'loop'`, and the Chords strip places C E G (60, 64, 67) in the piano roll.
+- Not verified (to check): audible playback of the held looped note, loop quality on real SA3 notes, and phone feel of both features.
