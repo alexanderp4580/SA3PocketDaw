@@ -252,3 +252,23 @@ describe('persisted master chain and effect plugins',()=>{
   const plain=mk();plain.set(addTrack(createProject(),'Solo','s'));await plain.flush();expect(Object.hasOwn((await mk().load())!,'masterPlugins')).toBe(false);
  });
 });
+
+describe('persisted preset tracks',()=>{
+ it('reloads a preset track and drops a preset type without an id',async()=>{
+  const {mk}=setup(),store=mk();
+  let p=addTrack(addTrack(addTrack(createProject(),'A','a'),'B','b'),'C','c');
+  p={...p,tracks:[{...p.tracks[0]!,soundType:'preset',presetId:'grand'},{...p.tracks[1]!,soundType:'preset'} as never,{...p.tracks[2]!,presetId:7} as never]};
+  store.save(p);await store.flush();
+  const loaded=(await mk().load())!;
+  expect(loaded.tracks[0]).toMatchObject({soundType:'preset',presetId:'grand'});
+  expect(loaded.tracks[1]!.soundType).toBeUndefined();
+  expect('presetId' in loaded.tracks[1]!).toBe(false);
+  expect('presetId' in loaded.tracks[2]!).toBe(false);
+ });
+ it('keeps a preset track when its project has no samples to delete',async()=>{
+  const {mk}=setup(),store=mk();let p=addTrack(createProject(),'A','a');
+  p={...p,tracks:[{...p.tracks[0]!,soundType:'preset',presetId:'mini-piano'}]};
+  store.set(p);await store.flush();
+  expect((await mk().load())!.tracks[0]!.presetId).toBe('mini-piano');
+ });
+});

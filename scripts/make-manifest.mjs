@@ -2,6 +2,7 @@ import { existsSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PACKS, expandPack } from './model-packs.mjs';
+import { instrumentPacks } from './instruments/manifest.mjs';
 
 /** Build the manifest object by reading real sizes from files under modelsDir. */
 export function buildManifest(modelsDir) {
@@ -18,6 +19,7 @@ export function buildManifest(modelsDir) {
       totalBytes: files.reduce((sum, f) => sum + f.bytes, 0),
     };
   });
+  packs.push(...instrumentPacks(modelsDir));
   return { version: 1, packs };
 }
 

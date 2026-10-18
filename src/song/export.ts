@@ -1,17 +1,19 @@
 import type {Project} from '../store/projectModel';
 import type {StoredSample} from '../store/projectStore';
 import {compileSong} from './events';
+import type {PresetHost} from '../audio/preset/host';
+import {isPresetTrack} from '../store/projectModel';
 import {arrangementBars} from './arrangement';
 import {renderSong,trimTail} from './render';
 import {log} from '../log';
 const scope=log.scope('song.export');
 export interface ExportProgress {stage:'Preparing'|'Rendering'|'Encoding';fraction:number}
-export interface ExportOptions {signal?:AbortSignal;onProgress?:(p:ExportProgress)=>void}
+export interface ExportOptions {signal?:AbortSignal;onProgress?:(p:ExportProgress)=>void;/** Where preset tracks read their samples; without it a preset track cannot be exported. */presets?:PresetHost}
 export function checkAbort(signal?:AbortSignal){if(signal?.aborted)throw new DOMException('Export cancelled','AbortError');}
 export function mp3Filename(name:string){return (name.replace(/[\/\\:*?"<>|]/g,'').replace(/^\.+/,'').trim()||'My song')+'.mp3';}
 export async function loadSongSnapshot(project:Project,store:{getSample:(id:string)=>Promise<StoredSample|null>},signal?:AbortSignal){
  checkAbort(signal);const snapshot=structuredClone(project),song=compileSong(snapshot);if(!song.events.length)throw Error('Add audible notes to the layout before exporting.');
- const sounds=new Map<string,StoredSample>();for(const id of new Set(song.events.map(e=>e.trackId))){checkAbort(signal);const track=snapshot.tracks.find(t=>t.id===id)!;const sample=track.sampleId?await store.getSample(track.sampleId):null;checkAbort(signal);if(!sample)throw Error(track.name+': sound is missing. Generate or restore it before exporting.');sounds.set(id,sample);}
+ const sounds=new Map<string,StoredSample>();for(const id of new Set(song.events.map(e=>e.trackId))){checkAbort(signal);const track=snapshot.tracks.find(t=>t.id===id)!;if(isPresetTrack(track))continue;const sample=track.sampleId?await store.getSample(track.sampleId):null;checkAbort(signal);if(!sample)throw Error(track.name+': sound is missing. Generate or restore it before exporting.');sounds.set(id,sample);}
  return {project:snapshot,sounds};
 }
 export async function exportSong(project:Project,store:{getSample:(id:string)=>Promise<StoredSample|null>},options:ExportOptions={}):Promise<Blob>{

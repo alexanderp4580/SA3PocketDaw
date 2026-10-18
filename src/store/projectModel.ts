@@ -50,6 +50,8 @@ export interface Track {
   /** Kept region of the original source in seconds; missing means the full clip. */
   trim?:Trim;
   soundType?:SoundType;
+  /** Sampled-instrument preset of a `preset` track (`BUILTIN_PRESETS` id or an `inst-` pack id without the prefix). */
+  presetId?:string;
   id: string;
   name: string;
   muted: boolean;
@@ -158,17 +160,23 @@ export function toggleMute(p: Project, trackId: string): Project {
 export function setRoot(p: Project, trackId: string, rootMidi: number): Project {
   return mapTrack(p, trackId, (t) => ({ ...t, rootMidi: clamp(Math.round(rootMidi), MIDI_MIN, MIDI_MAX) }));
 }
-/** 'loop' = a looped sample: its stored sound carries a loop region. */
-export type SoundType='sample'|'instrument'|'loop';
-export const soundTypeLabel=(t:Pick<Track,'soundType'>):'Sample'|'Instrument'|'Looped'=>t.soundType==='instrument'?'Instrument':t.soundType==='loop'?'Looped':'Sample';
+/** 'loop' = a looped sample: its stored sound carries a loop region. 'preset' = a sampled instrument named by `Track.presetId`; it has no stored sample. */
+export type SoundType='sample'|'instrument'|'loop'|'preset';
+export const soundTypeLabel=(t:Pick<Track,'soundType'>):'Sample'|'Instrument'|'Looped'|'Preset'=>t.soundType==='instrument'?'Instrument':t.soundType==='loop'?'Looped':t.soundType==='preset'?'Preset':'Sample';
+export const isPresetTrack=(t:Pick<Track,'soundType'|'presetId'>|undefined|null):boolean=>!!t&&t.soundType==='preset'&&!!t.presetId;
 export function setTrackSample(p: Project, trackId: string, sampleId: string | null, rootMidi?: number,soundType?:SoundType): Project {
-  return mapTrack(p, trackId, (t) => ({
+  return mapTrack(p, trackId, ({presetId:_preset,...t}) => ({
     ...t,
+    ...(t.soundType==='preset'&&!soundType?{soundType:undefined}:{}),
     sampleId,
     ...(sampleId!==t.sampleId?{trim:undefined}:{}),
     ...(soundType?{soundType,instrumentControls:undefined,sampleControls:undefined,trim:undefined}:{}),
     ...(rootMidi !== undefined ? { rootMidi: clamp(Math.round(rootMidi), MIDI_MIN, MIDI_MAX) } : {}),
   }));
+}
+/** Gives the track a sampled-instrument preset; the stored sound, its trim and its sound controls are dropped, notes stay. */
+export function setTrackPreset(p: Project, trackId: string, presetId: string): Project {
+  return mapTrack(p, trackId, ({trim:_trim,instrumentControls:_ic,sampleControls:_sc,...t}) => ({ ...t, sampleId: null, soundType: 'preset', presetId }));
 }
 export function setTrackTrim(p: Project, trackId: string, trim: Trim | undefined): Project {
   return mapTrack(p, trackId, ({trim:_old,...t}) => (trim ? { ...t, trim } : t));

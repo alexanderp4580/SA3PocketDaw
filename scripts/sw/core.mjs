@@ -55,3 +55,13 @@ export async function respond({ request, cache, fetchFn, origin }) {
   const res = await fetchFn(request);
   return withIsolationHeaders(res);
 }
+
+/** Store one complete body at a time; streaming large WASM responses can fail Cache.addAll on Chromium. */
+export async function precacheShell(cache, urls, fetchFn) {
+  for (const url of urls) {
+    const res = await fetchFn(new Request(url, { cache: 'reload' }));
+    if (!res.ok) throw new Error(`Shell asset ${url}: HTTP ${res.status}`);
+    const bytes = await res.arrayBuffer();
+    await cache.put(url, new Response(bytes, { status: res.status, statusText: res.statusText, headers: res.headers }));
+  }
+}

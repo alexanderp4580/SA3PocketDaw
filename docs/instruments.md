@@ -58,3 +58,66 @@ Generation prepares an uncommitted draft. Preview uses isolated audio, Use sound
 ## Tweak before Use
 
 Generated instrument results show brightness, attack, release and playback behavior controls before acceptance. Preview and primary Use sound stay visible while scrolling the mobile sheet. Controls are shared with the saved instrument editor. Draft edits leave the existing track/source untouched; Use carries the settings into the track, and regeneration starts fresh. Brightness changes update a playing preview; press Preview to hear envelope and behavior changes on a new note. Reset controls restores the source defaults.
+
+## Sampled instrument presets
+
+A track with `soundType: 'preset'` plays a multisampled instrument named by `presetId`. It needs no generation and stores no sample. Mini piano ships in the app (`public/instruments/mini-piano/`, 0.57 MB, precached by the service worker); the other presets are packs `inst-<id>` downloaded into Cache Storage. A preset that is not installed is silent without errors; the Tracks screen and the piano roll show "Preset not installed" and the Download button.
+
+### Packs
+
+| Pack | Download | Decoded | Velocity layers | Files (samples) | Notes |
+|---|---|---|---|---|---|
+| `mini-piano` (bundled) | 0.57 MB | 6.8 MB mono | 1 (of 2) | 19 (16) | every second Upright sample, tails 4/3/2 s with a fade, no loops |
+| `inst-upright` | 8.91 MB | 115.8 MB stereo | 2 (of 2) | 70 (66) | 33 regions per layer, 34 looped samples (loops kept, crossfaded) |
+| `inst-grand` | 10.76 MB | 116.9 MB mono | 5 (of 16) | 242 (238) | 30 notes in minor thirds A0..C8, 88 hammer-noise release samples, no string resonance |
+| `inst-ep-cp80` | 7.19 MB | 78.0 MB mono | 4 (of 4) | 85 (81) | tails scaled to 0.95 by the decoded budget |
+| `inst-ep-pianet` | 4.11 MB | 44.2 MB mono | 2 (of 2) | 53 (49) | 16 key-release noise regions |
+| `inst-ep-wurlitzer` | 1.66 MB | 17.7 MB mono | 4 (of 4) | 46 (42) | 20 centre keys, six regions reuse a file |
+
+Decoded memory is frames × channels × 4 bytes, summed over the pack's samples: it is what the app holds when every sample of the pack is decoded. The player decodes a file when a note first needs it, keeps files used by the tracks' patterns, evicts the least recently used others beyond a budget of 96 MB (64 MB when `navigator.deviceMemory` is 4 or less, 48 MB at 2 or less) and decodes everything a pattern needs before Play. A context running at 48 kHz decodes 8.8 % larger. Grand piano: 5 layers in mono because 120 MB decoded is the limit, not the download (45 MB allowed, 10.8 MB used); tails are 6 s up to centre key 47, 4.5 s up to 71, 3 s up to 91 and 2.25 s above, ended with a 120 ms fade, which is the configured 8/6/4/3 s scaled by 0.75 to fit the budget. The five layers are the original layers nearest to five equal velocity bands; the velocity ranges are re-split halfway between their centres (1-26, 27-50, 51-76, 77-104, 105-127).
+
+Pack folder: `preset.json`, `samples/NNN.m4a`, `LICENSE.txt` and the source readme (copied from the library), `CREDITS.txt`. `preset.json` fields are documented in `src/audio/sfz/format.ts`; times are seconds, volumes dB, loops in seconds of the encoded file, optional fields are omitted at their default. Each sample is normalised by one gain per pack so the loudest region peaks at -6 dBFS at full velocity.
+
+### Playback
+
+- Regions for a note: key inside `lokey..hikey`, velocity inside `lovel..hivel`, every matching region plays (overlapping layers add). `trigger: 'release'` regions play at note end.
+- Rate `2^((key - center)/12 + tune/1200)` (`keytrack: 0` ignores the key). Gain `10^(volume/20) * ((1 - t) + t * (velocity/127)^2)` with `t` the region's `veltrack`; release triggers are attenuated by `rtDecay` dB per second the key was held.
+- Envelope: attack (at least 2 ms), hold, decay to sustain, release at note end (at least 15 ms); linear segments. Looped regions loop between their points until the note ends; the release happens inside the loop. `oneShot` regions ignore the note end.
+- At most 32 voices per preset player; a new voice beyond that fades the oldest over 30 ms.
+- A sample that is not decoded when its note is due starts late and keeps the note's end; one with less than 30 ms left is skipped.
+- Song export builds the same voices in the offline context, without the voice cap.
+
+### SFZ subset
+
+Parsed and used: `<control>` `default_path`, `set_ccN`/`set_hdccN` (default controller values); `<global>`/`<master>`/`<group>`/`<region>` inheritance; `#define $NAME value` and `#include "file"` (included files are read through an injected reader, defines apply textually); `//` and `/* */` comments; `sample`, `key`, `lokey`, `hikey`, `pitch_keycenter`, `pitch_keytrack`, `lovel`, `hivel`, `tune`, `transpose`, `volume`, `group_volume`, `pan`, `loop_mode` (`no_loop`, `one_shot`, `loop_continuous`), `loop_start`, `loop_end` (inclusive), `offset`, `end`, `ampeg_attack`, `ampeg_hold`, `ampeg_decay`, `ampeg_sustain`, `ampeg_release`, `amp_veltrack`, `trigger` (`attack`, `release`), `rt_decay`, `fil_type=lpf_1p|lpf_2p` with `cutoff`, `locc`/`hicc` conditions at the default controller values, `sw_default`/`sw_last` (only the default keyswitch region set is kept), and controller modulation `ampeg_*_onccN`, `amp_veltrack_onccN` (with `*_curveccN` curves 0 to 3) evaluated at the default controller values. Regions with `lokey=-1` (not note-triggered) are skipped. `loop_sustain` is built as `loop_continuous`; `trigger=first` and `legato` are built as note-on regions; `group` and `off_by` are parsed but not played.
+
+Opcodes found in the five libraries and ignored (the builder logs them as a warning with their region counts): `amplitude_oncc#`, `amplitude_curvecc#`, `pan_oncc#`, `pan_curvecc#`, `note_polyphony`, `off_time`, `offset_oncc#` (Salamander; the controller is at 0, so no offset), `width` (Upright). The controller defaults the libraries set for amplitude and pan are not applied (to check by ear: level against the original). Label opcodes (`region_label`, `group_label`, `master_label`, `sw_label`, `label_ccN`) and `default_path` need no warning; every other unknown opcode appears in the builder warning. The `offset` values of the EP libraries are applied when the samples are cut.
+
+### Building packs
+
+```
+node scripts/instruments/build.mjs <upright|grand|ep-cp80|ep-pianet|ep-wurlitzer|mini-piano|all> [--source DIR] [--out DIR] [--layers N] [--key-step N] [--decoded-mb N] [--download-mb N] [--bitrate KBPS] [--channels auto|mono|stereo] [--bake-loops|--no-bake-loops]
+```
+
+The libraries are read from `~/Music/sfz/` (read only). Packs are written to `models/inst-<id>/` (ignored by git); `mini-piano` to `public/instruments/mini-piano/`. Pack definitions (source paths, credit lines, licence, layers, tails, budgets) are in `scripts/instruments/packs.mjs`. `npm run manifest` lists the packs. The pipeline: parse the SFZ (warning for unsupported opcodes), choose velocity layers (`--layers`, original layers nearest to equal bands, ranges re-split to cover 1..127), optionally thin the keys (`--key-step`, ranges re-split), plan sample lengths (tail limit by register; looped samples end at the loop end plus 4096 frames; the tail scale is lowered in steps of 0.05 until the decoded size fits `--decoded-mb`; stereo falls back to mono under `--channels auto`), cut, fade, downmix, resample to 44.1 kHz with ffmpeg (`/usr/bin/ffmpeg`), apply the pack gain, encode AAC-LC in `.m4a` (the highest bitrate of 128 down to 32 kbit/s per channel whose total fits `--download-mb`), write `preset.json` (validated with `normalizePreset`) and copy the licence files.
+
+Looped samples: SFZ loop points (source frames, `loop_end` inclusive) become seconds of the encoded file. The loop tail is crossfaded into the material before the loop start (30 ms, equal power) before encoding, and the file ends after the loop with the loop continued, so a decoder that returns a few frames fewer than it was given does not move the loop end.
+
+### Codec and loop check
+
+Chromium (headless 1243) decodes the ffmpeg-encoded `.m4a` sample-exactly: a test tone starting at frame 10000 has its first sample above 0.02 at frame 10001, the expected position, and the decoded length equals the input length; the encoder delay is removed through the file's edit list. Looped files from the 66-sample Upright were decoded in Chromium with `scripts/instruments/verify.mjs` and the jump at the loop wrap was measured as the extrapolation error divided by the roughness of the nearby audio:
+
+| Audio | median | max |
+|---|---|---|
+| original FLAC, library loop points | 12.0 | 49.0 |
+| AAC without baked crossfade | 15.1 | 49.8 |
+| AAC with baked crossfade (shipped) | 2.4 | 9.1 |
+
+Lossy encoding alone does not worsen the library's loops; the baked crossfade lowers the wrap jump about fivefold. A held C3 note of 8 s rendered offline with the shipped pack keeps sounding (RMS 0.0027 at 6 to 7 s) and the largest step between neighbouring samples from 2 s to 7.5 s is 0.002.
+
+### Not verified
+
+- Phone decode time and memory with the large packs; the 96/64/48 MB budget is untested on devices.
+- Safari and iOS decoding of the `.m4a` files and their edit-list handling (the loop positions depend on it).
+- Sound quality and the loop crossfade by ear; Salamander velocity layer balance after reducing 16 layers to 5.
+- Release triggers other than the Salamander hammer noise and Pianet key-up noise; Salamander string resonance and pedal samples are not used.

@@ -1,0 +1,15 @@
+# Demo ledger — plan: docs/superpowers/plans/2026-10-18-bars-demo.md
+
+Baseline: main 893 tests, transcriber 957 tests, presets 1022 tests passed in this session's review. All typechecks/builds passed. Original worktrees preserved.
+Ruling: integrate into an isolated demo branch without committing other workers' unfinished changes to their branches; provide LAN HTTPS demo using local packs. This satisfies a demo without requiring external model publication.
+Ruling: 1/16 quantization and standalone piano generation are the requested first demo, per the preceding proposal. Model duration is capped at 12 seconds; expose fitting bar counts at current BPM.
+Task 1: integrated preset and transcriber branches in isolated demo; original branches untouched. Stop-while-decode regression RED (1 source started after stop) -> GREEN.
+Task 2: 6 note conversion/range tests RED (missing module) -> GREEN.
+Task 3: 4 pipeline tests RED (missing module) -> GREEN, covering cancellation and empty result.
+Task 4: sheet implemented with in-place note history and isolated draft audition. Browser real Small Music CPU generation (2 bars, 120 BPM, 4 s) + real ByteDance transcription returned 18 notes. Keep/Undo/Redo/reload pass, zero page errors, 375px no overflow.
+Review: independent reviewer identified profile eviction when preview removed other tracks, and Stop failing while context resume pending. Both addressed: preview retains every source and mutes others; play captures epoch before unlock. Regression tests observed RED then GREEN. Generator worker disposed between SA3 and transcription; transcriber unloaded before later generation to limit simultaneous WASM heaps.
+Task 5: final checks in progress. Demo fixture is the 18-note real take (src/melody/demoNotes.json), loaded only for fresh projects with ?demo=1. User can install local generator/transcriber in the sheet; no key is embedded.
+Task 5: complete. Final real-generation browser rerun after cancellation/preview fixes: 18 notes, Keep/Undo/Redo/reload all pass, zero browser errors. Fresh 320×640 browser on the LAN HTTPS URL: demo fixture 18 notes, sheet no overflow, offline reload retains 18 notes and bundled preset, zero browser errors.
+Ruling: fix inherited service-worker install failure discovered during the required offline check. Original cache.add() failed on 21–24 MB streamed WASM responses while full-body buffering + cache.put succeeded over both HTTP and HTTPS. Sequential precache helper regression RED -> GREEN (15 tests); independent reviewer found no important issue. Final build 8db6ad45986a, 51 URLs.
+Independent final review: both initial important findings fixed and verified; no remaining important concerns in inspected changes. Main branch and original transcriber/preset worktrees remain unchanged; this demo branch stays separate for testing.
+Hosting: detached node server PID recorded by ss, HTTPS 8444 and loopback HTTP 8084. Logs /tmp/sa3-bars-demo-server.log. Existing firewall permits the port; no firewall changes made.

@@ -9,6 +9,7 @@
   import PianoRoll from './app/screens/PianoRoll.svelte';
   import InstrumentSheet from './app/screens/InstrumentSheet.svelte';
   import GenerateSheet from './app/screens/GenerateSheet.svelte';
+  import PresetPicker from './app/screens/PresetPicker.svelte';
   import ModelsScreen from './app/screens/ModelsScreen.svelte';
   import DebugScreen from './app/screens/DebugScreen.svelte';
   import LoopSheet from './app/LoopSheet.svelte';
@@ -18,7 +19,8 @@
   import { engine } from './app/services';
   import { audioUnlockOnce } from './app/unlock';
   import { NOTE_ROOTS } from './app/format';
-  import {trackBars,setTrackBars,toggleSolo,type Track} from './store/projectModel';
+  import {trackBars,setTrackBars,toggleSolo,isPresetTrack,type Track} from './store/projectModel';
+  import {presetLabel} from './app/presets';
 
   let exportOpen=$state(false);
   let entered = $state(false);
@@ -28,6 +30,8 @@
   let tweakId=$state<string|null>(null);
   let newTrackOpen=$state(false);
   let generateId = $state<string | null>(null);
+  /** Instrument picker: `{track: null}` adds a new track, a track id changes that track. */
+  let picker = $state<{ track: string | null } | null>(null);
 
   const rollTrack = $derived(ui.project?.tracks.find((t) => t.id === rollId) ?? null);
   const showHeader = $derived(route === 'tracks' && !rollTrack);
@@ -49,6 +53,7 @@
     const p = ui.project;
     return {
       ...(t.sampleId ? { sampleName: 'Generated' } : {}),
+      ...(isPresetTrack(t) ? { presetName: presetLabel(t.presetId!, ui.presetCards), onOpenPreset: () => (picker = { track: t.id }) } : {}),
       onOpenGenerate: () => (generateId = t.id),
       ...(t.sampleId?{onOpenInstrument:()=>tweakId=t.id}:{}),
       keyRoot: Math.max(0, NOTE_ROOTS.indexOf((p?.key ?? 'C') as (typeof NOTE_ROOTS)[number])),
@@ -64,7 +69,7 @@
     route = r;
     if (r !== 'tracks') rollId = null;
   }
-  function openModels(){newTrackOpen=false;generateId=null;tweakId=null;navigate('models');}
+  function openModels(){newTrackOpen=false;generateId=null;tweakId=null;picker=null;navigate('models');}
   function openDebugFromGate() {
     entered = true;
     route = 'debug';
@@ -99,7 +104,7 @@
             {...rollExtras(rollTrack)}
           />
         {:else}
-          <TracksScreen onmodels={openModels} onmix={id=>{mixId=id;route='mix';}} onadd={()=>newTrackOpen=true} onroll={(id) => (rollId = id)} ongenerate={(id) => (generateId = id)} ontweak={id=>tweakId=id} />
+          <TracksScreen onmodels={openModels} onmix={id=>{mixId=id;route='mix';}} onadd={()=>newTrackOpen=true} onroll={(id) => (rollId = id)} ongenerate={(id) => (generateId = id)} ontweak={id=>tweakId=id} onpreset={id=>picker={track:id}} />
         {/if}
       {:else if route==='layout' && ui.project}
         <LayoutScreen onexport={()=>exportOpen=true} onroll={id=>{navigate('tracks');rollId=id;}}/>
@@ -117,10 +122,11 @@
   {#if exportOpen}<SongExportSheet onclose={()=>exportOpen=false}/>{/if}
   {#if ui.loopOpen}<LoopSheet />{/if}
   {#if tweakId}<InstrumentSheet onmodels={openModels} trackId={tweakId} onclose={()=>tweakId=null} ongenerate={()=>{generateId=tweakId;tweakId=null;}} />{/if}
-  {#if newTrackOpen}<GenerateSheet onmodels={openModels} trackId={null} onclose={()=>newTrackOpen=false} onuse={id=>rollId=id} />{/if}
+  {#if newTrackOpen}<GenerateSheet onmodels={openModels} trackId={null} onclose={()=>newTrackOpen=false} onuse={id=>rollId=id} onpreset={()=>{newTrackOpen=false;picker={track:null};}} />{/if}
   {#if generateId}
-    <GenerateSheet onmodels={openModels} trackId={generateId} onclose={() => (generateId = null)} />
+    <GenerateSheet onmodels={openModels} trackId={generateId} onclose={() => (generateId = null)} onpreset={()=>{const id=generateId;generateId=null;picker={track:id};}} />
   {/if}
+  {#if picker}<PresetPicker trackId={picker.track} onclose={()=>picker=null} onuse={(id,created)=>{if(created)rollId=id;}} />{/if}
 {/if}
 {#if ui.toast}<div class="toast" role="status">{ui.toast}</div>{/if}
 

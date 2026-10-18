@@ -147,3 +147,37 @@ describe('sound types', () => {
     expect(soundTypeLabel({ ...p.tracks[0]!, soundType: undefined })).toBe('Sample');
   });
 });
+
+describe('preset tracks', () => {
+  it('gives a track a preset, keeping its notes and dropping the stored sound', async () => {
+    const { setTrackPreset, setTrackSample, setTrackTrim, addNote, addTrack, createProject, isPresetTrack, soundTypeLabel } = await import('./projectModel');
+    let p = addTrack(createProject(), 'A', 't1');
+    p = setTrackSample(p, 't1', 's1', 55, 'instrument');
+    p = setTrackTrim(p, 't1', { start: 0.1, end: 0.5 });
+    p = addNote(p, 't1', { midi: 60, start: 0, length: 2 });
+    p = setTrackPreset(p, 't1', 'grand');
+    const t = p.tracks[0]!;
+    expect(t).toMatchObject({ soundType: 'preset', presetId: 'grand', sampleId: null });
+    expect(t.trim).toBeUndefined();
+    expect(t.notes).toHaveLength(1);
+    expect(isPresetTrack(t)).toBe(true);
+    expect(soundTypeLabel(t)).toBe('Preset');
+    expect(setTrackPreset(p, 't1', 'upright').tracks[0]!.presetId).toBe('upright');
+    expect(setTrackPreset(p, 'missing', 'grand')).toBe(p);
+  });
+  it('a new sample replaces the preset', async () => {
+    const { setTrackPreset, setTrackSample, addTrack, createProject, isPresetTrack } = await import('./projectModel');
+    let p = setTrackPreset(addTrack(createProject(), 'A', 't1'), 't1', 'grand');
+    p = setTrackSample(p, 't1', 's9', 60, 'sample');
+    expect(p.tracks[0]!.presetId).toBeUndefined();
+    expect(p.tracks[0]!.soundType).toBe('sample');
+    expect(isPresetTrack(p.tracks[0]!)).toBe(false);
+    p = setTrackSample(setTrackPreset(p, 't1', 'grand'), 't1', 's9');
+    expect(isPresetTrack(p.tracks[0]!)).toBe(false);
+  });
+  it('is not a preset track without an id', async () => {
+    const { isPresetTrack } = await import('./projectModel');
+    expect(isPresetTrack({ soundType: 'preset' })).toBe(false);
+    expect(isPresetTrack(undefined)).toBe(false);
+  });
+});

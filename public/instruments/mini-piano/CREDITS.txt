@@ -1,0 +1,8 @@
+Mini piano
+
+Mini piano from Upright Piano KW, recorded by Gonzalo and Roberto (FreePats), released under CC0 1.0.
+Changes: resampled to 44.1 kHz, shortened, lossy-encoded as AAC, fewer velocity layers.
+
+Licence: CC0 1.0
+Source: http://freepats.zenvoid.org/Piano/acoustic-grand-piano.html#UprightKW
+Licence text: LICENSE.txt

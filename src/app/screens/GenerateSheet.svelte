@@ -29,7 +29,7 @@
   import {resolveControls,type InstrumentControls} from '../../audio/instrument/controls';
   import Waveform from '../Waveform.svelte';
 
-  let { trackId, onclose, onuse, onmodels }: { trackId: string|null; onclose: () => void;onuse?:(id:string)=>void;onmodels:()=>void } = $props();
+  let { trackId, onclose, onuse, onmodels, onpreset }: { trackId: string|null; onclose: () => void;onuse?:(id:string)=>void;onmodels:()=>void;onpreset?:()=>void } = $props();
 
   type Phase = 'form' | 'running' | 'done' | 'error';
   let phase = $state<Phase>('form');
@@ -240,6 +240,7 @@
 
 <Sheet title="✦ Generate" sub={track ? `For ${track.name}` : 'New track · created when you choose Use'} tall onclose={onclose} closable={phase !== 'running'&&!saving}>
   {#if phase === 'form' || phase === 'error'}
+    {#if onpreset}<div class="btnrow presetrow"><button class="btn" aria-label="Choose an instrument preset" onclick={onpreset}>♪ Instruments</button></div><div class="note">Sampled pianos and electric pianos that need no generating.</div>{/if}
     {#if !ui.modelsReady||!sourceReady}<p class="note">{!ui.modelsReady?'Checking downloaded models…':'Loading sound…'}</p>
     {:else if !anyInstalled && !hasKey}<div class="btnrow"><button class="btn sa3" aria-label="Open models" onclick={onmodels}>Download models</button></div><div class="note">Or add a Stability AI key on the Models screen to generate in the cloud.</div>
     {:else}

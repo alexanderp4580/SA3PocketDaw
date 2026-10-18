@@ -6,6 +6,10 @@
   import type { DownloadProgress } from '../../store/modelManager';
   import Sheet from '../Sheet.svelte';
   import { clearApiKey, loadApiKey, maskKey, saveApiKey } from '../../store/apiKey';
+  import { presetCards, type PresetCard } from '../presets';
+  import { cancelPresetDownload, downloadPreset, presetDownload, presetDownloadPercent, dismissPresetDownloadError } from '../presetDownload.svelte';
+  import { packIdOf } from '../../audio/preset/catalog';
+  import { engine } from '../services';
   import { CLOUD_CREDITS } from '../../gen/cloud';
   import { CREDIT_LINE, PACK_ID, PACK_LABEL, transcriberPack, type TranscriberPack } from '../../transcribe/pack';
 
@@ -34,7 +38,9 @@
   let persistNote = $state('');
   let busy = $state<{ id: string; progress: DownloadProgress | null; error: string } | null>(null);
   let controller = $state<AbortController | null>(null);
-  let confirm = $state<null | { kind: 'model'; card: ModelCard } | { kind: 'transcriber' } | { kind: 'all' } | { kind: 'clear' }>(null);
+  let confirm = $state<null | { kind: 'model'; card: {id:string;label:string} } | { kind: 'transcriber' } | { kind: 'all' } | { kind: 'clear' }>(null);
+  let previewing = $state<string | null>(null);
+
   let freeing = $state(false);
 
   async function refresh() {
@@ -43,7 +49,9 @@
       const states = await models.packStates();
       cards = modelCards(models.getManifest(), states);
       tpack = transcriberPack(models.getManifest(), states);
+
       ui.modelCards = cards;
+      ui.presetCards = presetCards(models.getManifest(), states);
       ui.modelsReady = true;
       loadError = '';
     } catch (e) {
@@ -75,6 +83,13 @@
     }
   }
 
+  async function previewPreset(c: PresetCard) {
+    previewing = c.id;
+    const ok = await engine.previewPreset(c.id).catch(() => false);
+    previewing = null;
+    if (!ok) notify('This instrument is not installed');
+  }
+
   async function runConfirm() {
     const c = confirm;
     confirm = null;
@@ -102,7 +117,8 @@
 
   const pct = (p: DownloadProgress | null) => (p && p.packTotal > 0 ? Math.round((p.packBytes / p.packTotal) * 100) : 0);
   const usagePct = $derived(storage?.quota ? Math.min(100, ((storage.usage ?? 0) / storage.quota) * 100) : 0);
-  const anyInstalled = $derived(cards.some((c) => c.status !== 'missing') || tpack.status !== 'missing');
+  const anyInstalled = $derived(cards.some((c) => c.status !== 'missing') || tpack.status !== 'missing' || ui.presetCards.some((c) => !c.builtin && c.status !== 'missing'));
+
 </script>
 
 <div class="content">
@@ -200,6 +216,55 @@
         </div>
       {/if}
     </div>
+    <div class="sec">Instruments</div>
+    <div class="note">Sampled instruments for the piano roll. They play without generating and work offline once downloaded.</div>
+    {#each ui.presetCards as c (c.id)}
+      {@const busyHere = presetDownload.id === c.id}
+      <div class="card">
+        <div class="row">
+          <b>{c.name}</b>
+          <span class="tag" class:ok={c.status === 'installed'} class:warn={c.status === 'partial'}>{c.builtin ? 'built in' : c.status === 'installed' ? 'installed' : c.status === 'partial' ? 'partial' : 'not installed'}</span>
+        </div>
+        <div class="note">{c.builtin ? 'Part of the app. No download needed.' : `${formatBytes(c.bytes)} · ${c.presentFiles}/${c.totalFiles} files stored`}</div>
+        {#if c.credits[0]}<div class="note">{c.credits[0]}</div>{/if}
+        {#if busyHere}
+          {#if presetDownload.error}<div class="note bad" role="alert">{presetDownload.error}</div>{/if}
+          {#if presetDownload.progress && !presetDownload.error}
+            <div class="bar" role="progressbar" aria-valuenow={presetDownloadPercent()} aria-valuemin="0" aria-valuemax="100"><i style="width:{presetDownloadPercent()}%"></i></div>
+            <div class="note">{presetDownloadPercent()}% · {formatBytes(presetDownload.progress.packBytes)} of {formatBytes(presetDownload.progress.packTotal)}</div>
+          {:else if !presetDownload.error}<div class="note">Starting download</div>{/if}
+          <div class="btnrow">
+            {#if presetDownload.error}
+              <button class="btn" onclick={dismissPresetDownloadError}>Dismiss</button>
+              <button class="btn pri" onclick={() => void downloadPreset(c.id, c.name)}>Retry download</button>
+            {:else}
+              <button class="btn danger" onclick={cancelPresetDownload}>Cancel</button>
+            {/if}
+          </div>
+        {:else}
+          <div class="btnrow">
+            {#if c.status === 'installed'}<button class="btn" disabled={previewing !== null} onclick={() => void previewPreset(c)}>{previewing === c.id ? 'Playing' : 'Preview'}</button>{/if}
+            {#if !c.builtin && c.status !== 'installed'}
+              <button class="btn pri" disabled={busy !== null || presetDownload.id !== null} onclick={() => void downloadPreset(c.id, c.name)}>{c.status === 'partial' ? 'Resume download' : 'Download'}</button>
+            {/if}
+            {#if !c.builtin && c.status !== 'missing'}
+              <button class="btn danger" disabled={busy !== null || presetDownload.id !== null} onclick={() => (confirm = { kind: 'model', card: { id: packIdOf(c.id), label: c.name } })}>Delete</button>
+            {/if}
+          </div>
+        {/if}
+      </div>
+    {/each}
+
+    <div class="sec">Instrument credits</div>
+    <div class="card">
+      {#each ui.presetCards as c (c.id)}
+        <div class="credit">
+          <b>{c.name}</b>{#if c.license} <span class="tag">{c.license}</span>{/if}
+          {#each c.credits as line (line)}<div class="note">{line}</div>{/each}
+        </div>
+      {/each}
+
+    </div>
 
     <div class="sec">Cloud generation</div>
     <div class="card">
@@ -225,7 +290,7 @@
     <div class="sec">Memory and data</div>
     <div class="card">
       <div class="btnrow" style="margin-top:0"><button class="btn" disabled={freeing} onclick={free}>{freeing ? 'Freeing' : 'Free model memory'}</button></div>
-      <div class="btnrow"><button class="btn danger" disabled={!anyInstalled || busy !== null} onclick={() => (confirm = { kind: 'all' })}>Delete all models</button></div>
+      <div class="btnrow"><button class="btn danger" disabled={!anyInstalled || busy !== null} onclick={() => (confirm = { kind: 'all' })}>Delete all models and instruments</button></div>
       <div class="btnrow"><button class="btn danger" disabled={busy !== null} onclick={() => (confirm = { kind: 'clear' })}>Clear all app data</button></div>
     </div>
   </div>
@@ -238,10 +303,11 @@
         Delete {confirm.card.label} from this device? It can be downloaded again. The shared encoder stays while another model needs it.
       {:else if confirm.kind === 'transcriber'}
         Delete {PACK_LABEL} from this device? It can be downloaded again.
+
       {:else if confirm.kind === 'all'}
-        Delete every downloaded model from this device? They can be downloaded again.
+        Delete every downloaded model and instrument from this device? They can be downloaded again.
       {:else}
-        Delete all models, the project, every generated sound and the saved cloud key? This cannot be undone.
+        Delete all models and instruments, the project, every generated sound and the saved cloud key? This cannot be undone.
       {/if}
     </div>
     <div class="btnrow">
@@ -250,3 +316,9 @@
     </div>
   </Sheet>
 {/if}
+
+<style>
+  .credit { padding: 8px 0; border-bottom: 1px solid #262a32; }
+  .credit:last-child { border: 0; }
+  .credit b { font-size: 14px; }
+</style>

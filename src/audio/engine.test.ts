@@ -256,3 +256,10 @@ describe('engine loop',()=>{
   expect(f.started[0]!.loop).toBe(true);expect(f.started[0]!.until).toBeGreaterThan(2.5);
  });
 });
+
+it('Stop cancels Play while audio resume is pending',async()=>{
+ const f=fakeCtx(),ctx=f.mk();let resume!:()=>void;ctx.resume=()=>new Promise<void>(r=>resume=r);
+ const e=createEngine({createContext:()=>ctx});e.setProject(proj());e.setSample('s1',new Float32Array(100),44100);
+ const pending=e.play();e.stop();resume();await pending;
+ expect(e.isPlaying).toBe(false);expect(f.started).toHaveLength(0);
+});

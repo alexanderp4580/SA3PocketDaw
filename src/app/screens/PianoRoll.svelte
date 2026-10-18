@@ -1,6 +1,7 @@
 <script lang="ts">
   import { noteVelocity, DEFAULT_VELOCITY, type Bars, type Track } from '../../store/projectModel';
   import Sheet from '../Sheet.svelte';
+  import GenerateBarsSheet from '../GenerateBarsSheet.svelte';
   import {ui} from '../appState.svelte';
   import {loopRange} from '../../store/projectModel';
   import { midiToName } from '../../audio/pitch';
@@ -52,6 +53,8 @@
     onOpenGenerate,
     onOpenInstrument,
     sampleName,
+    presetName,
+    onOpenPreset,
     keyRoot = 0,
     scale = 'major',
   }: {
@@ -66,6 +69,9 @@
     onOpenGenerate?: () => void;
     onOpenInstrument?:()=>void;
     sampleName?: string;
+    /** Name of the track's instrument preset, or "Preset not installed". */
+    presetName?: string;
+    onOpenPreset?: () => void;
     keyRoot?: number;
     scale?: Scale;
   } = $props();
@@ -83,6 +89,7 @@
   let mode = $state<'dpad' | 'keys'>('dpad');
   let gridOpen = $state(false);
   let lengthOpen=$state(false);
+  let generateBarsOpen=$state(false);
   const range=$derived(ui.project?loopRange(ui.project):{startBar:1,endBar:bars});
   let kbBase = $state(60);
   let history = $state<History<Track['notes']>>(emptyHistory());
@@ -307,6 +314,7 @@
     <div class="line">
       <button class="ib" aria-label="Back to tracks" onclick={onBack}>←</button>
       <b class="name">{track.name}</b>
+      {#if presetName}<button class="ib preset" class:missing={presetName === 'Preset not installed'} aria-label="Instrument: {presetName}. Change instrument" title="Change instrument" onclick={() => onOpenPreset?.()}>♪ {presetName}</button>{/if}
       {#if onOpenInstrument}<button class="ib sound" aria-label={track.soundType==='instrument'?'Tweak instrument':'Edit sample'} title={track.soundType==='instrument'?'Edit instrument':'Edit sample'} onclick={onOpenInstrument}>⚙</button>{:else}<button class="ib sound" aria-label="Generate sound" title="Generate sound" disabled={!onOpenGenerate} onclick={()=>onOpenGenerate?.()}>✦</button>{/if}
       <button class="ib sq" aria-label="Undo" disabled={history.past.length === 0} onclick={doUndo}>↶</button>
       <button class="ib sq" aria-label="Redo" disabled={history.future.length === 0} onclick={doRedo}>↷</button>
@@ -320,6 +328,7 @@
       <button class="ib sq" class:on={chordsOn} aria-pressed={chordsOn} aria-label="Chords" title="Chord strip" onclick={() => (chordsOn = !chordsOn)}>♬</button>
       <button class="ib sq clear" aria-label="Clear all notes" title="Clear all notes" disabled={track.notes.length===0} onclick={doClear}>⌫</button>
     </div>
+    <button class="btn melody" onclick={()=>generateBarsOpen=true}>✦ Generate bars</button>
     <div class="infoline" aria-live="polite">{info}</div>
   </div>
 
@@ -450,6 +459,7 @@
 </section>
 
 <style>
+  .melody{min-height:36px;padding:4px 12px;margin:4px 0;background:var(--sa3-bg, #312345);color:var(--text);border:1px solid var(--sa3)}
   .tools{gap:4px}
   .tools .ib.sq{flex:0 1 44px;min-width:0}
   .chords{margin-bottom:8px;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
@@ -515,6 +525,22 @@
     place-items: center;
     font-size: 13px;
     font-weight: 600;
+  }
+  .ib.preset {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 46%;
+    display: block;
+    line-height: 44px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    background: var(--sa3bg);
+    color: var(--sa3);
+  }
+  .ib.preset.missing {
+    background: #3a2c14;
+    color: var(--yellow);
   }
   .ib.sq {
     width: 44px;
@@ -794,3 +820,5 @@
   .lengthstep{display:flex;align-items:center;justify-content:space-between;margin:16px 0;}
   .dpadrow{gap:6px;}.pad3{grid-template-columns:repeat(3,clamp(40px,12vw,58px));grid-template-rows:repeat(3,clamp(40px,12vw,58px));gap:4px;}.vel{flex:none;width:34px;}.pair{gap:3px;}.lenv{font-size:11px;}.len .btn{min-width:24px;}
 </style>
+
+{#if generateBarsOpen}<GenerateBarsSheet {track} {bars} onkeep={next=>commit(next)} onclose={()=>generateBarsOpen=false}/>{/if}

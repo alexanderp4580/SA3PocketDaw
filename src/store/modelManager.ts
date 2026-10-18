@@ -14,6 +14,9 @@ export interface Pack {
   requires: string[];
   files: ManifestFile[];
   totalBytes: number;
+  /** Instrument packs list their credit lines and licence. */
+  credits?: string[];
+  license?: string;
 }
 export interface Manifest {
   version: number;
@@ -281,11 +284,12 @@ export function createModelManager(options: ModelManagerOptions = {}) {
     return { quota: est.quota, usage: est.usage, persisted };
   }
 
-  async function openFile(path: string): Promise<Response> {
+  /** The stored file; `optional` lets a caller probe for a file that may be absent without an error log. */
+  async function openFile(path: string, optional = false): Promise<Response> {
     const cache = await caches.open(MODEL_CACHE_NAME);
     const res = await cache.match(urlFor(path));
     if (!res) {
-      scope.error(`openFile: ${path} is not installed`);
+      (optional ? scope.debug : scope.error)(`openFile: ${path} is not installed`);
       throw new Error(`Model file ${path} is not installed`);
     }
     return res;

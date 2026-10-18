@@ -65,6 +65,20 @@ describe('linkModels', () => {
 });
 
 describe('manifest', () => {
+  it('lists instrument packs after the model packs and leaves the model packs as they are', () => {
+    linkModels(poc, models);
+    const before = buildManifest(models);
+    mkdirSync(join(models, 'inst-grand/samples'), { recursive: true });
+    writeFileSync(join(models, 'inst-grand/preset.json'), JSON.stringify({ name: 'Grand piano', credits: ['Alexander Holm'], license: 'CC BY 3.0' }));
+    writeFileSync(join(models, 'inst-grand/samples/000.m4a'), Buffer.alloc(40));
+    const after = buildManifest(models);
+    expect(after.packs.slice(0, before.packs.length)).toEqual(before.packs);
+    const inst = after.packs.slice(before.packs.length);
+    expect(inst.map((p: any) => p.id)).toEqual(['inst-grand']);
+    expect(inst[0]).toMatchObject({ label: 'Grand piano', requires: [], credits: ['Alexander Holm'], license: 'CC BY 3.0' });
+    expect(inst[0].files.map((f: any) => f.path)).toEqual(['inst-grand/preset.json', 'inst-grand/samples/000.m4a']);
+  });
+
   it('lists real sizes with relative paths and per-pack totals', () => {
     linkModels(poc, models);
     const m = buildManifest(models);

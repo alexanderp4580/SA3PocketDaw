@@ -58,7 +58,15 @@ function done(tx: IDBTransaction): Promise<void> {
   });
 }
 
-function normalizeTrack(t:Project['tracks'][number]):Project['tracks'][number] {
+/** A preset needs both its type and a non-empty id; a stray half is dropped so the track loads as an ordinary empty one. */
+function normalizePreset(t:Project['tracks'][number]):Project['tracks'][number] {
+ const ok=typeof t.presetId==='string'&&t.presetId.length>0;
+ if(t.soundType==='preset'&&ok)return t;
+ const {presetId:_id,...rest}=t;
+ return t.soundType==='preset'?{...rest,soundType:undefined}:rest;
+}
+function normalizeTrack(track:Project['tracks'][number]):Project['tracks'][number] {
+ const t=track.presetId===undefined&&track.soundType!=='preset'?track:normalizePreset(track);
  const {trim,...rest}=t,valid=normalizeStoredTrim(trim),next=trim===undefined?t:valid?{...rest,trim:valid}:rest;
  return next.mix===undefined?next:{...next,mix:normalizeMix(next.mix)};
 }

@@ -1,7 +1,11 @@
 import processorUrl from '../audio/mixer/processor?worker&url';
 import {loadDragonfly} from '../audio/mixer/dragonfly';
 import {isFxType,normalizeMix,type PluginInstance} from '../audio/mixer/plugins';
-import {masterChain} from '../store/projectModel';
+import {masterChain,isPresetTrack} from '../store/projectModel';
+import type {Preset} from '../audio/sfz/format';
+import {regionsToPlay} from '../audio/sfz/select';
+import {toVelocity} from '../audio/preset/player';
+import {startRegionVoice,type PresetContext} from '../audio/preset/voice';
 import {dbGain,panGain,finite,normalizeEqSettings,normalizeReverbSettings,type ReverbSettings} from '../audio/mixer/model';
 import {playNote,type AudioContextLike} from '../audio/sampler';
 import {resolveControls,brightnessHz} from '../audio/instrument/controls';
@@ -22,7 +26,9 @@ export async function renderSong(project:Project,sounds:Map<string,StoredSample>
  const nodes:AudioNode[]=[],workers:Worker[]=[],worklets:AudioWorkletNode[]=[];let context:OfflineAudioContext|null=null;let finished=false;
  let rejectProcessing:(e:Error)=>void=()=>{};const processingFailure=new Promise<never>((_,reject)=>rejectProcessing=reject);void processingFailure.catch(()=>{});
  try{
- const masterPlugins=masterChain(project),chains=[...project.tracks.filter(t=>sounds.has(t.id)).map(t=>normalizeMix(t.mix).plugins),masterPlugins];
+ const presets=new Map<string,Preset>();
+ for(const t of project.tracks){if(!isPresetTrack(t)||!song.events.some(e=>e.trackId===t.id))continue;const preset=await options.presets?.load(t.presetId!);checkAbort(signal);if(!preset)throw Error(t.name+': preset is not installed. Download it before exporting.');presets.set(t.id,preset);}
+ const masterPlugins=masterChain(project),chains=[...project.tracks.filter(t=>sounds.has(t.id)||presets.has(t.id)).map(t=>normalizeMix(t.mix).plugins),masterPlugins];
  const algorithms=new Set(chains.flat().flatMap(p=>{if(p.type!=='reverb'||p.bypass)return [];const r=normalizeReverbSettings(p.settings as Partial<ReverbSettings>);return r.wet>0?[r.algorithm]:[];}));
  const modules=new Map(await Promise.all([...algorithms].map(async a=>[a,await loadDragonfly(a)] as const)));checkAbort(signal);
  // Compile required bytes before rendering, so unavailable or invalid DSP cannot become a dry export.
@@ -46,19 +52,29 @@ export async function renderSong(project:Project,sounds:Map<string,StoredSample>
   return output;};
  insert(sum,masterPlugins,'Master').connect(master);
  let count=0;
- for(const track of project.tracks){const source=sounds.get(track.id);if(!source)continue;const mix=normalizeMix(track.mix),input=ctx.createGain();input.channelCount=2;input.channelCountMode='explicit';nodes.push(input);
+ for(const track of project.tracks){const source=sounds.get(track.id),preset=presets.get(track.id);if(!source&&!preset)continue;const mix=normalizeMix(track.mix),input=ctx.createGain();input.channelCount=2;input.channelCountMode='explicit';nodes.push(input);
  const output=insert(input,mix.plugins,track.name);
  const pan=ctx.createStereoPanner(),gain=ctx.createGain();pan.pan.value=mix.pan;gain.gain.value=dbGain(mix.volumeDb)*panGain(mix.pan);output.connect(pan);pan.connect(gain);gain.connect(sum);nodes.push(pan,gain);
  const events=song.events.filter(e=>e.trackId===track.id);
- if(source.instrument){
- const controls=resolveControls(track.instrumentControls,source.instrument.dynamics),filter=ctx.createBiquadFilter();filter.type='lowpass';filter.Q.value=.707;filter.frequency.value=brightnessHz(controls.brightness,RATE);filter.connect(input);nodes.push(filter);
+ if(preset){
+  const files=new Map<number,AudioBuffer>(),need=new Set<number>();
+  const playsOf=(e:typeof events[number])=>{const vel=toVelocity(e.velocity);return {attack:regionsToPlay(preset,e.midi,vel),release:regionsToPlay(preset,e.midi,vel,'release',e.duration)};};
+  for(const e of events){const p=playsOf(e);for(const x of [...p.attack,...p.release])need.add(x.region.file);}
+  for(const index of need){checkAbort(signal);const data=await options.presets!.read(preset.id,preset.files[index]!.path);checkAbort(signal);files.set(index,await ctx.decodeAudioData(data));}
+  for(const e of events){checkAbort(signal);const p=playsOf(e);
+   for(const x of p.attack)startRegionVoice(ctx as unknown as PresetContext,{play:x,buffer:files.get(x.region.file)!,when:PREROLL+e.when,duration:e.duration,output:input});
+   for(const x of p.release)startRegionVoice(ctx as unknown as PresetContext,{play:x,buffer:files.get(x.region.file)!,when:PREROLL+e.when+e.duration,duration:0,output:input});
+   count++;}
+  onProgress?.({stage:'Preparing',fraction:count/song.events.length});
+ }else if(source!.instrument){
+ const controls=resolveControls(track.instrumentControls,source!.instrument.dynamics),filter=ctx.createBiquadFilter();filter.type='lowpass';filter.Q.value=.707;filter.frequency.value=brightnessHz(controls.brightness,RATE);filter.connect(input);nodes.push(filter);
  const worker=new Worker(new URL('./instrumentRender.worker.ts',import.meta.url),{type:'module'});workers.push(worker);
  const buffers=new Map<string,AudioBuffer>();
  for(const e of events){checkAbort(signal);const key=JSON.stringify([e.midi,e.duration,e.velocity]);let buffer=buffers.get(key);
- if(!buffer){const pcm=await new Promise<Float32Array>((resolve,reject)=>{const abort=()=>reject(new DOMException('Export cancelled','AbortError'));signal?.addEventListener('abort',abort,{once:true});const clean=()=>signal?.removeEventListener('abort',abort);worker.onerror=e=>{clean();reject(Error(e.message));};worker.onmessage=m=>{clean();m.data.error?reject(Error(m.data.error)):resolve(m.data.pcm);};worker.postMessage({profile:source.instrument,midi:e.midi,duration:e.duration,velocity:e.velocity,controls});});checkAbort(signal);buffer=ctx.createBuffer(1,pcm.length,RATE);buffer.copyToChannel(pcm as Float32Array<ArrayBuffer>,0);buffers.set(key,buffer);}
+ if(!buffer){const pcm=await new Promise<Float32Array>((resolve,reject)=>{const abort=()=>reject(new DOMException('Export cancelled','AbortError'));signal?.addEventListener('abort',abort,{once:true});const clean=()=>signal?.removeEventListener('abort',abort);worker.onerror=e=>{clean();reject(Error(e.message));};worker.onmessage=m=>{clean();m.data.error?reject(Error(m.data.error)):resolve(m.data.pcm);};worker.postMessage({profile:source!.instrument,midi:e.midi,duration:e.duration,velocity:e.velocity,controls});});checkAbort(signal);buffer=ctx.createBuffer(1,pcm.length,RATE);buffer.copyToChannel(pcm as Float32Array<ArrayBuffer>,0);buffers.set(key,buffer);}
  const voice=ctx.createBufferSource();voice.buffer=buffer;voice.connect(filter);voice.start(PREROLL+e.when);nodes.push(voice);onProgress?.({stage:'Preparing',fraction:++count/song.events.length});
  }worker.terminate();
- }else {const cut=applyTrim(source.pcm,source.sampleRate,track.trim),loop=trimmedLoop(source.loop,track.trim,source.pcm.length,source.sampleRate),buffer=ctx.createBuffer(1,cut.length,source.sampleRate);buffer.copyToChannel(cut as Float32Array<ArrayBuffer>,0);for(const e of events){checkAbort(signal);playNote(ctx as unknown as AudioContextLike,{buffer,root:track.rootMidi,note:e.midi,when:PREROLL+e.when,duration:e.duration,velocity:e.velocity,output:input,controls:track.sampleControls,loop});count++;}onProgress?.({stage:'Preparing',fraction:count/song.events.length});}
+ }else {const cut=applyTrim(source!.pcm,source!.sampleRate,track.trim),loop=trimmedLoop(source!.loop,track.trim,source!.pcm.length,source!.sampleRate),buffer=ctx.createBuffer(1,cut.length,source!.sampleRate);buffer.copyToChannel(cut as Float32Array<ArrayBuffer>,0);for(const e of events){checkAbort(signal);playNote(ctx as unknown as AudioContextLike,{buffer,root:track.rootMidi,note:e.midi,when:PREROLL+e.when,duration:e.duration,velocity:e.velocity,output:input,controls:track.sampleControls,loop});count++;}onProgress?.({stage:'Preparing',fraction:count/song.events.length});}
  }
  checkAbort(signal);onProgress?.({stage:'Rendering',fraction:0});checkAbort(signal);
  const length=ctx.length/RATE;

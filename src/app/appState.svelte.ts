@@ -1,6 +1,9 @@
 import { runCompat, type CompatResult } from '../compat';
+import demoNotes from '../melody/demoNotes.json';
+import {addTrack,setTrackPreset} from '../store/projectModel';
 import { createProject, type Project } from '../store/projectModel';
 import { modelCards, peaksOf } from './format';
+import { presetCards } from './presets';
 import { loadApiKey } from '../store/apiKey';
 import { engine, log, models, projectStore } from './services';
 
@@ -25,6 +28,7 @@ export const ui = $state({
   skipCompat: false,
   manifestError: null as string | null,
   modelCards: modelCards(null, {}),
+  presetCards: presetCards(null, {}),
   modelsReady: false,
   hasKey: loadSavedKey(),
 });
@@ -77,6 +81,10 @@ export function setPeaks(sampleId: string, pcm: Float32Array) {
 }
 
 export function defaultProject(): Project {
+  if(typeof location!=='undefined'&&new URLSearchParams(location.search).get('demo')==='1'){
+    let p=createProject({name:'SA3 melody demo',bpm:120,bars:2});p=addTrack(p,'SA3 piano melody','demo-piano');p=setTrackPreset(p,'demo-piano','mini-piano');
+    return {...p,tracks:p.tracks.map(t=>({...t,notes:demoNotes.map(n=>({...n}))}))};
+  }
   return createProject({ name: 'My song' });
 }
 
@@ -102,10 +110,13 @@ export async function initApp() {
 export async function refreshModelCards() {
   try {
     if (!models.getManifest()) await models.loadManifest();
-    ui.modelCards = modelCards(models.getManifest(), await models.packStates());
+    const states = await models.packStates();
+    ui.modelCards = modelCards(models.getManifest(), states);
+    ui.presetCards = presetCards(models.getManifest(), states);
     ui.manifestError = null;
   } catch (e) {
     ui.modelCards = modelCards(models.getManifest(), {});
+    ui.presetCards = presetCards(models.getManifest(), {});
     ui.manifestError = e instanceof Error ? e.message : String(e);
     scope.warn('model availability unavailable', ui.manifestError);
   } finally { ui.modelsReady = true; }

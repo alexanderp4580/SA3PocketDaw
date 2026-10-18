@@ -24,6 +24,11 @@ function fakeCache(entries: Record<string, string>) {
 }
 
 describe('buildPrecacheList', () => {
+  it('precaches the bundled instrument preset files but not downloaded packs', () => {
+    const list = buildPrecacheList(['instruments/mini-piano/preset.json', 'instruments/mini-piano/samples/000.m4a', 'models/inst-grand/preset.json']);
+    expect(list).toEqual(['/', '/instruments/mini-piano/preset.json', '/instruments/mini-piano/samples/000.m4a']);
+  });
+
   it('lists shell files, adds root, skips sw, maps and models', () => {
     const list = buildPrecacheList(['index.html', 'assets/a.js', 'assets/a.js.map', 'ort/x.wasm', 'gpu-probe.onnx', 'sw.js', 'models/manifest.json', 'manifest.webmanifest', 'icons/icon-192.png']);
     expect(list).toEqual(['/', '/assets/a.js', '/gpu-probe.onnx', '/icons/icon-192.png', '/index.html', '/manifest.webmanifest', '/ort/x.wasm']);
@@ -115,4 +120,14 @@ describe('buildSwSource', () => {
     expect(a.buildId).not.toBe(b.buildId);
     expect(buildIdFor(['/'], () => Buffer.from(''))).toHaveLength(12);
   });
+});
+
+it('precaches complete response bodies one at a time and rejects missing assets',async()=>{
+ // @ts-expect-error plain JS module
+ const {precacheShell}=await import('./core.mjs');
+ let active=0,max=0;const stored:string[]=[];
+ const cache={put:async(u:string,r:Response)=>{expect(await r.text()).toBe('bytes');stored.push(u);active--;}};
+ const fetcher=async()=>{active++;max=Math.max(max,active);return new Response('bytes',{headers:{'content-type':'application/wasm'}});};
+ await precacheShell(cache,[ORIGIN+'/one',ORIGIN+'/two'],fetcher);expect(max).toBe(1);expect(stored).toEqual([ORIGIN+'/one',ORIGIN+'/two']);
+ await expect(precacheShell(cache,[ORIGIN+'/missing'],async()=>new Response('',{status:404}))).rejects.toThrow(/404/);
 });

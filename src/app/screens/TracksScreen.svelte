@@ -1,13 +1,15 @@
 <script lang="ts">
   import { ui, updateProject, stop } from '../appState.svelte';
   import { canGenerateAnywhere } from '../../gen/source';
-  import { removeTrack, renameTrack, toggleMute, toggleSolo, trackBars, timelineBars, loopRange, soundTypeLabel } from '../../store/projectModel';
+  import { removeTrack, renameTrack, toggleMute, toggleSolo, trackBars, timelineBars, loopRange, soundTypeLabel, isPresetTrack, type Track } from '../../store/projectModel';
+  import { presetAvailability, presetLabel } from '../presets';
+  import { cancelPresetDownload, downloadPreset, presetDownload, presetDownloadPercent } from '../presetDownload.svelte';
   import { midiToName } from '../../audio/pitch';
   import { resolveSelected } from '../trackSelection';
   import PatternPreview from '../PatternPreview.svelte';
   import Sheet from '../Sheet.svelte';
 
-  let { onroll, ongenerate, ontweak, onadd, onmix, onmodels }: { onroll: (id: string) => void; ongenerate: (id: string) => void; ontweak:(id:string)=>void;onadd:()=>void;onmix:(id:string)=>void;onmodels:()=>void } = $props();
+  let { onroll, ongenerate, ontweak, onadd, onmix, onmodels, onpreset }: { onroll: (id: string) => void; ongenerate: (id: string) => void; ontweak:(id:string)=>void;onadd:()=>void;onmix:(id:string)=>void;onmodels:()=>void;onpreset:(trackId:string|null)=>void } = $props();
 
   const canGenerate=$derived(canGenerateAnywhere(ui.modelCards,ui.hasKey));
   const COLORS = ['#ff8a3d', '#4fb3ff', '#b685ff', '#3ddc84', '#ff6fa8', '#ffd23d', '#9aa3b5'];
@@ -22,6 +24,11 @@
   const bars = $derived(project?timelineBars(project):1);
   const range=$derived(project?loopRange(project):{startBar:1,endBar:1});
   const playLeft = $derived(`calc(116px + (100% - 116px) * ${Math.min(1, ui.step / (bars * 16))})`);
+
+  const presetOf = (t: Track | null | undefined) => (t && isPresetTrack(t) ? t.presetId! : null);
+  const presetNameOf = (t: Track) => ui.presetCards.find((c) => c.id === t.presetId)?.name ?? t.presetId ?? '';
+  const missingPreset = $derived(sel && presetOf(sel) && presetAvailability(presetOf(sel)!, ui.presetCards) === 'not-installed' ? sel : null);
+  const presetBusy = $derived(missingPreset && presetDownload.id === presetOf(missingPreset));
 
   function openMenu(id: string, name: string) {
     menuId = id;
@@ -53,7 +60,7 @@
     {#each project?.tracks ?? [] as t, i (t.id)}
       <div class="track" class:sel={sel?.id === t.id} style="--c:{COLORS[i % COLORS.length]}">
         <div class="thead">
-          <button class="tname" onclick={() => (selected = t.id)}>{t.name} <em>{t.sampleId ? t.soundType==='instrument'?'Instrument':`${soundTypeLabel(t)} · ${midiToName(t.rootMidi)}` : 'no sound'}</em></button>
+          <button class="tname" onclick={() => (selected = t.id)}>{t.name} <em>{t.sampleId ? t.soundType==='instrument'?'Instrument':`${soundTypeLabel(t)} · ${midiToName(t.rootMidi)}` : presetOf(t) ? presetLabel(presetOf(t)!, ui.presetCards) : 'no sound'}</em></button>
           <div class="tbtns">
             <button class="tb" class:on-m={t.muted} aria-pressed={t.muted} aria-label={t.muted ? `Unmute ${t.name}` : `Mute ${t.name}`} onclick={() => updateProject((p) => toggleMute(p, t.id))}>M</button>
             <button class="tb" class:on-s={t.solo} aria-pressed={!!t.solo} aria-label="Solo {t.name}" onclick={()=>updateProject(p=>toggleSolo(p,t.id))}>S</button>
@@ -71,12 +78,25 @@
     {/each}
     {#if !project?.tracks.length&&canGenerate}<div class="empty"><b>Create your first sound</b><p class="note">Choose a sample or instrument, then add notes in its piano roll.</p></div>{/if}
     {#if !ui.modelsReady}<p class="note" style="padding:12px">Checking downloaded models…</p>{:else if canGenerate}<button class="addtrack" aria-label="Generate new sound" onclick={onadd}>✦ Generate</button>{:else}<button class="addtrack" aria-label="Open models" onclick={onmodels}>Download models</button>{/if}
+    <button class="addtrack inst" aria-label="Add instrument track" onclick={() => onpreset(null)}>♪ Instruments</button>
     {#if ui.playing}<div class="playhead" style="left:{playLeft}"></div>{/if}
   </div>
+  {#if missingPreset}
+    <div class="presetbar" role="status">
+      <span>Preset not installed</span>
+      {#if presetBusy}
+        <span class="pct">{presetDownloadPercent()}%</span>
+        <button class="btn fit" onclick={cancelPresetDownload}>Cancel</button>
+      {:else}
+        <button class="btn sa3 fit" aria-label="Download preset for {missingPreset.name}" disabled={presetDownload.id !== null} onclick={() => void downloadPreset(presetOf(missingPreset)!, presetNameOf(missingPreset))}>Download</button>
+      {/if}
+      {#if presetBusy && presetDownload.error}<span class="bad">{presetDownload.error}</span>{/if}
+    </div>
+  {/if}
   {#if sel}
     <div class="selbar">
       <button class="sb" onclick={() => onroll(sel.id)}><b>♪</b>Open roll</button>
-      {#if sel.sampleId}<button class="sb hi" aria-label="Edit {sel.name} sound" onclick={()=>ontweak(sel.id)}><b>⚙</b>Edit</button>{:else if canGenerate}<button class="sb hi" onclick={() => ongenerate(sel.id)}><b>✦</b>Generate</button>{/if}
+      {#if sel.sampleId}<button class="sb hi" aria-label="Edit {sel.name} sound" onclick={()=>ontweak(sel.id)}><b>⚙</b>Edit</button>{:else if presetOf(sel)}<button class="sb hi" aria-label="Change instrument for {sel.name}" onclick={() => onpreset(sel.id)}><b>♪</b>Instrument</button>{:else if canGenerate}<button class="sb hi" onclick={() => ongenerate(sel.id)}><b>✦</b>Generate</button>{/if}
       <button class="sb" onclick={() => openMenu(sel.id, sel.name)}><b>✎</b>Rename</button>
       <button class="sb" onclick={() => { openMenu(sel.id, sel.name); confirmDelete = true; }}><b>⌫</b>Delete</button>
     </div>
@@ -92,6 +112,8 @@
         <button class="btn danger" onclick={del}>Delete</button>
       </div>
     {:else}
+      <div class="st">Instrument</div>
+      <div class="btnrow" style="margin-top:0"><button class="btn" aria-label="Choose instrument preset for {menuTrack.name}" onclick={() => { const id = menuTrack.id; menuId = null; onpreset(id); }}>♪ {presetOf(menuTrack) ? 'Change instrument' : 'Use an instrument'}</button></div>
       <div class="st">Name</div>
       <input class="field" aria-label="Track name" bind:value={renameText} onkeydown={(e) => e.key === 'Enter' && saveRename()} />
       <div class="btnrow">
@@ -134,4 +156,9 @@
   .sb { flex: 1; height: 48px; border-radius: 10px; background: var(--panel2); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; gap: 1px; }
   .sb b { font-size: 15px; font-weight: 400; }
   .sb.hi { background: var(--sa3bg); color: var(--sa3); }
+  .addtrack.inst { margin-top: 0; }
+  .presetbar { flex: none; display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #3a2c14; color: var(--yellow); font-size: 13px; }
+  .presetbar span:first-child { flex: 1; }
+  .presetbar .btn { height: 40px; font-size: 13px; }
+  .presetbar .bad { color: var(--red); }
 </style>

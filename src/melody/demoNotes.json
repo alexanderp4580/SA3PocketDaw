@@ -1,0 +1,128 @@
+[
+  {
+    "id": "n_4309b32d",
+    "midi": 48,
+    "start": 0,
+    "length": 32,
+    "velocity": 61
+  },
+  {
+    "id": "n_67507490",
+    "midi": 60,
+    "start": 0,
+    "length": 4,
+    "velocity": 82
+  },
+  {
+    "id": "n_9d067496",
+    "midi": 84,
+    "start": 1,
+    "length": 1,
+    "velocity": 50
+  },
+  {
+    "id": "n_3235acab",
+    "midi": 62,
+    "start": 2,
+    "length": 30,
+    "velocity": 63
+  },
+  {
+    "id": "n_e9c715eb",
+    "midi": 74,
+    "start": 2,
+    "length": 17,
+    "velocity": 68
+  },
+  {
+    "id": "n_270112f4",
+    "midi": 60,
+    "start": 4,
+    "length": 28,
+    "velocity": 43
+  },
+  {
+    "id": "n_03eecd0a",
+    "midi": 64,
+    "start": 4,
+    "length": 1,
+    "velocity": 56
+  },
+  {
+    "id": "n_7fb87c66",
+    "midi": 67,
+    "start": 4,
+    "length": 2,
+    "velocity": 49
+  },
+  {
+    "id": "n_a2326ad9",
+    "midi": 64,
+    "start": 5,
+    "length": 7,
+    "velocity": 39
+  },
+  {
+    "id": "n_07635e12",
+    "midi": 67,
+    "start": 6,
+    "length": 6,
+    "velocity": 84
+  },
+  {
+    "id": "n_3a8644ba",
+    "midi": 79,
+    "start": 6,
+    "length": 15,
+    "velocity": 86
+  },
+  {
+    "id": "n_34da20fc",
+    "midi": 65,
+    "start": 8,
+    "length": 24,
+    "velocity": 55
+  },
+  {
+    "id": "n_dcf5a3bc",
+    "midi": 77,
+    "start": 8,
+    "length": 3,
+    "velocity": 73
+  },
+  {
+    "id": "n_7a334fff",
+    "midi": 77,
+    "start": 11,
+    "length": 9,
+    "velocity": 46
+  },
+  {
+    "id": "n_f9c38838",
+    "midi": 64,
+    "start": 12,
+    "length": 20,
+    "velocity": 48
+  },
+  {
+    "id": "n_41e0407a",
+    "midi": 67,
+    "start": 12,
+    "length": 20,
+    "velocity": 40
+  },
+  {
+    "id": "n_2d64283e",
+    "midi": 76,
+    "start": 12,
+    "length": 12,
+    "velocity": 81
+  },
+  {
+    "id": "n_9b8f01fb",
+    "midi": 72,
+    "start": 16,
+    "length": 16,
+    "velocity": 89
+  }
+]

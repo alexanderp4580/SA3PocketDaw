@@ -229,6 +229,14 @@ describe('storage and files', () => {
     expect((await res.arrayBuffer()).byteLength).toBe(10);
     await expect(mm.openFile('nope')).rejects.toThrow(/not installed/i);
   });
+  it('openFile logs a missing file as an error unless the caller probes for it', async () => {
+    const logger = createLogger({ console: null });
+    make(makeFetch(), { log: logger });
+    await expect(mm.openFile('nope')).rejects.toThrow();
+    await expect(mm.openFile('nope2', true)).rejects.toThrow();
+    const missing = logger.entries().filter((e) => /openFile/.test(e.message));
+    expect(missing.map((e) => [e.level, e.message.includes('nope2')])).toEqual([['error', false], ['debug', true]]);
+  });
   it('requestPersistence reports support and the result', async () => {
     const storage = { persist: vi.fn(async () => true), persisted: vi.fn(async () => false), estimate: vi.fn(async () => ({ quota: 100, usage: 3 })) };
     make(makeFetch(), { storage });

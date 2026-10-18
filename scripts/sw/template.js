@@ -4,7 +4,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(CACHE_NAME);
-      await cache.addAll(PRECACHE.map((u) => new Request(u, { cache: 'reload' })));
+      await precacheShell(cache, PRECACHE, (request) => fetch(request));
       await self.skipWaiting();
     })(),
   );

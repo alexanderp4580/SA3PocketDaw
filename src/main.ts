@@ -2,7 +2,7 @@ import {exportSong} from './song/export';
 import {renderSong} from './song/render';
 import { mount } from 'svelte';
 import App from './App.svelte';
-import { buildReport, engine, generation, log, models, projectStore } from './app/services';
+import { buildReport, engine, generation, log, models, presetHost, projectStore } from './app/services';
 import { ui, setPeaks } from './app/appState.svelte';
 import { applyGeneration } from './app/generate';
 import { buildPrompt } from './gen/prompt';
@@ -22,6 +22,7 @@ Object.defineProperty(window, '__sa3', {
     engine,
     projectStore,
     modelManager: models,
+    presetHost,
     generationClient: generation,
     log,
     buildReport,

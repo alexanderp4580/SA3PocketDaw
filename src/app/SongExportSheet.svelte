@@ -2,7 +2,7 @@
  import {onMount,onDestroy} from 'svelte';
  import Sheet from './Sheet.svelte';
  import {ui,stop} from './appState.svelte';
- import {projectStore} from './services';
+ import {projectStore,presetHost} from './services';
  import {exportSong,mp3Filename,type ExportProgress} from '../song/export';
  import {formatBytes} from './format';
  let {onclose}:{onclose:()=>void}=$props();
@@ -10,7 +10,7 @@
  let controller:AbortController|null=null;
  async function run(){
   if(!ui.project)return;stop();controller=new AbortController();busy=true;error='';cancelled=false;filename=mp3Filename(ui.project.name);
-  try{const blob=await exportSong($state.snapshot(ui.project),projectStore,{signal:controller.signal,onProgress:p=>progress=p});url=URL.createObjectURL(blob);bytes=blob.size;}
+  try{const blob=await exportSong($state.snapshot(ui.project),projectStore,{signal:controller.signal,onProgress:p=>progress=p,presets:presetHost});url=URL.createObjectURL(blob);bytes=blob.size;}
   catch(e){if((e as Error).name==='AbortError')cancelled=true;else error=(e as Error).message??String(e);}finally{busy=false;controller=null;}
  }
  function cancel(){controller?.abort();}

@@ -1,0 +1,25 @@
+import {downmixToMono,resampleSinc} from '../transcribe/resample';
+import type {TranscribedNote} from '../transcribe/notes';
+import {barSeconds,melodyPrompt,notesForBars} from './take';
+export interface BarsRequest {bpm:number;key:string;scale:string;startBar:number;bars:number;style:string;seed:number}
+export interface BarsAudio {channels:Float32Array[];sampleRate:number}
+export interface BarsPorts {
+ generate:(p:{prompt:string;seconds:number;seed:number})=>Promise<BarsAudio>;
+ transcribe:(audio:Float32Array)=>Promise<TranscribedNote[]>;
+ signal?:AbortSignal;
+ progress?:(message:string)=>void;
+}
+export async function generateBars(r:BarsRequest,p:BarsPorts){
+ const check=()=>{if(p.signal?.aborted)throw new DOMException('Cancelled','AbortError');};
+ const seconds=barSeconds(r.bars,r.bpm);
+ if(!Number.isInteger(r.bars)||r.bars<1||r.bars>4||!Number.isInteger(r.startBar)||r.startBar<1||!Number.isFinite(seconds)||seconds<=0||seconds>12)throw Error('Choose up to 4 bars fitting within 12 seconds at this tempo.');
+ check();p.progress?.('Generating piano audio');
+ const audio=await p.generate({prompt:melodyPrompt(r.style,r.bpm,r.key,r.scale,r.bars),seconds,seed:r.seed});
+ check();p.progress?.('Preparing audio for transcription');
+ const mono=downmixToMono(audio.channels),input=resampleSinc(mono,audio.sampleRate,16000);
+ check();p.progress?.('Transcribing piano notes');
+ const raw=await p.transcribe(input);check();
+ const notes=notesForBars(raw,r.bpm,r.startBar,r.bars);
+ if(!notes.length)throw Error('No playable notes were detected in these bars. Try another take or a clearer piano melody.');
+ return {notes,raw,pcm:mono,sampleRate:audio.sampleRate,seconds};
+}
