@@ -6,7 +6,7 @@ Proof-of-concept phone DAW in the browser: Stable Audio 3 generates instrument s
 
 ## Ownership
 
-- `docs/`: design, handoff and compatibility notes. `src/`: app. `server/`: static HTTPS host. `scripts/`: manifest and model-link helpers. `models/`: local model and instrument-pack files, ignored; deployed ones are fetched from Hugging Face (`VITE_MODELS_BASE_URL`). `public/instruments/mini-piano/`: the bundled instrument preset. `certs/`, `dist/`, `node_modules/`: ignored.
+- `docs/`: design, handoff, resume and compatibility notes. `spikes/`: feasibility scripts and measured evidence. `src/`: app. `server/`: static HTTPS host. `scripts/`: model manifest and instrument pack helpers. `models/`: local model and instrument-pack files, ignored; deployed ones are fetched from Hugging Face (`VITE_MODELS_BASE_URL`). `public/instruments/mini-piano/`: bundled preset. `certs/`, `dist/`, `node_modules/`: ignored.
 
 ## Local Contracts
 
