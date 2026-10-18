@@ -1,6 +1,8 @@
 import {downmixToMono,resampleSinc} from '../transcribe/resample';
+import type {Note} from '../store/projectModel';
 import type {TranscribedNote} from '../transcribe/notes';
 import {barSeconds,melodyPrompt,notesForBars} from './take';
+export interface BarsTake {notes:Note[];raw:TranscribedNote[];pcm:Float32Array;sampleRate:number;seconds:number;removed?:number;contextual?:boolean}
 export interface BarsRequest {bpm:number;key:string;scale:string;startBar:number;bars:number;style:string;seed:number}
 export interface BarsAudio {channels:Float32Array[];sampleRate:number}
 export interface BarsPorts {
@@ -9,7 +11,7 @@ export interface BarsPorts {
  signal?:AbortSignal;
  progress?:(message:string)=>void;
 }
-export async function generateBars(r:BarsRequest,p:BarsPorts){
+export async function generateBars(r:BarsRequest,p:BarsPorts):Promise<BarsTake>{
  const check=()=>{if(p.signal?.aborted)throw new DOMException('Cancelled','AbortError');};
  const seconds=barSeconds(r.bars,r.bpm);
  if(!Number.isInteger(r.bars)||r.bars<1||r.bars>4||!Number.isInteger(r.startBar)||r.startBar<1||!Number.isFinite(seconds)||seconds<=0||seconds>12)throw Error('Choose up to 4 bars fitting within 12 seconds at this tempo.');

@@ -7,6 +7,7 @@ import { CLOUD_MIN_SECONDS } from './length';
 import { decodeWav, type DecodedAudio } from './wav';
 import { summarizeAudio } from './pipeline';
 
+export const CLOUD_INPAINT_URL = 'https://api.stability.ai/v2beta/audio/stable-audio/inpaint';
 export const CLOUD_START_URL = 'https://api.stability.ai/v2beta/audio/stable-audio/text-to-audio';
 export const cloudResultUrl = (id: string) => `https://api.stability.ai/v2beta/audio/results/${encodeURIComponent(id)}`;
 export const CLOUD_MODEL = 'stable-audio-3';
@@ -17,6 +18,7 @@ const MAX_SEED = 4294967294;
 export const CLOUD_STAGE = 'Generating in the cloud';
 
 export interface CloudParams {
+  inpaint?: { audio: Blob; maskStart: number; maskEnd: number };
   prompt: string;
   seconds: number;
   steps: number;
@@ -56,6 +58,8 @@ export async function generateCloud(params: CloudParams, key: string, deps: Clou
   const safe = (t: string) => redactKey(t, key);
   const headers = { authorization: `Bearer ${key}`, accept: 'audio/*' };
   const duration = Math.max(CLOUD_MIN_SECONDS, params.seconds);
+  const input = params.inpaint;
+  if(input&&(!Number.isFinite(duration)||duration<6||duration>380||!Number.isFinite(input.maskStart)||!Number.isFinite(input.maskEnd)||input.maskStart<0||input.maskStart>=input.maskEnd||input.maskEnd>duration||!input.audio.size||input.audio.size>100_000_000))throw new GenerationError('Invalid inpaint duration, audio or mask. Context must be 6–380 seconds with a mask inside it.','failed');
   const steps = Math.max(MIN_STEPS, Math.min(CLOUD_MAX_STEPS, Math.round(params.steps)));
   const seed = Math.max(0, Math.min(MAX_SEED, Math.round(params.seed)));
   const startedAt = now();
@@ -100,7 +104,7 @@ export async function generateCloud(params: CloudParams, key: string, deps: Clou
     return new GenerationError(message, s === 400 || s === 401 || s === 403 || s === 422 ? 'cloud-rejected' : 'failed', details || undefined);
   }
 
-  scope.info('cloud generation started', { duration, steps, seed, promptLength: params.prompt.length });
+  scope.info('cloud generation started', { duration, steps, seed, inpaint: !!input, promptLength: params.prompt.length });
   deps.onProgress?.({ stage: CLOUD_STAGE, fraction: 0, message: 'Sending the request to Stability AI' });
   const form = new FormData();
   form.append('prompt', params.prompt);
@@ -109,7 +113,8 @@ export async function generateCloud(params: CloudParams, key: string, deps: Clou
   form.append('seed', String(seed));
   form.append('steps', String(steps));
   form.append('output_format', 'wav');
-  const start = await request(CLOUD_START_URL, { method: 'POST', body: form });
+  if(input){form.append('audio',input.audio,'piano-context.wav');form.append('mask_start',String(input.maskStart));form.append('mask_end',String(input.maskEnd));}
+  const start = await request(input?CLOUD_INPAINT_URL:CLOUD_START_URL, { method: 'POST', body: form });
   if (start.status !== 202) throw await failure(start, 'Starting the cloud generation');
   let id: unknown;
   try {

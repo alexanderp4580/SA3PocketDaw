@@ -198,3 +198,18 @@ describe('generateCloud', () => {
     expect(logged.length).toBeGreaterThan(10);
   });
 });
+
+describe('cloud audio inpainting',()=>{
+ it('sends the context WAV and exact mask to the SA3 inpaint endpoint',async()=>{
+  const bytes=new Uint8Array(44);const {deps,calls}=setup([json(202,{id:'context'}),audio()],{decode:()=>decoded(44100*12)});
+  await generateCloud({...params,seconds:12,inpaint:{audio:new Blob([bytes],{type:'audio/wav'}),maskStart:4,maskEnd:8}},KEY,deps);
+  expect(calls[0]!.url).toBe('https://api.stability.ai/v2beta/audio/stable-audio/inpaint');
+  const form=calls[0]!.init.body as FormData;expect(form.get('mask_start')).toBe('4');expect(form.get('mask_end')).toBe('8');expect((form.get('audio') as Blob).size).toBe(44);expect(form.get('duration')).toBe('12');
+ });
+ it('rejects invalid inpaint duration and masks before spending a request',async()=>{
+  for(const [seconds,start,end] of [[4,1,3],[12,8,4],[12,-1,4],[12,4,13],[12,NaN,8]]){
+   const {deps,calls}=setup([]);
+   await expect(generateCloud({...params,seconds:seconds!,inpaint:{audio:new Blob(['wav']),maskStart:start!,maskEnd:end!}},KEY,deps)).rejects.toThrow(/mask|6|duration/i);expect(calls).toHaveLength(0);
+  }
+ });
+});

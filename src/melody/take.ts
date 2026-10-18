@@ -29,5 +29,5 @@ export function replaceBars(old:Note[],take:Note[],startBar:number,bars:number,i
  }
  return [...out,...take].sort((a,b)=>a.start-b.start||a.midi-b.midi);
 }
-export interface TakeStamp {projectId:string;trackId:string;bpm:number;bars:number;notes:string;sound:string}
+export interface TakeStamp {context?:string;key?:string;projectId:string;trackId:string;bpm:number;bars:number;notes:string;sound:string}
 export function canKeepTake(a:TakeStamp,b:TakeStamp){return (Object.keys(a) as (keyof TakeStamp)[]).every(k=>a[k]===b[k]);}

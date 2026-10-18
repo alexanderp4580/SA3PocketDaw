@@ -34,6 +34,8 @@ Proof-of-concept phone DAW in the browser: Stable Audio 3 generates instrument s
 
 - `src/melody/` converts standalone SA3 piano takes into sixteenth-step notes, preserves notes outside the selected bars, and builds preview projects retaining all instrument source references. `src/app/GenerateBarsSheet.svelte` orchestrates local/cloud generation, on-device transcription, preview and Keep/Discard; PianoRoll owns the single undo entry. `?demo=1` seeds a real take only for a fresh project.
 
+- Follow song (`docs/context-generation.md`): `src/melody/context.ts` plans phase-correct piano context and removes pitch/onset matches; `renderContext.ts` renders Mini piano and copies the first part after a silent gap, then writes PCM16 WAV; `contextPipeline.ts` sends that context through optional `CloudParams.inpaint`, crops only the gap, transcribes and quantizes it. `preview.ts` can audition with the song, retaining every instrument source. Follow song is Cloud-only and stamps the song context against stale acceptance.
+
 ## Verification
 
 - `npm test`, `npm run typecheck`, `npm run build`. The headless smoke test is not built yet.

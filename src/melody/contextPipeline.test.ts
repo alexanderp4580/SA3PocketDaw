@@ -1,0 +1,11 @@
+import {it,expect} from 'vitest';
+import {generateContextBars} from './contextPipeline';
+import type {ContextPlan} from './context';
+const plan:ContextPlan={events:[{trackId:'back',midi:60,when:0,duration:.5,velocity:1}],background:[{onset:0,offset:1,pitch:60,velocity:90}],maskStart:4,maskEnd:8,seconds:12,contextIds:['back']};
+const r={bpm:120,key:'C',scale:'major',startBar:2,bars:2,style:'flowing',seed:1};
+const n=(onset:number,pitch:number)=>({onset,offset:onset+.5,pitch,velocity:90});
+function ports(notes=[n(.1,60),n(.5,67)]){let params:any;let frames=0;return {render:async()=>({audio:new Blob(['wav']),pcm:new Float32Array(12*16000),sampleRate:16000}),generate:async(p:any)=>{params=p;return {channels:[new Float32Array(12*16000).fill(.2)],sampleRate:16000};},transcribe:async(a:Float32Array)=>{frames=a.length;return notes;},get params(){return params;},get frames(){return frames;}};}
+it('inpaints the full context but transcribes only selected bars, removing copies before quantization',async()=>{const p=ports();const out=await generateContextBars(r,plan,p);expect(p.params.seconds).toBe(12);expect(p.params.inpaint.maskStart).toBe(4);expect(p.params.prompt).toMatch(/Piano.*120 BPM/);expect(p.frames).toBe(64000);expect(out.notes).toHaveLength(1);expect(out.notes[0]).toMatchObject({midi:67,start:20});expect(out.removed).toBe(1);expect(out.seconds).toBe(4);});
+it('does not apply context-only transcription',async()=>{await expect(generateContextBars(r,plan,ports([n(.1,60)]))).rejects.toThrow(/only|No new/);});
+it('rejects truncated server audio instead of silently shortening the requested bars',async()=>{const p=ports();p.generate=async()=>({channels:[new Float32Array(5*16000)],sampleRate:16000});await expect(generateContextBars(r,plan,p)).rejects.toThrow(/short/);});
+it('cancels after rendering without sending the cloud request',async()=>{const p=ports(),c=new AbortController();p.render=async()=>{c.abort();return {audio:new Blob(['wav']),pcm:new Float32Array(1),sampleRate:16000};};await expect(generateContextBars(r,plan,{...p,signal:c.signal})).rejects.toThrow(/Cancel/);expect(p.params).toBeUndefined();});
