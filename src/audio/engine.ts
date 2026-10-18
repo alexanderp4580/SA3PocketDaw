@@ -275,6 +275,36 @@ export function createEngine(options: EngineOptions = {}) {
       }
       voices.push({...auditionNote(ctx, { buffer, root: track.rootMidi, note: midi, duration,velocity: velocityGain(velocity), output: outputFor(track.id),controls:track.sampleControls,loop:loopFor(track) }),trackId:track.id});
     },
+    /** A read-only source snapshot; excludes names, note contents and credentials. */
+    diagnostics() {
+      return {
+        audioState: ctx?.state ?? 'not-created',
+        playing: transport().isPlaying,
+        mode: playbackMode,
+        presetCacheBytes: library?.cacheBytes() ?? 0,
+        tracks: (project?.tracks ?? []).map(track => {
+          const pitches = track.notes.map(note => note.midi);
+          const source = isPreset(track)
+            ? missingPresets.has(track.presetId) ? 'preset-missing' : presetPlayers.has(track.id) ? 'preset-player' : 'preset-not-loaded'
+            : track.sampleId
+              ? instruments.has(track.sampleId) ? 'cached-instrument' : sources.has(track.sampleId) ? 'cached-sample' : 'missing-sample'
+              : 'none';
+          return {
+            id: track.id,
+            soundType: track.soundType ?? 'sample',
+            sampleId: track.sampleId,
+            presetId: track.presetId,
+            source,
+            muted: !!track.muted,
+            solo: !!track.solo,
+            noteCount: pitches.length,
+            midiMin: pitches.length ? Math.min(...pitches) : null,
+            midiMax: pitches.length ? Math.max(...pitches) : null,
+            effectError: mixer?.error(track.id) ?? null,
+          };
+        }),
+      };
+    },
     meter:(id?:string)=>mixer?.meter(id)??emptyMeter(),
     spectrum:(id:string,pluginId:string,post=true)=>mixer?.spectrum(id,pluginId,post)??null,
     listenRange:(id:string|null,pluginId?:string,band?:EqBand)=>mixer?.listen(id,pluginId,band),

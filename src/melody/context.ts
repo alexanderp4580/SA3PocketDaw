@@ -29,9 +29,3 @@ export function contextPlan(p:Project,targetId:string,startBar:number,bars:numbe
  if(!events.length)throw Error('Add notes to a pitched context track, or draw a seed phrase on this track first.');
  return {events:events.sort((a,b)=>a.when-b.when||a.midi-b.midi),background:background.sort((a,b)=>a.onset-b.onset||a.pitch-b.pitch),maskStart:32*step,maskEnd:(32+bars*16)*step,seconds:Math.max(6,barSeconds(4+bars,p.bpm)),contextIds:used};
 }
-export const CONTEXT_MATCH_SECONDS=.15;
-/** Context removal is conservative pitch/onset matching; intentional unisons cannot be separated. */
-export function stripContextNotes(raw:TranscribedNote[],background:TranscribedNote[],tolerance=CONTEXT_MATCH_SECONDS){
- const notes=raw.filter(n=>!background.some(b=>b.pitch===n.pitch&&Math.abs(b.onset-n.onset)<=tolerance));
- return {notes,removed:raw.length-notes.length};
-}

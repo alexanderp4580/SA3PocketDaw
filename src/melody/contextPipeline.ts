@@ -1,6 +1,5 @@
 import type {CloudParams} from '../gen/cloud';
 import type {ContextPlan} from './context';
-import {stripContextNotes} from './context';
 import {downmixToMono,resampleSinc} from '../transcribe/resample';
 import {barSeconds,notesForBars} from './take';
 import type {BarsRequest,BarsAudio,BarsTake} from './pipeline';
@@ -23,7 +22,8 @@ export async function generateContextBars(r:BarsRequest,plan:ContextPlan,p:Conte
  if(!Number.isFinite(rate)||rate<=0||!output.channels.length||output.channels.some(c=>c.length<to))throw Error('The generated audio is too short for the selected bars. Try a fresh take.');
  const pcm=downmixToMono(output.channels.map(c=>c.slice(from,to)));p.progress?.('Transcribing the new bars');
  const raw=await p.transcribe(resampleSinc(pcm,rate,16000));check();
- const filtered=stripContextNotes(raw,plan.background),notes=notesForBars(filtered.notes,r.bpm,r.startBar,r.bars);
- if(!notes.length)throw Error('No new playable notes remained after removing context matches. Try a different style or seed phrase.');
- return {notes,raw,pcm,sampleRate:rate,seconds:barSeconds(r.bars,r.bpm),removed:filtered.removed,contextual:true};
+ // Context is silent inside this crop; matching pitches/onsets are valid new unisons or repeats.
+ const notes=notesForBars(raw,r.bpm,r.startBar,r.bars);
+ if(!notes.length)throw Error('No playable piano notes were detected in the generated bars. Try a clearer piano style or another take.');
+ return {notes,raw,pcm,sampleRate:rate,seconds:barSeconds(r.bars,r.bpm),removed:0,contextual:true};
 }

@@ -64,3 +64,13 @@ describe('report', () => {
     expect(logger.entries().some((e) => e.level === 'warn' && e.scope === 'report')).toBe(true);
   });
 });
+
+it('captures current playback diagnostics when the report is requested', async () => {
+ const {reporter}=setup();
+ expect((await reporter.buildReport()).playback).toBeNull();
+ let state='suspended';
+ reporter.setProvider('playback',()=>({audioState:state,tracks:[{id:'drums',source:'missing-sample'}]}));
+ expect((await reporter.buildReport()).playback).toMatchObject({audioState:'suspended'});
+ state='running';
+ expect((await reporter.buildReport()).playback).toEqual({audioState:'running',tracks:[{id:'drums',source:'missing-sample'}]});
+});

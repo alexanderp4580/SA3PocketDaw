@@ -17,6 +17,7 @@ reporter.setProvider('pianoTranscriber', () => ({ lastRun: transcriber.lastRun()
 /** Bundled presets come from the app, downloaded ones from Cache Storage. */
 export const presetHost = createPresetHost({ appBase: appBaseUrl(), openPackFile: (path) => models.openFile(path, true) });
 export const engine = createEngine({ presets: presetHost, presetBudgetBytes: decodedBudgetBytes((globalThis.navigator as { deviceMemory?: number } | undefined)?.deviceMemory) });
+reporter.setProvider('playback', () => engine.diagnostics());
 export const generation = generationClient();
 models.onChange(() => {
   presetHost.invalidate();

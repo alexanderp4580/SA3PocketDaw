@@ -104,7 +104,7 @@
  <div class="btnrow"><button class="btn pri" disabled={busy||!valid||(followSong&&!contextSetup.plan)||!installed||(source==='device'&&!choices.length)||(source==='cloud'&&!ui.hasKey)} onclick={()=>void run()}>Generate take</button>{#if busy}<button class="btn danger" onclick={()=>controller?.abort()}>Cancel</button>{/if}</div>
  {:else}
  <div class="card"><b>{result.notes.length} notes · bars {startBar}–{startBar+count-1}</b><p class="note">{result.contextual?'Preview with the song before keeping.':'Preview the notes before keeping this take.'} The original piano audio is available for comparison.</p></div>
- {#if result.contextual}<p class="note">Follow song · {result.removed??0} context-note matches removed. Intentional unison notes may be removed too.</p>{/if}
+ {#if result.contextual}<p class="note">Follow song · Only the generated bars are transcribed.</p>{/if}
  <div class="btnrow"><button class="btn" onclick={()=>void preview()}>{result.contextual?'Preview with song':'Preview notes'}</button><button class="btn" onclick={()=>void original()}>Original audio</button><button class="btn" onclick={stopPreview}>Stop preview</button></div>
  {#if stale}<p class="note bad">The track or tempo changed. Discard this take and generate again.</p>{/if}
  <div class="btnrow"><button class="btn pri" disabled={!!stale} onclick={keep}>Keep take</button><button class="btn" onclick={()=>{stopPreview();result=null;error='';}}>Discard take</button></div>

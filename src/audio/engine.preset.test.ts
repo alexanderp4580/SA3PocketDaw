@@ -3,7 +3,9 @@ import { createEngine, type EngineContextLike } from './engine';
 import { FakeNode, FakePresetContext } from './preset/fakes';
 import type { PresetHost } from './preset/host';
 import { normalizePreset, type Preset } from './sfz/format';
-import { addNote, addTrack, createProject, setTrackPreset, toggleMute } from '../store/projectModel';
+import { applyPreset } from '../app/presets';
+import { previewProject } from '../melody/preview';
+import { addNote, addTrack, createProject, setTrackPreset, setTrackSample, toggleMute } from '../store/projectModel';
 
 class Ctx extends FakePresetContext {
   override destination = new FakeNode();
@@ -161,4 +163,79 @@ it('prepares slow uncached drum samples before scheduling the short preview note
  expect(await e.previewPreset('drums')).toBe(true);
  expect(ctx.sources).toHaveLength(8);
  expect(ctx.sources[0]!.started).toBeGreaterThanOrEqual(.5);
+});
+
+
+describe('mixed playback while adding sampled instruments', () => {
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  it('keeps an existing raw drum sample audible after adding and refreshing an SFZ track', async () => {
+    const t = setup(['grand', 'bass']);
+    let p = project();
+    p = setTrackSample(addTrack(p, 'Drum sample', 'drum'), 'drum', 'hit', 60, 'sample');
+    p = addNote(p, 'drum', { midi: 60, start: 0, length: 1 });
+    t.engine.setProject(p);
+    t.engine.setSample('hit', new Float32Array(4410), 44100);
+    await t.engine.play();
+    await settle();
+    const rawBuffer = t.ctx.sources.find((s) => s.buffer?.duration === .1)!.buffer;
+    expect(t.ctx.sources).toHaveLength(2);
+    t.engine.stop();
+
+    p = applyPreset(p, null, { id: 'bass', name: 'Bass' }, () => 'bass-track').project;
+    p = addNote(p, 'bass-track', { midi: 72, start: 0, length: 4 });
+    t.engine.setProject(p);
+    t.engine.refreshPresets();
+    const count = t.ctx.sources.length;
+    await t.engine.play();
+    await settle();
+    expect(t.ctx.sources.slice(count)).toHaveLength(3);
+    expect(t.ctx.sources.slice(count).some((s) => s.buffer === rawBuffer)).toBe(true);
+    expect(t.inst.reads).toContain('bass/b.m4a');
+    t.engine.stop();
+  });
+
+  it('restores two SFZ tracks after a generated-bars preview and preset refresh', async () => {
+    const t = setup(['grand', 'bass']);
+    let p = applyPreset(project(), null, { id: 'bass', name: 'Bass' }, () => 'bass-track').project;
+    p = addNote(p, 'bass-track', { midi: 72, start: 0, length: 4 });
+    t.engine.setProject(p);
+    await t.engine.play();
+    await settle();
+    expect(t.ctx.sources).toHaveLength(2);
+    t.engine.stop();
+
+    t.engine.setProject(previewProject(p, p.tracks[1]!, p.tracks[1]!.notes, 1, 1));
+    await t.engine.play();
+    await settle();
+    expect(t.ctx.sources).toHaveLength(3);
+    t.engine.stop();
+    t.engine.setProject(p);
+    t.engine.refreshPresets();
+    await t.engine.play();
+    await settle();
+    expect(t.ctx.sources).toHaveLength(5);
+    expect(t.inst.reads.filter((path) => path === 'grand/b.m4a')).toHaveLength(2);
+    expect(t.inst.reads.filter((path) => path === 'bass/b.m4a')).toHaveLength(2);
+    t.engine.stop();
+  });
+});
+
+it('reports current playback sources and track state without copying project names or note contents', async () => {
+ const t=setup(['grand']);
+ let p=project();
+ p=setTrackSample(addTrack(p,'Private drum name','drum'),'drum','hit',60,'sample');
+ p=addNote(p,'drum',{midi:36,start:0,length:2});
+ p={...p,name:'Private song name',tracks:p.tracks.map(track=>track.id==='drum'?{...track,solo:true}:track)};
+ t.engine.setProject(p);
+ const unloaded=t.engine.diagnostics();
+ expect(unloaded).toMatchObject({audioState:'not-created',playing:false,mode:'pattern'});
+ expect(unloaded.tracks.find(track=>track.id==='drum')).toMatchObject({source:'missing-sample',solo:true,muted:false,noteCount:1,midiMin:36,midiMax:36});
+ t.engine.setSample('hit',new Float32Array(4410),44100);
+ await t.engine.audition('t1',60);
+ const loaded=t.engine.diagnostics();
+ expect(loaded.audioState).toBe('running');
+ expect(loaded.tracks.find(track=>track.id==='drum')?.source).toBe('cached-sample');
+ expect(loaded.tracks.find(track=>track.id==='t1')).toMatchObject({source:'preset-player',presetId:'grand'});
+ expect(JSON.stringify(loaded)).not.toMatch(/Private|"start"|"length"/);
 });
