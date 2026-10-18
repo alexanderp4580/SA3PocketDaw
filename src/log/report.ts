@@ -3,7 +3,7 @@ import type { Logger, LogEntry } from './logger';
 declare const __APP_VERSION__: string;
 declare const __BUILD_TIME__: string;
 
-export type ProviderName = 'compat' | 'gpu' | 'installedPacks';
+export type ProviderName = 'compat' | 'gpu' | 'installedPacks' | 'pianoTranscriber';
 
 export interface Report {
   app: { version: string; buildTime: string };
@@ -13,6 +13,7 @@ export interface Report {
   gpu: unknown;
   storage: unknown;
   installedPacks: unknown;
+  pianoTranscriber: unknown;
   generations: unknown[];
   log: LogEntry[];
   [extra: string]: unknown;
@@ -70,6 +71,7 @@ export function createReporter(logger: Logger, options: ReporterOptions) {
         gpu: await fromProvider('gpu', null),
         storage,
         installedPacks: await fromProvider('installedPacks', []),
+        pianoTranscriber: await fromProvider('pianoTranscriber', null),
         generations: generations.slice(),
         log: logger.entries(),
         ...extra,

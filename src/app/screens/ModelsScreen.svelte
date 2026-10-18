@@ -1,12 +1,13 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
   import { ui, clearEverything, notify, refreshKeyState } from '../appState.svelte';
-  import { generation, models } from '../services';
+  import { generation, models, transcriber } from '../services';
   import { MODEL_NOTES, formatBytes, modelCards, type ModelCard } from '../format';
   import type { DownloadProgress } from '../../store/modelManager';
   import Sheet from '../Sheet.svelte';
   import { clearApiKey, loadApiKey, maskKey, saveApiKey } from '../../store/apiKey';
   import { CLOUD_CREDITS } from '../../gen/cloud';
+  import { CREDIT_LINE, PACK_ID, PACK_LABEL, transcriberPack, type TranscriberPack } from '../../transcribe/pack';
 
   const keyStore = typeof localStorage === 'undefined' ? null : localStorage;
   let savedKey = $state(loadApiKey(keyStore));
@@ -27,18 +28,21 @@
   }
 
   let cards = $state<ModelCard[]>(modelCards(null, {}));
+  let tpack = $state<TranscriberPack>(transcriberPack(null, {}));
   let loadError = $state('');
   let storage = $state<{ quota?: number; usage?: number; persisted: boolean } | null>(null);
   let persistNote = $state('');
   let busy = $state<{ id: string; progress: DownloadProgress | null; error: string } | null>(null);
   let controller = $state<AbortController | null>(null);
-  let confirm = $state<null | { kind: 'model'; card: ModelCard } | { kind: 'all' } | { kind: 'clear' }>(null);
+  let confirm = $state<null | { kind: 'model'; card: ModelCard } | { kind: 'transcriber' } | { kind: 'all' } | { kind: 'clear' }>(null);
   let freeing = $state(false);
 
   async function refresh() {
     try {
       if (!models.getManifest()) await models.loadManifest();
-      cards = modelCards(models.getManifest(), await models.packStates());
+      const states = await models.packStates();
+      cards = modelCards(models.getManifest(), states);
+      tpack = transcriberPack(models.getManifest(), states);
       ui.modelCards = cards;
       ui.modelsReady = true;
       loadError = '';
@@ -54,7 +58,7 @@
   });
   onDestroy(() => off?.());
 
-  async function download(c: ModelCard) {
+  async function download(c: { id: string; label: string }) {
     controller = new AbortController();
     busy = { id: c.id, progress: null, error: '' };
     try {
@@ -76,8 +80,9 @@
     confirm = null;
     if (!c) return;
     if (c.kind === 'model') await models.deletePack(c.card.id);
-    else if (c.kind === 'all') await models.deleteAll();
-    else { await clearEverything(); savedKey = loadApiKey(keyStore); }
+    else if (c.kind === 'transcriber') { await transcriber.unload(); await models.deletePack(PACK_ID); }
+    else if (c.kind === 'all') { await transcriber.unload(); await models.deleteAll(); }
+    else { await transcriber.unload(); await clearEverything(); savedKey = loadApiKey(keyStore); }
     await refresh();
     notify('Done');
   }
@@ -90,14 +95,14 @@
 
   async function free() {
     freeing = true;
-    await generation.unload();
+    await Promise.all([generation.unload(), transcriber.unload()]);
     freeing = false;
     notify('Model memory freed');
   }
 
   const pct = (p: DownloadProgress | null) => (p && p.packTotal > 0 ? Math.round((p.packBytes / p.packTotal) * 100) : 0);
   const usagePct = $derived(storage?.quota ? Math.min(100, ((storage.usage ?? 0) / storage.quota) * 100) : 0);
-  const anyInstalled = $derived(cards.some((c) => c.status !== 'missing'));
+  const anyInstalled = $derived(cards.some((c) => c.status !== 'missing') || tpack.status !== 'missing');
 </script>
 
 <div class="content">
@@ -155,6 +160,47 @@
       </div>
     {/each}
 
+    <div class="sec">Piano transcriber</div>
+    <div class="card">
+      <div class="row">
+        <b>{PACK_LABEL}</b>
+        <span class="tag" class:ok={tpack.available && tpack.status === 'installed'} class:warn={tpack.available && tpack.status === 'partial'}>{!tpack.available ? 'not available' : tpack.status === 'installed' ? 'installed' : tpack.status === 'partial' ? 'partial' : 'not installed'}</span>
+      </div>
+      <div class="note">Turns a piano recording into notes. Test it on the Debug screen. It does not need the text encoder.</div>
+      {#if tpack.available}
+        <div class="note">{formatBytes(tpack.bytes)} · {tpack.presentFiles}/{tpack.totalFiles} files stored</div>
+      {:else}
+        <div class="note">No pack is listed in the model list.</div>
+      {/if}
+      <div class="note">{CREDIT_LINE}</div>
+
+      {#if busy?.id === PACK_ID}
+        {#if busy.error}<div class="note bad" role="alert">{busy.error}</div>{/if}
+        {#if controller && busy.progress}
+          <div class="bar" role="progressbar" aria-valuenow={pct(busy.progress)} aria-valuemin="0" aria-valuemax="100"><i style="width:{pct(busy.progress)}%"></i></div>
+          <div class="note">{pct(busy.progress)}% · {formatBytes(busy.progress.packBytes)} of {formatBytes(busy.progress.packTotal)}</div>
+        {:else if controller}
+          <div class="note">Starting download</div>
+        {/if}
+        <div class="btnrow">
+          {#if controller}
+            <button class="btn danger" onclick={() => controller?.abort()}>Cancel</button>
+          {:else}
+            <button class="btn pri" onclick={() => void download({ id: PACK_ID, label: PACK_LABEL })}>Retry download</button>
+          {/if}
+        </div>
+      {:else if tpack.available}
+        <div class="btnrow">
+          {#if tpack.status !== 'installed'}
+            <button class="btn pri" disabled={busy !== null} onclick={() => void download({ id: PACK_ID, label: PACK_LABEL })}>{tpack.status === 'partial' ? 'Resume download' : 'Download'}</button>
+          {/if}
+          {#if tpack.status !== 'missing'}
+            <button class="btn danger" disabled={busy !== null} onclick={() => (confirm = { kind: 'transcriber' })}>Delete</button>
+          {/if}
+        </div>
+      {/if}
+    </div>
+
     <div class="sec">Cloud generation</div>
     <div class="card">
       <div class="note">Optional. Generate with Stable Audio 3 on Stability AI's servers using your own API key. The key stays on this device in this browser and is sent only to Stability AI. Each generation costs {CLOUD_CREDITS} Stability credits and needs a network connection.</div>
@@ -190,6 +236,8 @@
     <div class="note">
       {#if confirm.kind === 'model'}
         Delete {confirm.card.label} from this device? It can be downloaded again. The shared encoder stays while another model needs it.
+      {:else if confirm.kind === 'transcriber'}
+        Delete {PACK_LABEL} from this device? It can be downloaded again.
       {:else if confirm.kind === 'all'}
         Delete every downloaded model from this device? They can be downloaded again.
       {:else}

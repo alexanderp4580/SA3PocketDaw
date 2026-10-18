@@ -7,7 +7,10 @@
   import { modeLabel, type GenerationMode } from '../../gen/mode';
   import { log, models } from '../services';
   import { copyReport, downloadReport } from '../report';
+  import PianoTranscriberPanel from '../PianoTranscriberPanel.svelte';
   import { filterLog, formatBytes, formatLogTime, formatElapsed, logScopes, timingRows } from '../format';
+
+  let { onmodels = () => {} }: { onmodels?: () => void } = $props();
 
   const LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error'];
   let levels = $state<Set<LogLevel>>(new Set(['info', 'warn', 'error']));
@@ -103,6 +106,8 @@
       <div class="kv">Secure context<span>{String(globalThis.isSecureContext)}</span></div>
       <div class="kv">userAgent<span class="ua">{navigator.userAgent}</span></div>
     </div>
+
+    <PianoTranscriberPanel {onmodels} />
 
     <div class="sec">GPU</div>
     <div class="card">

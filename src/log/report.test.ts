@@ -40,6 +40,13 @@ describe('report', () => {
     expect(r.installedPacks).toEqual(['encoder']);
   });
 
+  it('includes the piano transcriber provider and defaults it to null', async () => {
+    const { reporter } = setup();
+    expect((await reporter.buildReport()).pianoTranscriber).toBeNull();
+    reporter.setProvider('pianoTranscriber', () => ({ lastRun: { noteCount: 25 } }));
+    expect((await reporter.buildReport()).pianoTranscriber).toEqual({ lastRun: { noteCount: 25 } });
+  });
+
   it('keeps the last 5 generation timing records', async () => {
     const { reporter } = setup();
     for (let i = 0; i < 7; i++) reporter.recordGeneration({ id: i });

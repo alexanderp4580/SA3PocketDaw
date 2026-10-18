@@ -63,6 +63,15 @@ export const PACKS = [
       { path: 'small-sfx/onnx/decoder_q4_chunks.json' },
     ],
   },
+  // Produced outside the PoC folder (converted ByteDance piano transcription model); listed only when models/piano-transcriber exists.
+  {
+    id: 'piano-transcriber',
+    label: 'Piano transcriber (ByteDance)',
+    requires: [],
+    optionalDir: 'piano-transcriber',
+    files: [{ path: 'piano-transcriber/piano_note_fp16.onnx' }],
+    chunkIndexes: [],
+  },
 ];
 
 /**

@@ -108,7 +108,7 @@
       {:else if route === 'models'}
         <ModelsScreen />
       {:else if route === 'debug'}
-        <DebugScreen />
+        <DebugScreen onmodels={openModels} />
       {/if}
     </main>
     {#if showTransport}<TransportBar pianoRoll={!!rollTrack||route==='layout'} song={route==='layout'} />{/if}

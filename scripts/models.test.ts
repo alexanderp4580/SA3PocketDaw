@@ -96,3 +96,20 @@ describe('manifest', () => {
     expect(JSON.parse(readFileSync(join(models, 'manifest.json'), 'utf8')).packs).toHaveLength(3);
   });
 });
+
+describe('piano transcriber pack', () => {
+  it('is listed with no requirements only when models/piano-transcriber exists', () => {
+    linkModels(poc, models);
+    expect(buildManifest(models).packs.map((p: any) => p.id)).not.toContain('piano-transcriber');
+    mkdirSync(join(models, 'piano-transcriber'), { recursive: true });
+    writeFileSync(join(models, 'piano-transcriber/piano_note_fp16.onnx'), Buffer.alloc(11));
+    const pack = buildManifest(models).packs.find((p: any) => p.id === 'piano-transcriber');
+    expect(pack.label).toBe('Piano transcriber (ByteDance)');
+    expect(pack.requires).toEqual([]);
+    expect(pack.files).toEqual([{ path: 'piano-transcriber/piano_note_fp16.onnx', bytes: 11 }]);
+    expect(pack.totalBytes).toBe(11);
+  });
+  it('is never linked from the PoC folder', () => {
+    expect(linkModels(poc, models).some((p: string) => p.startsWith('piano-transcriber'))).toBe(false);
+  });
+});
