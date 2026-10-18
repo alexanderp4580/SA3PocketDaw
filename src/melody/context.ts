@@ -3,7 +3,7 @@ import type {TranscribedNote} from '../transcribe/notes';
 import {barSeconds} from './take';
 export interface ContextEvent {trackId:string;midi:number;when:number;duration:number;velocity:number}
 export interface ContextPlan {events:ContextEvent[];background:TranscribedNote[];maskStart:number;maskEnd:number;seconds:number;contextIds:string[]}
-export function defaultContextTracks(p:Project,target:string):string[]{return p.tracks.filter(t=>t.id!==target&&!t.muted&&t.notes.length&&(t.soundType==='preset'||t.soundType==='instrument')).map(t=>t.id);}
+export function defaultContextTracks(p:Project,target:string,categories:Record<string,string>={}):string[]{return p.tracks.filter(t=>t.id!==target&&!t.muted&&categories[t.presetId??'']!=='drums'&&t.notes.length&&(t.soundType==='preset'||t.soundType==='instrument')).map(t=>t.id);}
 /** Include every audible-source edit in the take stamp so a preview cannot outlive its song. */
 export function contextStamp(p:Project,ids:string[]):string{return JSON.stringify([p.key,p.scale,p.bpm,ids,p.tracks.map(t=>[t.id,t.bars,t.notes,t.muted,t.solo,t.sampleId,t.soundType,t.presetId,t.trim,t.instrumentControls,t.sampleControls,t.mix])]);}
 /** Two bars before and after the gap, phase-aligned to each track's repeating piano-roll pattern. */

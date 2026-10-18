@@ -23,7 +23,7 @@
  let source=$state<'device'|'cloud'>(loadApiKey(localStorage)?'cloud':'device');
  let model=$state<ModelId>('small-music');
  let followSong=$state(false);
- let contextIds=$state<string[]>(untrack(()=>ui.project?defaultContextTracks(ui.project,track.id):[]));
+ let contextIds=$state<string[]>(untrack(()=>ui.project?defaultContextTracks(ui.project,track.id,Object.fromEntries(ui.presetCards.map(c=>[c.id,c.category]))):[]));
  let pack=$state('Checking'),installed=$state(false),available=$state(false);
  let busy=$state(false),status=$state(''),error=$state(''),previewing=$state(false);
  let result=$state.raw<BarsTake|null>(null);

@@ -1,3 +1,4 @@
+import { categoryOf, type PresetCategory } from '../audio/preset/categories';
 import { BUILTIN_PRESETS, presetIdOfPack, packIdOf } from '../audio/preset/catalog';
 import type { Manifest, PackState, PackStatus } from '../store/modelManager';
 import { addTrack, newId, setTrackPreset, type Project } from '../store/projectModel';
@@ -5,6 +6,7 @@ import { addTrack, newId, setTrackPreset, type Project } from '../store/projectM
 export interface PresetCard {
   id: string;
   name: string;
+  category: PresetCategory;
   /** Ships in the app; always installed. */
   builtin: boolean;
   status: PackStatus;
@@ -18,12 +20,12 @@ export interface PresetCard {
 
 /** Bundled presets first, then every `inst-` pack of the manifest with its stored state. */
 export function presetCards(manifest: Manifest | null, states: Record<string, PackState>): PresetCard[] {
-  const cards: PresetCard[] = BUILTIN_PRESETS.map((p) => ({ id: p.id, name: p.name, builtin: true, status: 'installed', bytes: 0, presentFiles: 0, totalFiles: 0, credits: p.credits, license: p.license }));
+  const cards: PresetCard[] = BUILTIN_PRESETS.map((p) => ({ id: p.id, name: p.name, category: categoryOf(undefined, p.id), builtin: true, status: 'installed', bytes: 0, presentFiles: 0, totalFiles: 0, credits: p.credits, license: p.license }));
   for (const pack of manifest?.packs ?? []) {
     const id = presetIdOfPack(pack.id);
     if (!id || cards.some((c) => c.id === id)) continue;
     const st = states[pack.id];
-    cards.push({ id, name: pack.label, builtin: false, status: st?.status ?? 'missing', bytes: pack.totalBytes, presentFiles: st?.presentFiles ?? 0, totalFiles: st?.totalFiles ?? pack.files.length, credits: pack.credits ?? [], license: pack.license ?? '' });
+    cards.push({ id, name: pack.label, category: categoryOf(pack.category, id), builtin: false, status: st?.status ?? 'missing', bytes: pack.totalBytes, presentFiles: st?.presentFiles ?? 0, totalFiles: st?.totalFiles ?? pack.files.length, credits: pack.credits ?? [], license: pack.license ?? '' });
   }
   return cards;
 }

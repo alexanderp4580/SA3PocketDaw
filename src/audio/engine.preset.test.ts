@@ -146,3 +146,19 @@ describe('engine with sampled-instrument presets', () => {
     expect(ctx.sources).toHaveLength(0);
   });
 });
+
+it('prepares slow uncached drum samples before scheduling the short preview notes', async () => {
+ class SlowCtx extends Ctx {
+  override async decodeAudioData(data: ArrayBuffer) {
+   this.currentTime += .5;
+   return super.decodeAudioData(data);
+  }
+ }
+ const ctx = new SlowCtx();
+ const p = { ...presetOf('drums'), category: 'drums' };
+ const h: PresetHost = { load: async () => p, read: async () => new ArrayBuffer(4), invalidate() {} };
+ const e = createEngine({ createContext: () => ctx as unknown as EngineContextLike, presets: h });
+ expect(await e.previewPreset('drums')).toBe(true);
+ expect(ctx.sources).toHaveLength(8);
+ expect(ctx.sources[0]!.started).toBeGreaterThanOrEqual(.5);
+});

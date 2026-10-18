@@ -54,7 +54,10 @@ export function selectRegions(parsed, cfg) {
   const attack = regions.filter((r) => r.trigger !== 'release');
   const release = regions.filter((r) => r.trigger === 'release');
   const chosen = chooseLayers(distinctLayers(attack), cfg.layers);
-  const spans = respanLayers(chosen);
+  // Different keys can have different layer counts; keeping all layers must preserve their original coverage.
+  const spans = chosen.length === distinctLayers(attack).length
+    ? new Map(chosen.map(l => [`${l.lovel}-${l.hivel}`, { lovel: Math.max(1, l.lovel), hivel: l.hivel }]))
+    : respanLayers(chosen);
   let kept = attack.filter((r) => spans.has(`${r.lovel}-${r.hivel}`)).map((r) => ({ ...r, ...spans.get(`${r.lovel}-${r.hivel}`) }));
   kept = thinKeys(kept, cfg.keyStep ?? 1);
   return { regions: [...kept, ...(cfg.keyStep > 1 ? [] : release)], layers: chosen.length };
@@ -219,6 +222,7 @@ export function buildPack(cfg, opts = {}) {
     version: 1,
     id: cfg.id,
     name: cfg.name,
+    ...(cfg.category ? { category: cfg.category } : {}),
     sampleRate: RATE,
     credits: [...cfg.credits, 'Changes: resampled to 44.1 kHz, shortened, lossy-encoded as AAC' + (sel.layers < distinctLayers(parsed.regions.filter((r) => r.trigger === 'attack')).length ? ', fewer velocity layers' : '') + '.'],
     license: cfg.license,

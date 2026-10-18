@@ -17,6 +17,7 @@ export interface Pack {
   /** Instrument packs list their credit lines and licence. */
   credits?: string[];
   license?: string;
+  category?: string;
 }
 export interface Manifest {
   version: number;

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+const PALETTE = JSON.parse(readFileSync(new URL('./palette.json', import.meta.url), 'utf8'));
 /**
  * Pack definitions. `libraryDir` and `sfz` are relative to the source root (default ~/Music/sfz).
  * `tails` lists the longest kept sample length by register (centre key `upTo`, seconds); looped samples end at their loop.
@@ -21,7 +23,7 @@ const GREG = (name, dir, id) => ({
   tails: EP_TAILS,
 });
 
-export const PACKS = {
+const KEY_PACKS = {
   upright: {
     id: 'upright',
     name: 'Upright piano',
@@ -79,3 +81,5 @@ export const PACKS = {
     outDir: 'public/instruments/mini-piano',
   },
 };
+
+export const PACKS = Object.fromEntries([...Object.values(KEY_PACKS).map(p => ({ ...p, category: 'keys' })), ...PALETTE].map(p => [p.id, p]));

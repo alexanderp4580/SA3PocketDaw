@@ -1,3 +1,4 @@
+import { presetPreview } from './preset/categories';
 import {compileSong} from '../song/events';
 import {createSongPlayback} from '../song/playback';
 import {samplePreviewDuration,type SampleControls} from './sampleControls';
@@ -230,13 +231,17 @@ export function createEngine(options: EngineOptions = {}) {
     },
     setInstrument(sampleId:string,profile:InstrumentProfile){trimmed.delete(sampleId);sources.delete(sampleId);if(instruments.get(sampleId)!==profile)for(const [id,player] of players)if(playerSources.get(id)===sampleId){void player.then(v=>v.dispose()).catch(()=>{});players.delete(id);}instruments.set(sampleId,profile);scope.info('instrument set',{sampleId,hz:profile.hz,dynamics:profile.dynamics});},
     stopPreview,
-    /** Plays a short chord of a preset; false when the preset is not installed. */
-    async previewPreset(presetId:string,midis:number[]=[60,64,67,72]){
+    /** Auditions a preset in its musical register; false when unavailable or cancelled. */
+    async previewPreset(presetId:string,midis?:number[]){
      stopPreview();const token=previewEpoch;await unlock();
      const preset=library?await library.preset(presetId):null;
      if(!preset||!ctx||!library||token!==previewEpoch)return false;
      const p=library.player(ctx as unknown as PresetContext,master,preset,'preview');previewPresetPlayer=p;
-     const t0=ctx.currentTime+.02;await Promise.all(midis.map((m,i)=>p.note(m,t0+i*.16,1.4,velocityGain(100))));return true;
+     const notes=midis?midis.map((midi,i)=>({midi,offset:i*.16,duration:1.4})):presetPreview(preset);
+     if(!notes.length)return false;
+     const needed=notes.map(n=>({midi:n.midi,velocity:velocityGain(100)}));p.retain(needed);await p.prepare(needed);
+     if(token!==previewEpoch)return false;
+     const t0=ctx.currentTime+.02;await Promise.all(notes.map(n=>p.note(n.midi,t0+n.offset,n.duration,velocityGain(100))));return true;
     },
     /** Makes `presetId` the preset of a track (the project keeps `track.presetId`; this prepares the player) and reports whether it is installed. */
     async setPreset(trackId:string,presetId:string):Promise<boolean>{

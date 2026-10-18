@@ -29,6 +29,7 @@ export function instrumentPacks(modelsDir) {
       return {
         id: e.name,
         label: preset.name,
+        ...(typeof preset.category === 'string' ? { category: preset.category } : {}),
         requires: [],
         files,
         totalBytes: files.reduce((sum, f) => sum + f.bytes, 0),

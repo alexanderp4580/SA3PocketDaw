@@ -51,3 +51,18 @@ describe('applyPreset', () => {
     expect(r.project.tracks[1]).toMatchObject({ name: 'Grand piano 2', soundType: 'preset', presetId: 'grand', notes: [] });
   });
 });
+
+describe('instrument categories', () => {
+  it('preserves known categories, groups legacy pianos, and keeps unknown categories discoverable', () => {
+    const m = { version: 1, packs: [
+      ...manifest.packs,
+      { id: 'inst-pad', label: 'Choir', requires: [], files: [], totalBytes: 10, category: 'pads' },
+      { id: 'inst-custom', label: 'Custom', requires: [], files: [], totalBytes: 10, category: 'future' },
+    ] };
+    const cards = presetCards(m, {});
+    expect(cards.find(c => c.id === 'mini-piano')?.category).toBe('keys');
+    expect(cards.find(c => c.id === 'grand')?.category).toBe('keys');
+    expect(cards.find(c => c.id === 'pad')?.category).toBe('pads');
+    expect(cards.find(c => c.id === 'custom')?.category).toBe('other');
+  });
+});

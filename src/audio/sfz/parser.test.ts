@@ -160,3 +160,15 @@ describe.skipIf(!existsSync(upright))('real Upright Piano KW .sfz', () => {
     expect(Object.keys(r.unsupported)).toEqual(['width']);
   });
 });
+
+it('uses the first round robin instead of stacking every alternative', () => {
+ const p = parseSfz('<group> seq_length=2 <region> sample=a.wav seq_position=1 <region> sample=b.wav seq_position=2');
+ expect(p.regions.map(r => r.sample)).toEqual(['a.wav']);
+ expect(p.skipped).toContainEqual({ reason: 'round robin alternative', count: 1 });
+});
+
+it('selects one random alternative rather than stacking the random layers', () => {
+ const p = parseSfz('<region> sample=a.wav lorand=0 hirand=.5 <region> sample=b.wav lorand=.5 hirand=1');
+ expect(p.regions.map(r => r.sample)).toEqual(['a.wav']);
+ expect(p.skipped).toContainEqual({ reason: 'random alternative', count: 1 });
+});

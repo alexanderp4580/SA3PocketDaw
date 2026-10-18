@@ -49,3 +49,8 @@ describe('instrument packs in the manifest', () => {
     expect(instrumentPacks(join(dir, 'nope'))).toEqual([]);
   });
 });
+
+it('carries category metadata from generated instruments', () => {
+ pack('inst-pad', { name: 'Choir', category: 'pads' });
+ expect(instrumentPacks(dir)[0]).toMatchObject({ category: 'pads' });
+});

@@ -54,6 +54,8 @@ export interface Preset {
   id: string;
   name: string;
   sampleRate: number;
+  /** Optional musical family, preserved for browser previews. */
+  category?: string;
   /** Credit and licence lines shown in the app. */
   credits: string[];
   license: string;
@@ -111,7 +113,7 @@ export function normalizePreset(input: unknown): Preset {
     return r;
   });
   const credits = Array.isArray(input['credits']) ? input['credits'].filter((c): c is string => typeof c === 'string') : [];
-  return { version: 1, id, name, sampleRate, credits, license: typeof input['license'] === 'string' ? input['license'] : '', files: outFiles, regions: outRegions };
+  return { version: 1, id, name, sampleRate, ...(typeof input['category'] === 'string' ? { category: input['category'] } : {}), credits, license: typeof input['license'] === 'string' ? input['license'] : '', files: outFiles, regions: outRegions };
 }
 
 /** Bytes of decoded float32 audio for a file, optionally scaled for a context running at another rate. */

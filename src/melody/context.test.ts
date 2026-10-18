@@ -16,3 +16,9 @@ it('repeats the first part after the gap instead of continuing with later song b
  expect(c.events.filter(n=>n.when>=c.maskEnd).map(n=>n.midi)).toEqual([60,62]);
  expect(c.background.map(n=>n.pitch)).toEqual([64,65]);
 });
+
+it('leaves drum presets out of the default pitched song context',()=>{
+ let p=project();p=addTrack(p,'Drums','drums');p=setTrackPreset(p,'drums','kit-digital');
+ p.tracks[2]!.notes=[{id:'kick',midi:36,start:0,length:1}];
+ expect(defaultContextTracks(p,'lead',{'kit-digital':'drums'})).toEqual(['chords']);
+});

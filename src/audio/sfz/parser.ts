@@ -143,7 +143,7 @@ const MODULATED = new Set(['ampeg_attack', 'ampeg_hold', 'ampeg_decay', 'ampeg_r
 /** Understood opcodes (plus their cc forms) that the player does not act on and that are not worth a warning. */
 const QUIET = new Set(['region_label', 'group_label', 'master_label', 'sw_label', 'default_path', 'octave_offset', 'note_offset', 'sw_lokey', 'sw_hikey', 'sw_default', 'sw_last', 'locc', 'hicc']);
 const KNOWN = new Set([
-  'sample', 'lokey', 'hikey', 'key', 'pitch_keycenter', 'pitch_keytrack', 'lovel', 'hivel', 'tune', 'transpose', 'volume', 'group_volume', 'pan',
+  'seq_length', 'seq_position', 'lorand', 'hirand', 'sample', 'lokey', 'hikey', 'key', 'pitch_keycenter', 'pitch_keytrack', 'lovel', 'hivel', 'tune', 'transpose', 'volume', 'group_volume', 'pan',
   'loop_mode', 'loopmode', 'loop_start', 'loopstart', 'loop_end', 'loopend', 'offset', 'end', 'ampeg_attack', 'ampeg_hold', 'ampeg_decay', 'ampeg_sustain', 'ampeg_release',
   'amp_veltrack', 'trigger', 'group', 'off_by', 'rt_decay', 'fil_type', 'cutoff', 'curve_index',
 ]);
@@ -210,6 +210,8 @@ export function parseSfz(text: string, options: SfzParseOptions = {}): SfzParseR
   for (const ops of raw) {
     const sample = (ops['sample'] ?? '').trim();
     if (!sample || sample.startsWith('*')) { skip('no sample file'); continue; }
+    if (num(ops, 'seq_position', 1) > 1) { skip('round robin alternative'); continue; }
+    if (num(ops, 'lorand', 0) > 0) { skip('random alternative'); continue; }
     const key = ops['key'] !== undefined ? noteNumber(ops['key']) : null;
     const lokey = key ?? noteNumber(ops['lokey'] ?? '0') ?? 0;
     const hikey = key ?? noteNumber(ops['hikey'] ?? '127') ?? 127;

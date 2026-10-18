@@ -1,0 +1,1318 @@
+[
+  {
+    "id": "lead-surge",
+    "name": "Surge bass & lead",
+    "category": "leads",
+    "libraryDir": "lead-surge",
+    "sfz": "SynthBassLead 20200522.sfz",
+    "credits": [
+      "FreePats Surge bass & lead. Original authors and source details in SOURCE-README.txt. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/freepats/synth-bass-lead/releases/download/2020-05-22/SynthBassLead-SFZ+FLAC-20200522.7z",
+    "copy": [
+      {
+        "from": "README.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "LICENSE.txt",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "SynthBassLead 20200522.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "lead-fifths",
+    "name": "Surge fifths lead",
+    "category": "leads",
+    "libraryDir": "lead-fifths",
+    "sfz": "SynthFifths 20200519.sfz",
+    "credits": [
+      "FreePats Surge fifths lead. Original authors and source details in SOURCE-README.txt. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/freepats/synth-fifths/releases/download/2020-05-19/SynthFifths-SFZ+FLAC-20200519.7z",
+    "copy": [
+      {
+        "from": "README.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "LICENSE.txt",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "SynthFifths 20200519.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "lead-square",
+    "name": "Square lead",
+    "category": "leads",
+    "libraryDir": "lead-square",
+    "sfz": "SynthSquare 20200512.sfz",
+    "credits": [
+      "FreePats Square lead. Original authors and source details in SOURCE-README.txt. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/freepats/synth-square/releases/download/2020-05-12/SynthSquare-SFZ+FLAC-20200512.7z",
+    "copy": [
+      {
+        "from": "README.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "LICENSE.txt",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "SynthSquare 20200512.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "lead-calliope",
+    "name": "Calliope lead",
+    "category": "leads",
+    "libraryDir": "lead-calliope",
+    "sfz": "SynthCalliope 20200512.sfz",
+    "credits": [
+      "FreePats Calliope lead. Original authors and source details in SOURCE-README.txt. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/freepats/synth-calliope/releases/download/2020-05-12/SynthCalliope-SFZ+FLAC-20200512.7z",
+    "copy": [
+      {
+        "from": "README.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "LICENSE.txt",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "SynthCalliope 20200512.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "pad-choir",
+    "name": "Choir pad",
+    "category": "pads",
+    "libraryDir": "pad-choir",
+    "sfz": "SynthPadChoir 20200516.sfz",
+    "credits": [
+      "FreePats Choir pad. Original authors and source details in SOURCE-README.txt. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/freepats/synth-pad-choir/releases/download/2020-05-16/SynthPadChoir-SFZ+FLAC-20200516.7z",
+    "copy": [
+      {
+        "from": "README.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "LICENSE.txt",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "SynthPadChoir 20200516.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "pad-sweep",
+    "name": "Sweep pad",
+    "category": "pads",
+    "libraryDir": "pad-sweep",
+    "sfz": "SweepPad 20190813.sfz",
+    "credits": [
+      "FreePats Sweep pad. Original authors and source details in SOURCE-README.txt. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/freepats/sweep-pad/releases/download/2019-08-13/SweepPad-SFZ+FLAC-20190813.7z",
+    "copy": [
+      {
+        "from": "README.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "LICENSE.txt",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "SweepPad 20190813.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "pad-new-age",
+    "name": "New Age pad",
+    "category": "pads",
+    "libraryDir": "pad-new-age",
+    "sfz": "NewAge 20190730.sfz",
+    "credits": [
+      "FreePats New Age pad. Original authors and source details in SOURCE-README.txt. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/freepats/new-age/releases/download/2019-07-30/NewAge-SFZ+FLAC-20190730.7z",
+    "copy": [
+      {
+        "from": "README.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "LICENSE.txt",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "NewAge 20190730.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "pad-bowed",
+    "name": "Bowed pad",
+    "category": "pads",
+    "libraryDir": "pad-bowed",
+    "sfz": "SynthPadBowed 20190719.sfz",
+    "credits": [
+      "FreePats Bowed pad. Original authors and source details in SOURCE-README.txt. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/freepats/synth-pad-bowed/releases/download/2019-07-19/SynthPadBowed-SFZ+FLAC-20190719.7z",
+    "copy": [
+      {
+        "from": "README.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "LICENSE.txt",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "SynthPadBowed 20190719.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "bass-lately",
+    "name": "Lately FM bass",
+    "category": "bass",
+    "libraryDir": "bass-lately",
+    "sfz": "LatelyBass 20240409.sfz",
+    "credits": [
+      "FreePats Lately FM bass. Original authors and source details in SOURCE-README.txt. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/freepats/lately-bass/releases/download/2024-04-09/LatelyBass-SFZ+FLAC-20240409.7z",
+    "copy": [
+      {
+        "from": "README.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "LICENSE.txt",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "LatelyBass 20240409.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "bass-analog",
+    "name": "Analog synth bass",
+    "category": "bass",
+    "libraryDir": "bass-analog",
+    "sfz": "SynthBass1 20190723.sfz",
+    "credits": [
+      "FreePats Analog synth bass. Original authors and source details in SOURCE-README.txt. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/freepats/synth-bass-1/releases/download/2019-07-23/SynthBass1-SFZ+FLAC-20190723.7z",
+    "copy": [
+      {
+        "from": "README.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "LICENSE.txt",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "SynthBass1 20190723.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "bass-dx",
+    "name": "DX-style bass",
+    "category": "bass",
+    "libraryDir": "bass-dx",
+    "sfz": "SynthBass2 20210405.sfz",
+    "credits": [
+      "FreePats DX-style bass. Original authors and source details in SOURCE-README.txt. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/freepats/synth-bass-2/releases/download/2021-04-05/SynthBass2-SFZ+FLAC-20210405.7z",
+    "copy": [
+      {
+        "from": "README.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "LICENSE.txt",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "SynthBass2 20210405.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "texture-goblins",
+    "name": "Goblins texture",
+    "category": "textures",
+    "libraryDir": "texture-goblins",
+    "sfz": "SynthGoblins 20200612.sfz",
+    "credits": [
+      "FreePats Goblins texture. Original authors and source details in SOURCE-README.txt. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/freepats/synth-goblins/releases/download/2020-06-12/SynthGoblins-SFZ+FLAC-20200612.7z",
+    "copy": [
+      {
+        "from": "README.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "LICENSE.txt",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "SynthGoblins 20200612.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "texture-soundtrack",
+    "name": "Soundtrack texture",
+    "category": "textures",
+    "libraryDir": "texture-soundtrack",
+    "sfz": "SynthSoundtrack 20200521.sfz",
+    "credits": [
+      "FreePats Soundtrack texture. Original authors and source details in SOURCE-README.txt. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/freepats/synth-soundtrack/releases/download/20200521/SynthSoundtrack-SFZ+FLAC-20200521.7z",
+    "copy": [
+      {
+        "from": "README.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "LICENSE.txt",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "SynthSoundtrack 20200521.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "texture-scifi",
+    "name": "Sci-fi texture",
+    "category": "textures",
+    "libraryDir": "texture-scifi",
+    "sfz": "SynthSciFi 20200517.sfz",
+    "credits": [
+      "FreePats Sci-fi texture. Original authors and source details in SOURCE-README.txt. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/freepats/synth-scifi/releases/download/2020-05-17/SynthSciFi-SFZ+FLAC-20200517.7z",
+    "copy": [
+      {
+        "from": "README.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "LICENSE.txt",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "SynthSciFi 20200517.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "texture-crystal",
+    "name": "Crystal texture",
+    "category": "textures",
+    "libraryDir": "texture-crystal",
+    "sfz": "SynthCrystal 20190812.sfz",
+    "credits": [
+      "FreePats Crystal texture. Original authors and source details in SOURCE-README.txt. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/freepats/synth-crystal/releases/download/2019-08-12/SynthCrystal-SFZ+FLAC-20190812.7z",
+    "copy": [
+      {
+        "from": "README.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "LICENSE.txt",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "SynthCrystal 20190812.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "kit-analog",
+    "name": "Analog drum kit",
+    "category": "drums",
+    "libraryDir": "kit-analog",
+    "sfz": "gm.sfz",
+    "credits": [
+      "FreePats Analog drum kit. Original authors and source details in SOURCE-README.txt. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://freepats.zenvoid.org/Percussion/SynthesizerPercussion/SynthesizerPercussion-SFZ-20220718.7z",
+    "copy": [
+      {
+        "from": "readme.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "SynthesizerPercussion-20220718.sfz",
+        "to": "SOURCE.sfz"
+      },
+      {
+        "from": "LICENSE.txt",
+        "to": "LICENSE.txt"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "kalimba",
+    "name": "Kalimba",
+    "category": "plucks",
+    "libraryDir": "kalimba",
+    "sfz": "Kalimba-20190723.sfz",
+    "credits": [
+      "FreePats Kalimba. Original authors and source details in SOURCE-README.txt. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://freepats.zenvoid.org/Ethnic/Kalimba/Kalimba-SFZ-20190723.tar.xz",
+    "copy": [
+      {
+        "from": "readme.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "Kalimba-20190723.sfz",
+        "to": "SOURCE.sfz"
+      },
+      {
+        "from": "LICENSE.txt",
+        "to": "LICENSE.txt"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "glass",
+    "name": "Water glass bells",
+    "category": "mallets",
+    "libraryDir": "glass",
+    "sfz": "Glass-20191227.sfz",
+    "credits": [
+      "FreePats Water glass bells. Original authors and source details in SOURCE-README.txt. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://freepats.zenvoid.org/ChromaticPercussion/Glass/Glass-SFZ+FLAC-20191227.7z",
+    "copy": [
+      {
+        "from": "readme.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "cc0.txt",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "Glass-20191227.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "strings-ensemble",
+    "name": "Violin ensemble",
+    "category": "strings",
+    "libraryDir": "VSCO-CE",
+    "sfz": "ViolinEnsSusVib.sfz",
+    "credits": [
+      "VSCO 2 Community Edition, recorded by Sam Gossner and Simon Dalzell; sample cutting by Elan Hickler/Soundemote. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891",
+    "copy": [
+      {
+        "from": "LICENSE",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "Readme.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "ViolinEnsSusVib.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "strings-pizzicato",
+    "name": "Pizzicato strings",
+    "category": "strings",
+    "libraryDir": "VSCO-CE",
+    "sfz": "ViolinEnsPizz.sfz",
+    "credits": [
+      "VSCO 2 Community Edition, recorded by Sam Gossner and Simon Dalzell; sample cutting by Elan Hickler/Soundemote. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891",
+    "copy": [
+      {
+        "from": "LICENSE",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "Readme.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "ViolinEnsPizz.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "strings-violin",
+    "name": "Solo violin",
+    "category": "strings",
+    "libraryDir": "VSCO-CE",
+    "sfz": "SViolinVib.sfz",
+    "credits": [
+      "VSCO 2 Community Edition, recorded by Sam Gossner and Simon Dalzell; sample cutting by Elan Hickler/Soundemote. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891",
+    "copy": [
+      {
+        "from": "LICENSE",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "Readme.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "SViolinVib.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "strings-cello",
+    "name": "Cello ensemble",
+    "category": "strings",
+    "libraryDir": "VSCO-CE",
+    "sfz": "CelloEnsSusVib.sfz",
+    "credits": [
+      "VSCO 2 Community Edition, recorded by Sam Gossner and Simon Dalzell; sample cutting by Elan Hickler/Soundemote. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891",
+    "copy": [
+      {
+        "from": "LICENSE",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "Readme.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "CelloEnsSusVib.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "wind-flute",
+    "name": "Flute",
+    "category": "winds",
+    "libraryDir": "VSCO-CE",
+    "sfz": "FluteSusNV.sfz",
+    "credits": [
+      "VSCO 2 Community Edition, recorded by Sam Gossner and Simon Dalzell; sample cutting by Elan Hickler/Soundemote. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891",
+    "copy": [
+      {
+        "from": "LICENSE",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "Readme.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "FluteSusNV.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "wind-clarinet",
+    "name": "Clarinet",
+    "category": "winds",
+    "libraryDir": "VSCO-CE",
+    "sfz": "ClarinetSus.sfz",
+    "credits": [
+      "VSCO 2 Community Edition, recorded by Sam Gossner and Simon Dalzell; sample cutting by Elan Hickler/Soundemote. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891",
+    "copy": [
+      {
+        "from": "LICENSE",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "Readme.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "ClarinetSus.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "wind-oboe",
+    "name": "Oboe",
+    "category": "winds",
+    "libraryDir": "VSCO-CE",
+    "sfz": "OboeSusNV.sfz",
+    "credits": [
+      "VSCO 2 Community Edition, recorded by Sam Gossner and Simon Dalzell; sample cutting by Elan Hickler/Soundemote. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891",
+    "copy": [
+      {
+        "from": "LICENSE",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "Readme.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "OboeSusNV.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "wind-muted-trumpet",
+    "name": "Muted trumpet",
+    "category": "winds",
+    "libraryDir": "VSCO-CE",
+    "sfz": "TrumpetHarmonMuteSus.sfz",
+    "credits": [
+      "VSCO 2 Community Edition, recorded by Sam Gossner and Simon Dalzell; sample cutting by Elan Hickler/Soundemote. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891",
+    "copy": [
+      {
+        "from": "LICENSE",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "Readme.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "TrumpetHarmonMuteSus.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "mallet-glockenspiel",
+    "name": "Glockenspiel",
+    "category": "mallets",
+    "libraryDir": "VSCO-CE",
+    "sfz": "Glockenspiel.sfz",
+    "credits": [
+      "VSCO 2 Community Edition, recorded by Sam Gossner and Simon Dalzell; sample cutting by Elan Hickler/Soundemote. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891",
+    "copy": [
+      {
+        "from": "LICENSE",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "Readme.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "Glockenspiel.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "mallet-marimba",
+    "name": "Marimba",
+    "category": "mallets",
+    "libraryDir": "VSCO-CE",
+    "sfz": "Marimba.sfz",
+    "credits": [
+      "VSCO 2 Community Edition, recorded by Sam Gossner and Simon Dalzell; sample cutting by Elan Hickler/Soundemote. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891",
+    "copy": [
+      {
+        "from": "LICENSE",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "Readme.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "Marimba.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "mallet-tubular",
+    "name": "Tubular bells",
+    "category": "mallets",
+    "libraryDir": "VSCO-CE",
+    "sfz": "TubularBells.sfz",
+    "credits": [
+      "VSCO 2 Community Edition, recorded by Sam Gossner and Simon Dalzell; sample cutting by Elan Hickler/Soundemote. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891",
+    "copy": [
+      {
+        "from": "LICENSE",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "Readme.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "TubularBells.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "pluck-harp",
+    "name": "Concert harp",
+    "category": "plucks",
+    "libraryDir": "VSCO-CE",
+    "sfz": "Harp.sfz",
+    "credits": [
+      "VSCO 2 Community Edition, recorded by Sam Gossner and Simon Dalzell; sample cutting by Elan Hickler/Soundemote. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891",
+    "copy": [
+      {
+        "from": "LICENSE",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "Readme.txt",
+        "to": "SOURCE-README.txt"
+      },
+      {
+        "from": "Harp.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "pluck-nylon",
+    "name": "Nylon guitar",
+    "category": "plucks",
+    "libraryDir": "SpanishClassicalGuitar-SFZ+FLAC-20190618",
+    "sfz": "SpanishClassicalGuitar-20190618.sfz",
+    "credits": [
+      "Spanish Classical Guitar by Roberto for FreePats. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://freepats.zenvoid.org/Guitar/acoustic-guitar.html",
+    "copy": [
+      {
+        "from": "SpanishClassicalGuitar-20190618.sfz",
+        "to": "SOURCE.sfz"
+      },
+      {
+        "from": "cc0.txt",
+        "to": "LICENSE.txt"
+      }
+    ],
+    "layers": 2,
+    "channels": "mono",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "pluck-steel",
+    "name": "Steel guitar",
+    "category": "plucks",
+    "libraryDir": "Discord-SFZ-GM-Bank",
+    "sfz": "Discord GM/Melodic/026-Acoustic Guitar (steel).sfz",
+    "credits": [
+      "Martin HD28 recorded by Jeff Learman; GM mapping by Jeff Learman for kinwie Discord GM. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/kinwie/Discord-SFZ-GM-Bank",
+    "copy": [
+      {
+        "from": "Discord GM/Melodic/026-Acoustic Guitar (steel).sfz",
+        "to": "SOURCE.sfz"
+      },
+      {
+        "from": "CC0-LICENSE.txt",
+        "to": "LICENSE.txt"
+      }
+    ],
+    "layers": 2,
+    "channels": "mono",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "bass-finger",
+    "name": "Fingered electric bass",
+    "category": "bass",
+    "libraryDir": "Discord-SFZ-GM-Bank",
+    "sfz": "Discord GM/Melodic/034-Electric Bass (finger).sfz",
+    "credits": [
+      "Killer Bass by Karoryfer; mapping from kinwie Discord GM. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/kinwie/Discord-SFZ-GM-Bank",
+    "copy": [
+      {
+        "from": "Discord GM/Melodic/034-Electric Bass (finger).sfz",
+        "to": "SOURCE.sfz"
+      },
+      {
+        "from": "CC0-LICENSE.txt",
+        "to": "LICENSE.txt"
+      }
+    ],
+    "layers": 99,
+    "channels": "mono",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "kit-acoustic",
+    "name": "Acoustic jazz kit",
+    "category": "drums",
+    "libraryDir": "kit-acoustic",
+    "sfz": "gm.sfz",
+    "credits": [
+      "Virtuosity Drums, performed by Austin McMahon, recorded at Virtuosity Musical Instruments; Versilian Studios and Karoryfer. CC0 1.0. Overhead microphone mix."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/sfzinstruments/virtuosity_drums",
+    "copy": [
+      {
+        "from": "LICENSE.txt",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "gm.sfz",
+        "to": "SOURCE.sfz"
+      },
+      {
+        "from": "SOURCE-README.txt",
+        "to": "SOURCE-README.txt"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "kit-lofi",
+    "name": "Lo-fi jazz kit",
+    "category": "drums",
+    "libraryDir": "kit-lofi",
+    "sfz": "gm.sfz",
+    "credits": [
+      "Virtuosity Drums, performed by Austin McMahon, recorded at Virtuosity Musical Instruments; Versilian Studios and Karoryfer. CC0 1.0. Lo-fi microphone mix."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "https://github.com/sfzinstruments/virtuosity_drums",
+    "copy": [
+      {
+        "from": "LICENSE.txt",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "gm.sfz",
+        "to": "SOURCE.sfz"
+      },
+      {
+        "from": "SOURCE-README.txt",
+        "to": "SOURCE-README.txt"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  },
+  {
+    "id": "kit-digital",
+    "name": "Digital drum kit",
+    "category": "drums",
+    "libraryDir": "kit-digital",
+    "sfz": "gm.sfz",
+    "credits": [
+      "Original deterministic FM and noise percussion synthesized for PocketDaw. CC0 1.0."
+    ],
+    "license": "CC0 1.0",
+    "sourceUrl": "scripts/instruments/prepare-palette.py",
+    "copy": [
+      {
+        "from": "LICENSE.txt",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "gm.sfz",
+        "to": "SOURCE.sfz"
+      }
+    ],
+    "layers": 99,
+    "channels": "auto",
+    "maxDecodedMB": 72,
+    "maxDownloadMB": 12,
+    "bakeLoops": true,
+    "tails": [
+      {
+        "upTo": 127,
+        "sec": 10
+      }
+    ]
+  }
+]

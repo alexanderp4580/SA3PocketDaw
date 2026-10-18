@@ -60,3 +60,24 @@ describe('planBudget', () => {
     expect(plan.bytes).toBe((Math.round(15 * 44100) + 4096) * 4);
   });
 });
+
+it('preserves per-key velocity coverage when a mapping mixes full-range and layered notes', () => {
+ const parsed = { regions: [attack(0, 62, 60), attack(63, 127, 60), attack(0, 127, 72)] };
+ const r = selectRegions(parsed, { layers: 99 });
+ for (const key of [60, 72]) for (let velocity = 1; velocity <= 127; velocity++) {
+  expect(r.regions.some((x: any) => key >= x.lokey && key <= x.hikey && velocity >= x.lovel && velocity <= x.hivel)).toBe(true);
+ }
+});
+
+it('keeps soft finger-bass notes audible with its uneven source velocity ranges', async () => {
+ const { PACKS } = await import('./packs.mjs');
+ const ranges: Array<[number, number]> = [[1,25],[26,50],[51,75],[76,100],[101,127]];
+ const parsed = { regions: [
+  ...ranges.map(([a,b]) => attack(a,b,36)),
+  ...ranges.map(([a,b],i) => attack(i === 1 ? 25 : a,b,54)),
+ ] };
+ const r = selectRegions(parsed, PACKS['bass-finger']);
+ for (const key of [36,54]) for(let velocity=1;velocity<=127;velocity++) {
+  expect(r.regions.some((x: any) => key>=x.lokey && key<=x.hikey && velocity>=x.lovel && velocity<=x.hivel)).toBe(true);
+ }
+});

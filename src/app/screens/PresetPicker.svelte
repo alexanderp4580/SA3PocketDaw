@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { PRESET_CATEGORIES, type PresetCategory } from '../../audio/preset/categories';
   import Sheet from '../Sheet.svelte';
   import { ui, updateProject, notify } from '../appState.svelte';
   import { engine } from '../services';
@@ -11,6 +12,9 @@
 
   const track = $derived(trackId ? ui.project?.tracks.find((t) => t.id === trackId) : undefined);
   const current = $derived(track?.soundType === 'preset' ? track.presetId : undefined);
+  let category = $state<PresetCategory | 'all'>('all');
+  const categories = $derived(PRESET_CATEGORIES.map(c => ({ ...c, count: ui.presetCards.filter(p => p.category === c.id).length })).filter(c => c.count > 0));
+  const visibleCards = $derived(category === 'all' ? ui.presetCards : ui.presetCards.filter(c => c.category === category));
   let previewing = $state<string | null>(null);
 
   async function preview(c: PresetCard) {
@@ -36,8 +40,15 @@
 
 <Sheet title="♪ Instruments" sub={track ? `For ${track.name}` : 'New track · created when you choose Use'} tall onclose={close}>
   <div class="note">Sampled instruments play without generating. Downloaded instruments work offline.</div>
+  <label class="category">Category
+    <select aria-label="Instrument category" bind:value={category} onchange={() => engine.stopPreview()}>
+      <option value="all">All instruments ({ui.presetCards.length})</option>
+      {#each categories as c (c.id)}<option value={c.id}>{c.label} ({c.count})</option>{/each}
+    </select>
+  </label>
+  {#if category === 'drums'}<div class="note">GM notes: kick C2 · snare D2 · closed hat F♯2 · open hat A♯2 · crash C♯3. Turn In-key off in the piano roll to reach every drum.</div>{/if}
   <div class="list">
-    {#each ui.presetCards as c (c.id)}
+    {#each visibleCards as c (c.id)}
       {@const busy = presetDownload.id === c.id}
       <div class="card" class:cur={current === c.id}>
         <div class="row">
@@ -75,6 +86,8 @@
 </Sheet>
 
 <style>
+  .category { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+  select { width: 100%; min-height: 44px; background: var(--panel, #20212a); color: inherit; border: 1px solid var(--border, #555); border-radius: 8px; padding: 8px; font: inherit; }
   .list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
   .card.cur { border-color: var(--sa3); }
   .note.bad { color: var(--red); }
