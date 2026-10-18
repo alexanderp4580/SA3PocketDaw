@@ -101,6 +101,7 @@
  </div>
  <div class="note">{Number.isFinite(seconds)?seconds.toFixed(2):'—'} seconds · up to {followSong?2:4} bars, within 12 seconds</div>
  <label class="st" for="melody-style">Melody style</label>
+ <p class="note">Piano, tempo, key and dry recording guidance are added automatically. Your description comes last.</p>
  <textarea id="melody-style" class="field" rows="2" bind:value={style} disabled={busy}></textarea>
  <label class="st" for="melody-source">Generate with</label>
  <select id="melody-source" class="field" bind:value={source} disabled={busy||followSong}><option value="device">On device</option><option value="cloud">Cloud · 8 credits per take</option></select>

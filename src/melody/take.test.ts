@@ -9,3 +9,12 @@ describe('generated bars',()=>{
  it('preserves notes outside the range and splits notes that cross both edges',()=>{const n={id:'old',midi:60,start:0,length:48,velocity:80};const out=replaceBars([n],[],2,1,()=> 'right');expect(out).toEqual([{...n,length:16},{...n,id:'right',start:32,length:16}]);expect(n.length).toBe(48);});
  it('rejects a stale track or changed tempo',()=>{const a={projectId:'p',trackId:'t',bpm:120,bars:2,notes:'[]',sound:'s'};expect(canKeepTake(a,{...a})).toBe(true);expect(canKeepTake(a,{...a,bpm:130})).toBe(false);expect(canKeepTake(a,{...a,notes:'changed'})).toBe(false);});
 });
+
+it('starts isolated piano prompts with fixed track tags and appends only the editable style last',()=>{
+ const prompt=melodyPrompt('  playful rising phrase  ',96,'F','minor',2);
+ expect(prompt.startsWith('TrackType: Instrument, Instruments: Piano, VocalType: Instrumental.')).toBe(true);
+ expect(prompt).toContain('96 BPM, F minor, 4/4 time, 2 bars');
+ expect(prompt).toMatch(/dry close recording/i);
+ expect(prompt.endsWith('playful rising phrase')).toBe(true);
+ expect(melodyPrompt('',96,'F','minor',2)).not.toMatch(/undefined|\s$/);
+});

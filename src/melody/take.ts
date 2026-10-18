@@ -1,8 +1,13 @@
 import {MIDI_MIN,MIDI_MAX,clampVelocity,newId,type Note} from '../store/projectModel';
 import type {TranscribedNote} from '../transcribe/notes';
 export const barSeconds=(bars:number,bpm:number)=>bars*240/bpm;
-export function melodyPrompt(style:string,bpm:number,key:string,scale:string,bars:number){
- return `Instruments: Piano. Solo acoustic piano melody, ${bpm} BPM, ${key} ${scale}, 4/4 time, ${bars} bars. Clear individual notes, steady rhythm, start immediately on the first beat, no vocals or other instruments. ${style.trim()}`;
+/** The editable style is always last; the fixed setup also serves Follow song. */
+export function melodyPrompt(style:string,bpm:number,key:string,scale:string,bars:number,followSong=false){
+ const setup=`TrackType: Instrument, Instruments: Piano, VocalType: Instrumental. Solo acoustic piano melody, ${bpm} BPM, ${key} ${scale}, 4/4 time, ${bars} bars. Dry close recording, clear individual note attacks and distinct pitches, steady rhythm, no vocals, drums, accompaniment or reverb.`;
+ const phrase=followSong
+  ?'A complementary melodic phrase in the gap, following the surrounding harmony and rhythm, with a smooth return to the repeated opening phrase.'
+  :'A complete melodic phrase, starting immediately on the first beat.';
+ return [setup,phrase,style.trim()].filter(Boolean).join(' ');
 }
 /** Convert raw note seconds to the roll's sixteenth-step format without changing pitch. */
 export function notesForBars(raw:TranscribedNote[],bpm:number,startBar:number,bars:number,id=()=>newId('n')):Note[]{

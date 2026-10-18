@@ -1,7 +1,7 @@
 import type {CloudParams} from '../gen/cloud';
 import type {ContextPlan} from './context';
 import {downmixToMono,resampleSinc} from '../transcribe/resample';
-import {barSeconds,notesForBars} from './take';
+import {barSeconds,melodyPrompt,notesForBars} from './take';
 import {EmptyBarsError,type BarsRequest,type BarsAudio,type BarsTake} from './pipeline';
 import type {TranscribedNote} from '../transcribe/notes';
 export interface ContextPorts {
@@ -16,7 +16,7 @@ export async function generateContextBars(r:BarsRequest,plan:ContextPlan,p:Conte
  const check=()=>{if(p.signal?.aborted)throw new DOMException('Cancelled','AbortError');};
  check();p.progress?.('Rendering piano context');const input=await p.render(plan);check();
  p.progress?.('Generating with your song');
- const prompt=`Instruments: Piano. ${r.bpm} BPM, ${r.key} ${r.scale}, 4/4 time. Continue the piano music in the gap with a complementary melodic part that follows the surrounding harmony and rhythm. Clear piano notes, no vocals or other instruments. ${r.style.trim()}`;
+ const prompt=melodyPrompt(r.style,r.bpm,r.key,r.scale,r.bars,true);
  const output=await p.generate({prompt,seconds:plan.seconds,steps:8,seed:r.seed,inpaint:{audio:input.audio,maskStart:plan.maskStart,maskEnd:plan.maskEnd}});check();
  const rate=output.sampleRate,from=Math.round(plan.maskStart*rate),to=Math.round(plan.maskEnd*rate);
  if(!Number.isFinite(rate)||rate<=0||!output.channels.length||output.channels.some(c=>c.length<to))throw Error('The generated audio is too short for the selected bars. Try a fresh take.');

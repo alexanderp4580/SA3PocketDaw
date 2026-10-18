@@ -22,3 +22,12 @@ it('retains only the failed generated gap and diagnoses out-of-roll detections',
  expect(error.take.sampleRate).toBe(16000);
  expect(error.diagnostics).toMatchObject({contextual:true,audioSeconds:4,rawNoteCount:1,playableNoteCount:0,pitchMin:108,pitchMax:108});
 });
+
+it('uses the same fixed piano prompt setup for Follow song and leaves the user description at the end',async()=>{
+ const p=ports();await generateContextBars({...r,style:'  gentle descending answer  '},plan,p);
+ expect(p.params.prompt.startsWith('TrackType: Instrument, Instruments: Piano, VocalType: Instrumental.')).toBe(true);
+ expect(p.params.prompt).toContain('120 BPM, C major, 4/4 time, 2 bars');
+ expect(p.params.prompt).toMatch(/dry close recording/i);
+ expect(p.params.prompt).toContain('surrounding harmony and rhythm');
+ expect(p.params.prompt.endsWith('gentle descending answer')).toBe(true);
+});
