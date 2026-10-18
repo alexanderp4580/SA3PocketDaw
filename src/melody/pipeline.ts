@@ -3,6 +3,16 @@ import type {Note} from '../store/projectModel';
 import type {TranscribedNote} from '../transcribe/notes';
 import {barSeconds,melodyPrompt,notesForBars} from './take';
 export interface BarsTake {notes:Note[];raw:TranscribedNote[];pcm:Float32Array;sampleRate:number;seconds:number;removed?:number;contextual?:boolean}
+/** Keep failed audio available for audition and diagnosis without treating it as accepted notes. */
+export class EmptyBarsError extends Error {
+ readonly diagnostics;
+ constructor(message:string,readonly take:BarsTake,readonly audio:BarsAudio){
+  super(message);this.name='EmptyBarsError';
+  let peak=0,sum=0;for(const x of take.pcm){peak=Math.max(peak,Math.abs(x));sum+=x*x;}
+  const pitches=take.raw.map(n=>n.pitch).filter(Number.isFinite);
+  this.diagnostics={contextual:!!take.contextual,sampleRate:take.sampleRate,audioSeconds:take.pcm.length/take.sampleRate,peak,rms:take.pcm.length?Math.sqrt(sum/take.pcm.length):0,rawNoteCount:take.raw.length,playableNoteCount:take.notes.length,pitchMin:pitches.length?Math.min(...pitches):null,pitchMax:pitches.length?Math.max(...pitches):null};
+ }
+}
 export interface BarsRequest {bpm:number;key:string;scale:string;startBar:number;bars:number;style:string;seed:number}
 export interface BarsAudio {channels:Float32Array[];sampleRate:number}
 export interface BarsPorts {
@@ -18,10 +28,11 @@ export async function generateBars(r:BarsRequest,p:BarsPorts):Promise<BarsTake>{
  check();p.progress?.('Generating piano audio');
  const audio=await p.generate({prompt:melodyPrompt(r.style,r.bpm,r.key,r.scale,r.bars),seconds,seed:r.seed});
  check();p.progress?.('Preparing audio for transcription');
- const mono=downmixToMono(audio.channels),input=resampleSinc(mono,audio.sampleRate,16000);
+ const mono=downmixToMono(audio.channels),input=resampleSinc(mono,audio.sampleRate,16000).slice();
  check();p.progress?.('Transcribing piano notes');
  const raw=await p.transcribe(input);check();
  const notes=notesForBars(raw,r.bpm,r.startBar,r.bars);
- if(!notes.length)throw Error('No playable notes were detected in these bars. Try another take or a clearer piano melody.');
- return {notes,raw,pcm:mono,sampleRate:audio.sampleRate,seconds};
+ const take={notes,raw,pcm:mono,sampleRate:audio.sampleRate,seconds};
+ if(!notes.length)throw new EmptyBarsError('No playable notes were detected in these bars. Listen to the generated audio below.',take,audio);
+ return take;
 }

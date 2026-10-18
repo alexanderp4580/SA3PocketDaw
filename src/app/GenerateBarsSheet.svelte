@@ -6,10 +6,10 @@
  import {loadApiKey,redactKey} from '../store/apiKey';
  import {generateCloud} from '../gen/cloud';
  import {generateWithFallback,loadDevice,effectiveDevice,gpuAllowed} from '../gen/device';
- import {generateBars,type BarsTake} from '../melody/pipeline';
+ import {generateBars,EmptyBarsError,type BarsTake} from '../melody/pipeline';
  import {generateContextBars} from '../melody/contextPipeline';
  import {contextPlan,defaultContextTracks,contextStamp} from '../melody/context';
- import {renderContext} from '../melody/renderContext';
+ import {encodePcmWav,renderContext} from '../melody/renderContext';
  import type {CloudParams} from '../gen/cloud';
  import {previewProject} from '../melody/preview';
  import {barSeconds,canKeepTake,replaceBars,type TakeStamp} from '../melody/take';
@@ -27,6 +27,9 @@
  let pack=$state('Checking'),installed=$state(false),available=$state(false);
  let busy=$state(false),status=$state(''),error=$state(''),previewing=$state(false);
  let result=$state.raw<BarsTake|null>(null);
+ let failedAudioUrl=$state('');
+ let failedAudioElement=$state<HTMLAudioElement>();
+ function clearFailedAudio(){failedAudioElement?.pause();if(failedAudioUrl)URL.revokeObjectURL(failedAudioUrl);failedAudioUrl='';}
  let stamp:TakeStamp|null=null;
  let controller:AbortController|null=null;
  let timer:ReturnType<typeof setTimeout>|undefined;
@@ -41,14 +44,14 @@
  function toggleContext(id:string,checked:boolean){contextIds=checked?[...contextIds,id]:contextIds.filter(x=>x!==id);}
  const stale=$derived(result&&stamp?!canKeepTake(stamp,stampNow()):false);
  function stopPreview(){clearTimeout(timer);if(previewing){engine.stop();if(ui.project)engine.setProject(ui.project);}engine.stopPreview();previewing=false;}
- function close(){closed=true;controller?.abort();stopPreview();onclose();}
- onDestroy(()=>{closed=true;controller?.abort();stopPreview();});
+ function close(){clearFailedAudio();closed=true;controller?.abort();stopPreview();onclose();}
+ onDestroy(()=>{clearFailedAudio();closed=true;controller?.abort();stopPreview();});
  async function refresh(){try{if(!models.getManifest())await models.loadManifest();const p=transcriberPack(models.getManifest(),await models.packStates());installed=p.status==='installed';available=p.available;pack=installed?'Piano transcriber ready':p.available?'Download Piano transcriber (58 MB)':'Piano transcriber is not in the model list';}catch{pack='Could not load the model list';}}
  onMount(()=>{void refresh();const off=models.onChange(()=>void refresh());if(choices.length&&!choices.some(c=>c.id===model))model=choices[0]!.id;return off;});
  async function install(id=PACK_ID){busy=true;error='';controller=new AbortController();try{await models.download(id,{signal:controller.signal,onProgress:p=>{status=`Installing ${id===PACK_ID?'piano transcriber':'Small Music'} · ${Math.round(p.packBytes/Math.max(1,p.packTotal)*100)}%`;}});await refreshModelCards();await refresh();}catch(e){error=e instanceof Error?e.message:String(e);}finally{busy=false;status='';controller=null;}}
  async function run(){
   if(busy||!valid||(followSong&&!contextSetup.plan))return;
-  stop();stopPreview();result=null;error='';stamp=stampNow();busy=true;controller=new AbortController();const signal=controller.signal;
+  stop();stopPreview();clearFailedAudio();result=null;error='';stamp=stampNow();busy=true;controller=new AbortController();const signal=controller.signal;
   const request={bpm:stamp.bpm,key:ui.project?.key??'C',scale:ui.project?.scale??'major',startBar,bars:count,style,seed:Math.floor(Math.random()*0xfffffffe)};
   try{
    await transcriber.unload();if(signal.aborted)throw new DOMException('Cancelled','AbortError');
@@ -64,7 +67,15 @@
     :await generateBars(request,{signal,progress:m=>status=m,generate:p=>generate({...p,steps:8}),transcribe});
    if(closed||signal.aborted)return;
    result=out;scope.info('bars prepared',{trackId:track.id,bars:count,seconds:out.seconds,notes:out.notes.length,source});
-  }catch(e){if(!closed)error=signal.aborted?'Cancelled. Your notes are unchanged.':redactKey(e instanceof Error?e.message:String(e),loadApiKey(localStorage)??'');}
+  }catch(e){
+   if(!closed){
+    error=signal.aborted?'Cancelled. Your notes are unchanged.':redactKey(e instanceof Error?e.message:String(e),loadApiKey(localStorage)??'');
+    if(!signal.aborted&&e instanceof EmptyBarsError){
+     scope.warn('generated bars have no playable notes',e.diagnostics);
+     failedAudioUrl=URL.createObjectURL(new Blob([encodePcmWav(e.audio.channels,e.audio.sampleRate)],{type:'audio/wav'}));
+    }
+   }
+  }
   finally{busy=false;status='';controller=null;}
  }
  async function preview(){if(!result||!ui.project)return;stop();stopPreview();previewing=true;try{engine.setPlaybackMode('pattern');engine.setProject(previewProject(ui.project,track,result.notes,startBar,count,!!result.contextual));await engine.play();if(!previewing)return;timer=setTimeout(stopPreview,seconds*1000+250);}catch(e){stopPreview();error=e instanceof Error?e.message:String(e);}}
@@ -111,5 +122,10 @@
  {/if}
  {#if status}<p class="note" role="status">{status}</p>{/if}
  {#if error}<p class="note bad" role="alert">{error}</p>{/if}
+ {#if failedAudioUrl}
+ <div class="card"><b>Generated audio</b><p class="note">No notes were added. Listen to this take or download it to inspect the transcription failure. Debug → Copy report includes the audio level and detected note count.</p>
+ <audio bind:this={failedAudioElement} aria-label="Generated audio" controls src={failedAudioUrl} style="width:100%"></audio>
+ <a class="btn" href={failedAudioUrl} download="generated-bars.wav">Download generated audio</a></div>
+ {/if}
 </Sheet>
 <style>.range{display:flex;gap:12px;margin-top:12px}.range label{flex:1;min-width:0}.field{margin-top:6px;width:100%;box-sizing:border-box}textarea{resize:vertical;min-height:76px;height:auto;padding:10px 14px;color:var(--text);font:inherit}.follow,.context-track{display:flex;align-items:center;gap:10px;margin-top:12px;overflow-wrap:anywhere}.follow input,.context-track input{width:20px;height:20px;flex-shrink:0}.bad{color:var(--red)}</style>

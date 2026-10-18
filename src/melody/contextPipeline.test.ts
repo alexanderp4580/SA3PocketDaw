@@ -1,5 +1,6 @@
 import {it,expect} from 'vitest';
 import {generateContextBars} from './contextPipeline';
+import {EmptyBarsError} from './pipeline';
 import type {ContextPlan} from './context';
 const plan:ContextPlan={events:[{trackId:'back',midi:60,when:0,duration:.5,velocity:1}],background:[{onset:0,offset:1,pitch:60,velocity:90}],maskStart:4,maskEnd:8,seconds:12,contextIds:['back']};
 const r={bpm:120,key:'C',scale:'major',startBar:2,bars:2,style:'flowing',seed:1};
@@ -10,3 +11,14 @@ it('keeps valid unisons or repeated phrases generated in the silent gap',async()
 it('reports empty transcription accurately without blaming context matches',async()=>{await expect(generateContextBars(r,plan,ports([]))).rejects.toThrow('No playable piano notes were detected in the generated bars');});
 it('rejects truncated server audio instead of silently shortening the requested bars',async()=>{const p=ports();p.generate=async()=>({channels:[new Float32Array(5*16000)],sampleRate:16000});await expect(generateContextBars(r,plan,p)).rejects.toThrow(/short/);});
 it('cancels after rendering without sending the cloud request',async()=>{const p=ports(),c=new AbortController();p.render=async()=>{c.abort();return {audio:new Blob(['wav']),pcm:new Float32Array(1),sampleRate:16000};};await expect(generateContextBars(r,plan,{...p,signal:c.signal})).rejects.toThrow(/Cancel/);expect(p.params).toBeUndefined();});
+
+it('retains only the failed generated gap and diagnoses out-of-roll detections',async()=>{
+ const p=ports([n(.1,108)]);
+ p.transcribe=async input=>{structuredClone(input,{transfer:[input.buffer]});return [n(.1,108)];};
+ const error=await generateContextBars(r,plan,p).catch(e=>e);
+ expect(error).toBeInstanceOf(EmptyBarsError);
+ expect(error.take.pcm.length).toBe(64000);
+ expect(error.take.pcm[0]).toBeCloseTo(.2);
+ expect(error.take.sampleRate).toBe(16000);
+ expect(error.diagnostics).toMatchObject({contextual:true,audioSeconds:4,rawNoteCount:1,playableNoteCount:0,pitchMin:108,pitchMax:108});
+});
